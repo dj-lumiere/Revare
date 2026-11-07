@@ -197,7 +197,8 @@ When unsure, consult ground truth in the repo/package:
    **Notes and fixes (RV and ME).** A NOTE is a likely slip that builds as written: `check` and
    the language server show it (`note[RV-W###]`), a build never does. `until false` gets RV-W304 with the fix
    "Write 'loop'". Doc comment notes (shown by `check`, the language server and `validate-stdlib`): RV-W305 a routine
-   with no `###` doc comment (every routine of a library or example file, the stdlib included), RV-W306 a parameter with
+   with no `###` doc comment (every routine of a library or example file, the stdlib included, but not the entry
+   point `routine start()`), RV-W306 a parameter with
    no `:param` line, RV-W307 a `:param` line naming no parameter, RV-W308 a routine that returns a value with no
    `:returns:` line. Files under a `tests`, `playground`, `scratch` or `generated` folder (below the project folder) are
    exempt. The text is read with `DocComment.Parse`. The body of `until true` gets RV-W057 and, like the code after an

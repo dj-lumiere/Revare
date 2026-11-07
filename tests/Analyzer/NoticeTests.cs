@@ -142,6 +142,22 @@ public class NoticeTests
               .ToList();
     }
 
+    /// <summary>The program's entry point needs no doc comment: a routine beside it still does.</summary>
+    [Fact]
+    public void DocNotes_StartNeedsNone()
+    {
+        List<SemanticWarning> notes = DocNotes(source: """
+                                                     routine start()
+                                                         drop helper()
+                                                         return
+
+                                                     routine helper() -> S64
+                                                         return 1
+                                                     """, file: "/virtual/docs/doc_start.rvr");
+        SemanticWarning note = Assert.Single(collection: notes);
+        Assert.Contains(expectedSubstring: "'helper'", actualString: note.Message);
+    }
+
     [Fact]
     public void DocNotes_RoutineWithoutDoc_AndEachWrongLine_AreNotes()
     {
