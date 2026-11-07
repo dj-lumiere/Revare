@@ -4,47 +4,50 @@ import BuilderQuery
 
 ### A value of some type that obeys the protocol `P`, kept where the program stores a value of `P` (a variable, a
 ### member variable, a collection element, a `P?`): the type hash of its type and its address. The builder writes
-### `Dispatched[P]` for such a place: a program writes `P` and never names this type. An entity is kept where it is,
-### so the address is the entity. A record is copied into memory of its own, and a copy of the place copies it. A
-### routine of `P` called on the value is a routine the builder writes for this type, which switches on the type hash
-### over the types the program stores there and calls that type's routine. The type hash is the FNV-1a hash (32
-### bits, never 0) of the type's name with its module.
+### `Dispatched[P]` for such a place: a program writes `P` and never names this type. A Revare entity is kept where
+### it is, so the address is the entity. A record is copied into memory of its own, and a copy of the place copies
+### it. A Mielia entity's handle is kept in memory of its own the same way, and a copy of the place is one more
+### holder of it. A routine of `P` called on the value is a routine the builder writes for this type, which switches
+### on the type hash over the types the program stores there and calls that type's routine. The type hash is the
+### FNV-1a hash (32 bits, never 0) of the type's name with its module.
 ### :typeparam P: The protocol.
 record Dispatched[P]
     ### The type hash of the value's type.
     secret type_hash: U32
-    ### Where the value is: the entity itself, or the record's own memory.
+    ### Where the value is: the entity itself, or the value's own memory.
     secret address: Addr
 
 # ============================================================================
 # Putting a value in: the builder calls these where a value goes into a place of the protocol
 # ============================================================================
 
-### Keeps an entity, or a handle that is one address (a Mielia entity's `Roamed`), as the value of a protocol place:
-### the address is the value's own bits.
-### :param value: The value, handed over.
-### :param type_hash: The type hash of the value's type.
+### Keeps a Revare entity as the value of a protocol place: the address is the entity itself.
+### :param value: The entity, handed over.
+### :param type_hash: The type hash of the entity's type.
 ### :returns: The protocol value.
 secret routine dispatched_keep_inline[P, T](value: T, type_hash: U32) -> Dispatched[P]
 needs AnyType P
-needs AnyType T
+needs EntityType T
     var bits = Addr.hollow()
     danger
-        # The value goes into a cell as a container element does, and its bits are read back out of it.
+        # The entity goes into a cell as a container element does, and its address is read back out of it.
         var cell = Hijacked[T](from: rf_allocate_dynamic(size: Addr.data_size()))
         cell.poke(value)
         bits = Hijacked[Addr](from: cell.get_address()).peek()
         C::rf_invalidate(ptr: cell.get_address())
     return Dispatched[P](type_hash: type_hash, address: bits)
 
-### Keeps a copy of a record as the value of a protocol place, in memory of its own.
-### :param value: The record.
-### :param type_hash: The type hash of the record's type.
+### Keeps a copy of a record, or a holder of a Mielia entity's handle, as the value of a protocol place, in memory of
+### its own.
+### :param value: The record or handle.
+### :param type_hash: The type hash of its type.
 ### :returns: The protocol value.
 secret routine dispatched_keep_record[P, T](value: T, type_hash: U32) -> Dispatched[P]
 needs AnyType P
 needs RecordType T
     danger
+        # The caller keeps its own value (a record handed over is lent, and a fresh one ends after the call): `poke`
+        # stores a copy of its own, as a container's element is.
         var cell = Hijacked[T](from: rf_allocate_dynamic(size: T.data_size()))
         cell.poke(value)
         return Dispatched[P](type_hash: type_hash, address: cell.get_address())
@@ -53,7 +56,7 @@ needs RecordType T
 # Reaching the value: the routines the builder writes for `Dispatched[P]` call these on each arm
 # ============================================================================
 
-### A write token on the value at `at`: the entity there, or the record in its own memory.
+### A write token on the value at `at`: the entity there, or the record or handle in its own memory.
 ### :param at: The address the protocol value keeps.
 ### :returns: The token.
 secret routine dispatched_modify[T](at: Addr) -> Modifying[T]
@@ -61,29 +64,13 @@ needs AnyType T
     danger
         return Modifying[T](Hijacked[T](from: at))
 
-### A write token on the entity a `Roamed` handle kept by its own bits reaches.
-### :param at: The handle's bits.
-### :returns: The token.
-secret routine dispatched_modify_handle[T](at: Addr) -> Modifying[T]
-needs EntityType T
-    danger
-        return Modifying[T](Hijacked[T](from: Hijacked[RoamManager](from: at).as_entity().data_address()))
-
-### A copy of the record at `at`, the one a `when ... is T as r` arm binds.
-### :param at: The record's own memory.
+### A copy of the record at `at`, or one more holder of the handle there: what a `when ... is T as r` arm binds.
+### :param at: The value's own memory.
 ### :returns: The copy.
 secret routine dispatched_copy_out[T](at: Addr) -> T
 needs RecordType T
     danger
         return Hijacked[T](from: at).peek().share()
-
-### One more holder of the handle kept by its own bits, the one a `when ... is T as r` arm binds in Mielia.
-### :param at: The handle's bits.
-### :returns: The handle.
-secret routine dispatched_handle_out[T](at: Addr) -> Roamed[T]
-needs EntityType T
-    danger
-        return roamed_from_addr[T](addr: at).share()
 
 # ============================================================================
 # Copying and ending the value
@@ -102,38 +89,28 @@ secret routine Dispatched[P].with_address(address: Addr) -> Dispatched[P]
 secret routine Dispatched[P].holds_nothing() -> Bool
     return me.address.is_hollow()
 
-# ============================================================================
-# Copying the record or handle
-# ============================================================================
-
-### A copy of the record at `at` in memory of its own, for a copy of the protocol place.
-### :param at: The record's own memory.
+### A copy of the record at `at` (or one more holder of the handle there) in memory of its own, for a copy of the
+### protocol place.
+### :param at: The value's own memory.
 ### :returns: The copy's memory.
 secret routine dispatched_copy_record[T](at: Addr) -> Addr
 needs RecordType T
     danger
         var cell = Hijacked[T](from: rf_allocate_dynamic(size: T.data_size()))
-        cell.poke(Hijacked[T](from: at).peek().share())
+        # `poke` stores a copy of its own.
+        cell.poke(Hijacked[T](from: at).peek())
         return cell.get_address()
 
-### One more holder of the handle kept by its own bits, for a copy of the protocol place.
-### :param at: The handle's bits.
-### :returns: The new holder's bits.
-secret routine dispatched_copy_handle[T](at: Addr) -> Addr
-needs EntityType T
-    danger
-        return LLVM::reinterpret_bits[Roamed[T], Addr](roamed_from_addr[T](addr: at).share())
-
-### Ends the entity, or lets go of the handle, kept by its own bits.
-### :param at: The value's bits.
+### Ends the Revare entity at `at`.
+### :param at: The entity.
 secret routine dispatched_end_inline[T](at: Addr)
-needs AnyType T
+needs EntityType T
     danger
         LLVM::reinterpret_bits[Addr, T](at).destruct()
     return
 
-### Ends the record kept in memory of its own and gives the memory back.
-### :param at: The record's own memory.
+### Ends the record (or lets go of the handle) kept in memory of its own, and gives the memory back.
+### :param at: The value's own memory.
 secret routine dispatched_end_record[T](at: Addr)
 needs RecordType T
     danger
