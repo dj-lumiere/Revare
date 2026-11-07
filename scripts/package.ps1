@@ -38,12 +38,26 @@ $nativeExit = $LASTEXITCODE
 Pop-Location
 if ($nativeExit -ne 0) { throw "native build failed ($nativeExit)" }
 
-Write-Host '=== dotnet publish revare + mielia (self-contained, one directory) ==='
-# Both command lines share Anvila and the runtime, so they publish into the same directory. ReadyToRun: the
-# assemblies ship precompiled, so a one-shot build does not spend its first second compiling the builder.
+Write-Host '=== dotnet publish revare + mielia (NativeAOT, one directory) ==='
+# Both command lines share Anvila and the runtime, so they publish into the same directory. NativeAOT: each command
+# line is one native executable, so a one-shot build does not spend its first second starting the .NET runtime and
+# compiling the builder. The native runtime, the standard libraries and the LLVM tools are copied below.
 foreach ($proj in 'Revare\Revare.csproj', 'Mielia\Mielia.csproj') {
-    dotnet publish $proj -c Release -r $Rid --self-contained true -p:PublishReadyToRun=true -o $Out --verbosity minimal
+    dotnet publish $proj -c Release -r $Rid -p:PublishAot=true -o $Out --verbosity minimal
     if ($LASTEXITCODE -ne 0) { throw "dotnet publish $proj failed ($LASTEXITCODE)" }
+}
+# The prebuilt standard library snapshot is made and read by managed builders only (PbrfSerializer.IsSupported).
+if (Test-Path "$Out\Standard\.prebuilt") { Remove-Item -Recurse -Force "$Out\Standard\.prebuilt" }
+
+Write-Host "=== dotnet publish the managed daemons (self-contained, $Out\daemon) ==="
+# The NativeAOT command line starts the daemon from here when it is there (BuilderLocation.DaemonFolder). Managed code
+# under the JIT analyzes about 1.6 times as fast as the NativeAOT build once the daemon is warm, and the daemon runs for
+# the whole session. Self-contained, so no .NET runtime needs to be installed. It reads the standard library, the tools
+# and Ingrid from the folder above (BuilderLocation.HomeEnvVar). What publish puts beside it stays as copies (Windows
+# links need extra rights).
+foreach ($proj in 'Revare\Revare.csproj', 'Mielia\Mielia.csproj') {
+    dotnet publish $proj -c Release -r $Rid --self-contained true -o "$Out\daemon" --verbosity minimal
+    if ($LASTEXITCODE -ne 0) { throw "dotnet publish $proj (daemon) failed ($LASTEXITCODE)" }
 }
 
 Write-Host '=== native runtime artifacts (installed layout) ==='
@@ -71,13 +85,9 @@ foreach ($dir in 'Revare-Wiki', 'Mielia-Wiki') {
 Get-ChildItem $Out -Recurse -Filter '*.pdb' | Remove-Item -Force
 Copy-Item Revare\LICENSE, Revare\README.md, Revare\THIRD-PARTY-NOTICES.md $Out
 
-# Short alias next to the canonical binary (apphost stub is small; payload DLLs are
-# shared in-directory). Users preferring `forge` can alias it themselves — that name
-# is deliberately not shipped to avoid colliding with Foundry's `forge`.
-Copy-Item "$Out\Revare.exe" "$Out\ra.exe"
-
-# Mielia has its own command line; `me` is its short alias (a copy of the apphost, which launches
-# Mielia.dll by name from its own directory).
+# Short names next to the command lines: `rv` for Revare and `me` for Mielia (copies of the NativeAOT executables,
+# which find everything from their own folder).
+Copy-Item "$Out\Revare.exe" "$Out\rv.exe"
 Copy-Item "$Out\Mielia.exe" "$Out\me.exe"
 
 Write-Host '=== bundle self-contained LLVM toolchain (llvm-mingw + opt) ==='
