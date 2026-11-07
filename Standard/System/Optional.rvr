@@ -130,6 +130,17 @@ needs VariantType T
     danger
         return Modifying[T](me.value.hijack())
 
+### `reach` for a value that holds an entity (a stored value of a protocol that keeps entities): the call acts on the
+### value where the optional keeps it, so it gets a write token on that place, not a copy.
+### :returns: A write token on the held value.
+### :throws: {AbsentValueError} if this `Optional` is absent.
+routine Optional[T].reach_in_place() -> Modifying[T]
+needs OwningValueType T
+    if not me.is_present()
+        throw AbsentValueError()
+    danger
+        return Modifying[T](me.value.hijack())
+
 ### `reach` for an entity at the end of a `try` / `check` chain: the optional is a value the last call made and
 ### nothing else keeps it, so the entity moves out of it into the keyword's `T?` (a copy would be a second holder).
 ### :returns: The held entity, moved out.
