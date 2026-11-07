@@ -270,7 +270,8 @@ Revare has its own idiom — do not import Rust/serde/C# vocabulary.
   apart. A receiver pattern's own parameter shadows the owner's parameter of the
   same name (`routine List[Work[T]].gather() -> List[T]`: that `T` is the pattern's).
 - Say **"buildtime dispatch" / "runtime dispatch"**, not "static / dynamic".
-  Everything monomorphizes; RV's default is buildtime dispatch, no runtime dispatch.
+  A parameter `e: Enemy` is buildtime dispatch (a copy of the routine per type). A protocol in a place that stores a
+  value (`var x: Enemy`, `List[Enemy]`) is runtime dispatch (§8).
 - varargs parameter notation is **`name...: Type`** (the `...` follows the param
   NAME, before the colon); it binds to a `List[Type]`.
 - **Revare has NO "borrow" concept** (that is Rust). Do not use the word
@@ -418,7 +419,7 @@ RV-S632). A module-level `var` is an error (RV-S435). Constants the build knows 
   `ß` stays `ß`). `lines()` and `ask_lines()` start no new line after a final line ending.
 - Build errors where the emitter used to fail: a construction leaving out a member with no default (RV-S455, names
   it) or giving unnamed values that are not one per member (`Size(3)` for two members, RV-S455), `Int(x)` of a variable (RV-S646:
-  write `x.to[Int]()`), a slice of a `List` of entities, a protocol as a value or element type (`List[Named]`), a member write
+  write `x.to[Int]()`), a slice of a `List` of entities, a member write
   through an element read from a `Viewing` token, a variant built from a non-member type. `Check[T]` has
   `unwrap!()` (`check f() !!`), `strip_out()` works for entities, `br"..."` builds, a value assigned to a `T?`
   variable becomes present (`port ??= 8080`), and `()` works as a type argument in an expression
@@ -1234,7 +1235,33 @@ A member routine written outside a generic type names its parameters on the rece
   (`postfix [ args ]`); whether the thing before `[` is a type or a value is
   settled by name lookup after parsing (`BracketReclassifyPass`), not by a
   heuristic. A generic argument is a type-level `getitem`.
-- Everything monomorphizes; there is **no runtime dispatch** of any kind.
+- **Two kinds of protocol place.** A parameter written `e: Enemy` is a hidden type parameter: the routine is made once
+  per type it is called with (buildtime dispatch). A place that stores a value written with a protocol type is
+  runtime dispatch: a local `var x: Enemy`, a member variable `boss: Enemy`, an element type (`List[Enemy]`,
+  `Dict[Text, Enemy]`), `Enemy?`, a result `-> Enemy`. No keyword marks it.
+  - The stored value is a type hash and an address. The type hash is FNV-1a (32 bits, never 0) of the type's name with
+    its module (`Game.Slime`). Two types a protocol place is given with the same hash are RV-S714.
+  - An entity is kept where it is: it goes in with `steal` like into any place that keeps it (`enemies.add_last(value:
+    steal s)`, `var x: Enemy = steal s`, a fresh `Slime(...)` needs none), RV-S413 otherwise. When an entity type of the
+    program obeys the protocol, the place has one original: `var y = x` is RV-S413, `steal x` moves it, and reading an
+    element (`var b = enemies[0]`) is a token on the element, like an entity element. A `for` over it hands out tokens.
+  - A record is copied into memory of its own when it goes in. A place whose protocol no entity obeys copies with `=`
+    (the copy copies the record).
+  - `x.update()` calls a routine the builder writes for the protocol: it switches on the type hash over exactly the
+    types the program puts into places of that protocol and calls that type's routine. A routine of the protocol that
+    takes or gives `Me` can't be called on a stored value (RV-S715).
+  - The place ends its value once: the entity's `destruct`, or the record copy torn down. Writing a new value over the
+    place (`x = Boss(...)`, `arena.boss = ...`, `xs[0] = ...`) ends the old one first.
+  - Passing a stored value to an `e: Enemy` parameter makes that routine's copy for the stored value (its calls
+    dispatch): `finish(e: steal x)`, `look(e: enemies[0])` for `e: Viewing[Enemy]`.
+  - `when x` with `is Boss as b =>` takes it apart: `b` is a write token on the entity (a Viewing through a
+    `Viewing`), a copy of a record. `x is Boss` tests it. Such a `when` needs `else` (RV-S356): any type with the
+    routines may be there. An `is T` arm whose `T` doesn't obey the protocol is RV-S357.
+  - A place needing the routines of several protocols uses a protocol that obeys them all (`protocol Combatant` with
+    `obeys Enemy, Attackable`, then `List[Combatant]`). Its routines are those of every protocol it obeys. Such a
+    protocol has no routines of its own, so a type obeys it only by writing `obeys Combatant`.
+  - A value of a type parameter (`T`, or the hidden one of `e: Enemy`) going into a stored place is RV-S716: put it in
+    where its type is known.
 - A protocol member declared `@readonly` (`eq`, `compare`, `hash`, the arithmetic operators, `count`, `iter`,
   `getitem`, `duplicate`, …) is implemented `@readonly` too, and its body is checked to change nothing:
   an implementation without it is RV-S771. Mielia has neither `@readonly` nor `@reshaping`.

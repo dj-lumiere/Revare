@@ -258,6 +258,30 @@ public class ProtocolValueTests
     }
 
     [Fact]
+    public void Analyze_TypeWithTheRoutinesWithoutObeys_Passes()
+    {
+        AssertAnalyzesSa(source: Prelude + """
+                                           entity Bat
+                                               wings: S64
+
+                                           routine Bat.update()
+                                               me.wings -= 1
+                                               return
+
+                                           @readonly
+                                           routine Bat.hp() -> S64
+                                               return me.wings
+
+                                           routine start()
+                                               var enemies = List[Enemy]()
+                                               enemies.add_last(value: Bat(wings: 2))
+                                               for e in enemies
+                                                   e.update()
+                                               return
+                                           """);
+    }
+
+    [Fact]
     public void Analyze_CompositionProtocolValues_Pass()
     {
         AssertAnalyzesSa(source: """
