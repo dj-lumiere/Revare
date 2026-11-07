@@ -80,7 +80,6 @@ Among the fixes: two jobs adding to one `List` lost updates, `total += xs[0]` cr
 ## Known issues
 
 - Rebuilding after a one-file edit is slower than the 250 ms goal. On 2026-11-05 a 20-routine program rebuilt in about 1.1 s with `debug-jit` and the daemon.
-- The Windows package is a ReadyToRun build that bundles the .NET runtime. It is not NativeAOT. Linux and macOS packages are NativeAOT, and the macOS package has not been verified yet.
 - `[target] backend = "lapila"` is experimental and does not translate every program. For example, `words()` builds there but crashes when it runs.
 - The run-time check that catches a collection changing during a `for` is correct on one thread only. When several Works change the same collection while looping, it can miss the change.
 - The length returned by the file and environment routines can be wrong if a call is suspended and continued on another thread.

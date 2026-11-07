@@ -76,7 +76,6 @@ Among the fixes: a write to a value element (`m[i][j] = v`) changed a temporary 
 ## Known issues
 
 - Rebuilding after a one-file edit is slower than the 250 ms goal. On 2026-11-05 a 20-routine program rebuilt in about 600 ms with `debug-jit` and the daemon.
-- The Windows package is a ReadyToRun build that bundles the .NET runtime. It is not NativeAOT. Linux and macOS packages are NativeAOT, and the macOS package has not been verified yet.
 - `[target] backend = "lapila"` is experimental and does not translate every program. The Bool-returning forms of `try` and `check` give a build error there.
 - `Stamped` and `PoolManager` change shape in 0.6: you will add an entity with `pool.add(e)`, and the generic `stamp()` goes away.
 - A `T?` that holds an entity (`List[S64]?`) or a variant cannot be received by `try` or `check`. The builder reports a build error, because taking the entity out as a value would copy it and a changing call would then be silently wrong.
