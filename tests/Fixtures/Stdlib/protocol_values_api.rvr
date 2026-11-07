@@ -1,0 +1,212 @@
+module Tests/Stdlib/ProtocolValuesApi
+
+import IO/Console
+
+# A place that stores a value of a protocol (a variable, a member variable, a list element, a `P?`) holds a value of any
+# type that obeys it, and a call of the protocol's routines on it runs that type's routine. Entities go in with `steal`
+# and end once, where the place ends. A record goes in as a copy, and a copy of the place copies it. `when` takes the
+# value apart by its type. A routine that takes `e: Enemy` is made for the stored value too.
+
+global ENDED: S64 = 0
+
+protocol Enemy
+    routine Me.update()
+    @readonly
+    routine Me.hp() -> S64
+
+protocol Attackable
+    @readonly
+    routine Me.attack() -> S64
+
+protocol Combatant
+obeys Enemy, Attackable
+
+entity Slime
+obeys Combatant
+    life: S64
+
+routine Slime.update()
+    me.life -= 1
+    return
+
+@readonly
+routine Slime.hp() -> S64
+    return me.life
+
+@readonly
+routine Slime.attack() -> S64
+    return 2
+
+routine Slime.destruct()
+    ENDED += 1
+    show(f"slime ends at {me.life}")
+    return
+
+entity Boss
+obeys Combatant
+    life: S64
+    rage: S64
+
+routine Boss.update()
+    me.life -= me.rage
+    return
+
+@readonly
+routine Boss.hp() -> S64
+    return me.life
+
+@readonly
+routine Boss.attack() -> S64
+    return me.rage * 3
+
+routine Boss.destruct()
+    ENDED += 1
+    show(f"boss ends at {me.life}")
+    return
+
+protocol Shape
+    @readonly
+    routine Me.area() -> S64
+    @readonly
+    routine Me.label() -> Text
+
+record Square
+obeys Shape
+    side: S64
+
+@readonly
+routine Square.area() -> S64
+    return me.side * me.side
+
+@readonly
+routine Square.label() -> Text
+    return "square"
+
+record Tag
+obeys Shape
+    w: S64
+    h: S64
+    name: Text
+
+@readonly
+routine Tag.area() -> S64
+    return me.w * me.h
+
+@readonly
+routine Tag.label() -> Text
+    return me.name
+
+entity Arena
+    boss: Enemy
+    spare: Enemy?
+
+routine show_hp(e: Viewing[Enemy])
+    show(f"hp {e.hp()}")
+    return
+
+routine finish(e: Enemy)
+    show(f"finishing at {e.hp()}")
+    return
+
+routine total_area(shapes: Viewing[List[Shape]]) -> S64
+    var total: S64 = 0
+    for s in shapes
+        total += s.area()
+    return total
+
+routine entities()
+    var enemies = List[Enemy]()
+    enemies.add_last(value: Slime(life: 10))
+    enemies.add_last(value: Boss(life: 100, rage: 7))
+    var lone = Slime(life: 20)
+    enemies.add_last(value: steal lone)
+    for e in enemies
+        e.update()
+    for e in enemies
+        show(e.hp())
+    var b = enemies[1]
+    b.update()
+    show(f"through a token: {enemies[1].hp()}")
+    show_hp(e: enemies[0])
+    var x: Enemy = Slime(life: 77)
+    finish(e: steal x)
+    show("entities done")
+    return
+
+routine members()
+    var arena = Arena(boss: Boss(life: 50, rage: 5), spare: none)
+    arena.boss.update()
+    show(arena.boss.hp())
+    show(try arena.spare.hp() ?? -1)
+    arena.spare = Slime(life: 3)
+    show(try arena.spare.hp() ?? -1)
+    arena.boss = Slime(life: 8)
+    show(arena.boss.hp())
+    show("members done")
+    return
+
+routine take_apart()
+    var enemies = List[Enemy]()
+    enemies.add_last(value: Slime(life: 4))
+    enemies.add_last(value: Boss(life: 60, rage: 2))
+    for e in enemies
+        when e
+            is Boss as b =>
+                b.rage = 30
+                show(f"a boss at {b.life}")
+            else =>
+                show("not a boss")
+    enemies[1].update()
+    show(enemies[1].hp())
+    var shape: Shape = Tag(w: 2, h: 3, name: "plate")
+    when shape
+        is Tag as t =>
+            show(f"{t.name} {t.w}x{t.h}")
+        else =>
+            show("another shape")
+    show(shape is Square)
+    show("take_apart done")
+    return
+
+routine records()
+    var shapes = List[Shape]()
+    shapes.add_last(value: Square(side: 3))
+    var plate = Tag(w: 2, h: 5, name: f"plate {3}")
+    shapes.add_last(value: plate)
+    shapes.add_last(value: Tag(w: 1, h: 1, name: "unit"))
+    for s in shapes
+        show(f"{s.label()} {s.area()}")
+    show(total_area(shapes: shapes))
+    var one: Shape = shapes[1]
+    var two = one
+    show(two.label())
+    show(plate.name)
+    return
+
+routine party()
+    var fighters = List[Combatant]()
+    fighters.add_last(value: Slime(life: 5))
+    fighters.add_last(value: Boss(life: 80, rage: 10))
+    var damage: S64 = 0
+    for c in fighters
+        c.update()
+        damage += c.attack()
+    show(f"damage {damage}")
+    when fighters[1]
+        is Boss as b =>
+            show(f"boss at {b.life}")
+        else =>
+            show("other")
+    return
+
+routine start()
+    entities()
+    show(f"ended {ENDED}")
+    members()
+    show(f"ended {ENDED}")
+    take_apart()
+    show(f"ended {ENDED}")
+    records()
+    party()
+    show(f"ended {ENDED}")
+    return

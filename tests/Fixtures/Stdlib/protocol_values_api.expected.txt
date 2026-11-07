@@ -1,0 +1,41 @@
+9
+93
+19
+through a token: 86
+hp 9
+finishing at 77
+slime ends at 77
+entities done
+slime ends at 9
+boss ends at 86
+slime ends at 19
+ended 4
+45
+-1
+3
+boss ends at 45
+8
+members done
+slime ends at 8
+slime ends at 3
+ended 7
+not a boss
+a boss at 60
+30
+plate 2x3
+false
+take_apart done
+slime ends at 4
+boss ends at 30
+ended 9
+square 9
+plate 3 10
+unit 1
+20
+plate 3
+plate 3
+damage 32
+boss at 70
+slime ends at 4
+boss ends at 70
+ended 11
