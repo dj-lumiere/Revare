@@ -194,9 +194,6 @@ public class EnterableConformanceTests
                         routine Bare.enter() -> Bare
                             return me
 
-                        routine Bare.exit()
-                            return
-
                         routine test()
                             var b = Bare(n: 1)
                             using b as x

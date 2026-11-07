@@ -241,17 +241,17 @@ public class RejectedBeforeEmitterTests
     }
 
     [Fact]
-    public void Analyze_ProtocolAsElementType_IsRejected()
+    public void Analyze_ProtocolAsElementType_IsAStoredValue()
     {
-        AssertHasErrorSa(source: """
+        // A protocol as an element type holds values of the types that obey it (ProtocolValueTests).
+        AssertAnalyzesSa(source: """
                          protocol Named
                              routine Me.name() -> Text
 
                          routine start()
                              var xs = List[Named]()
                              return
-                         """,
-            expectedErrorSubstring: "'Named' is a protocol, not a type of values");
+                         """);
     }
 
     [Fact]
