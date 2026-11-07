@@ -35,46 +35,6 @@ echo "=== build the Lapila builder ==="
 # builder at Lapila/bin/Release/net10.0/lapila.dll.
 dotnet build Lapila/Lapila.csproj -c Release --verbosity minimal
 
-echo "=== publish the Lapila builder (NativeAOT) ==="
-# Lapila ships as one native executable with its standard library, boards and Ingrid's Lapila library beside it
-# (the layout StdlibDir and FindIngrid look for from the executable's folder). Its own archive: the Revare
-# package carries the Lapila backend inside the builders and needs no separate lapila executable.
-LAPILA_VERSION="$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Lapila/Lapila.csproj | head -1)"
-LAPILA_NAME="lapila-v${LAPILA_VERSION}-${RID}"
-LAPILA_OUT="dist/${LAPILA_NAME}"
-rm -rf "$LAPILA_OUT" "dist/${LAPILA_NAME}.tar.gz" "dist/_lapila-publish"
-dotnet publish Lapila/Lapila.csproj -c Release -r "$RID" -o "dist/_lapila-publish" --verbosity minimal
-mkdir -p "$LAPILA_OUT"
-cp "dist/_lapila-publish/lapila" "$LAPILA_OUT/"
-cp -a Lapila/Standard "$LAPILA_OUT/Standard"
-cp -a Lapila/boards "$LAPILA_OUT/boards"
-cp -a Ingrid/lapila "$LAPILA_OUT/Ingrid"
-cp Lapila/LICENSE Lapila/README.md "$LAPILA_OUT/"
-rm -rf "dist/_lapila-publish"
-# The packaged executable builds and runs a program from a folder away from every checkout.
-LAPILA_SMOKE=$(mktemp -d)
-cat > "$LAPILA_SMOKE/smoke.lpa" <<'EOF'
-import Hosted
-
-routine start() -> None
-    Console.show("packaged lapila works")
-    return
-EOF
-LAPILA_STAGE=$(mktemp -d)
-cp -a "$LAPILA_OUT/." "$LAPILA_STAGE/"
-if ! (cd "$LAPILA_SMOKE" && "$LAPILA_STAGE/lapila" run smoke.lpa 2>&1 | grep -q "packaged lapila works"); then
-    echo "packaged lapila smoke failed" >&2
-    exit 1
-fi
-rm -rf "$LAPILA_SMOKE" "$LAPILA_STAGE"
-tar -C dist -czf "dist/${LAPILA_NAME}.tar.gz" "$LAPILA_NAME"
-if command -v sha256sum >/dev/null 2>&1; then
-    (cd dist && sha256sum "${LAPILA_NAME}.tar.gz" >> checksums.txt)
-else
-    (cd dist && shasum -a 256 "${LAPILA_NAME}.tar.gz" >> checksums.txt)
-fi
-echo "Packaged: dist/${LAPILA_NAME}.tar.gz"
-
 echo "=== build Ingrid's native runtime ==="
 (cd Ingrid/native && bash build.sh)
 
