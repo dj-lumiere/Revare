@@ -689,7 +689,7 @@ routine Work[T].start_apart()
 ### `start_apart()` (or that nothing started yet, which then starts that way).
 ### :param deadline: The maximum time `retrieve!` will wait.
 ### :returns: This Work, carrying the deadline.
-routine Work[T].waitfor(deadline: Duration) -> Modifying[Work[T]]
+routine Work[T].waitfor(deadline: Duration) -> @Work[T]
     me.deadline = deadline
     me.has_deadline = true
     return me.modify()
@@ -735,10 +735,9 @@ routine Work[T].cancelled() -> Bool
 ### Ends a Work the place that keeps it drops (`drop job`, or the end of the scope that holds it): work that still runs is
 ### cancelled and waited for, work nothing started never runs.
 @override
-routine Work[T].destruct()
-    danger
-        me.state.dispose()
-        return
+dangerous routine Work[T].destruct()
+    me.state.dispose()
+    return
 
 # --- Structured concurrency over a set of jobs -----------------------------------------------
 # A `List[Work[T]]` bound to a name IS the structured-concurrency scope: the list keeping its Works already

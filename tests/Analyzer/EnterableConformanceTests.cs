@@ -114,7 +114,7 @@ public class EnterableConformanceTests
     #region A Guarded's access: passed to a call, or opened with a block
 
     [Fact]
-    public void Analyze_AccessPassedToCall_Ok()
+    public void Analyze_BlockReferencePassedToCall_Ok()
     {
         string source = """
                         import IO/Console
@@ -123,13 +123,14 @@ public class EnterableConformanceTests
                         entity Counter
                             value: S64
 
-                        routine peek(c: Viewing[Counter])
+                        routine peek(c: %Counter)
                             show(f"{c.value}")
                             return
 
                         routine start()
                             var s = Guarded[Counter, MultiRead](from: Counter(value: 1))
-                            peek(c: s.view())
+                            viewing s as c
+                                peek(c: c)
                             return
                         """;
 

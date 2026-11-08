@@ -21,15 +21,15 @@ public class ShapeEffectTests
                                    entity Box
                                        n: S64
 
-                                   routine grow(xs: Modifying[List[S64]])
+                                   routine grow(xs: @List[S64])
                                        xs.add_last(value: 99)
                                        return
 
-                                   routine outer(ys: Modifying[List[S64]])
+                                   routine outer(ys: @List[S64])
                                        grow(xs: ys)
                                        return
 
-                                   routine total(xs: Viewing[List[S64]]) -> S64
+                                   routine total(xs: %List[S64]) -> S64
                                        var sum = 0
                                        for x in xs
                                            sum = sum + x
@@ -44,7 +44,7 @@ public class ShapeEffectTests
                                   routine start()
                                       var nums = List[S64]()
                                       for x in nums
-                                          grow(xs: nums.modify())
+                                          grow(xs: nums)
                                       return
                                   """;
 
@@ -61,7 +61,7 @@ public class ShapeEffectTests
                                   routine start()
                                       var nums = List[S64]()
                                       for x in nums
-                                          outer(ys: nums.modify())
+                                          outer(ys: nums)
                                       return
                                   """;
 
@@ -93,7 +93,7 @@ public class ShapeEffectTests
     public void Analyze_LoopHandsItsListToARoutineValue_Errors()
     {
         string source = Prelude + """
-                                  routine run_each(xs: Modifying[List[S64]], action: Callable[(Modifying[List[S64]]), None])
+                                  routine run_each(xs: @List[S64], action: Callable[(@List[S64]), None])
                                       for x in xs
                                           action(xs)
                                       return
@@ -131,14 +131,14 @@ public class ShapeEffectTests
     public void Analyze_ElementStatementHandsItsContainerToAReshapingRoutine_Errors()
     {
         string source = Prelude + """
-                                  routine Box.absorb_all(all: Modifying[List[Box]])
+                                  routine Box.absorb_all(all: @List[Box])
                                       all.add_last(value: Box(n: 0))
                                       return
 
                                   routine start()
                                       var boxes = List[Box]()
                                       boxes.add_last(value: Box(n: 1))
-                                      boxes[0].absorb_all(all: boxes.modify())
+                                      boxes[0].absorb_all(all: boxes)
                                       return
                                   """;
 
@@ -157,10 +157,10 @@ public class ShapeEffectTests
                                       nums.add_last(value: 1)
                                       var other = List[S64]()
                                       for x in nums
-                                          drop total(xs: nums.view())
+                                          drop total(xs: nums)
                                           nums[0] = 5
-                                          grow(xs: other.modify())
-                                      grow(xs: nums.modify())
+                                          grow(xs: other)
+                                      grow(xs: nums)
                                       show(f"{nums.count()} {other.count()}")
                                       return
                                   """;
@@ -217,22 +217,22 @@ public class ShapeEffectTests
     public void Analyze_EffectOfARoutineInsideARecursiveCycle_Errors()
     {
         string source = Prelude + """
-                                  routine ping(xs: Modifying[List[S64]], n: S64)
+                                  routine ping(xs: @List[S64], n: S64)
                                       if n > 0
                                           pong(xs: xs, n: n - 1)
                                       xs.add_last(value: 1)
                                       return
 
-                                  routine pong(xs: Modifying[List[S64]], n: S64)
+                                  routine pong(xs: @List[S64], n: S64)
                                       ping(xs: xs, n: n)
                                       return
 
                                   routine start()
                                       var nums = List[S64]()
                                       for x in nums
-                                          ping(xs: nums.modify(), n: 0)
+                                          ping(xs: nums, n: 0)
                                       for y in nums
-                                          pong(xs: nums.modify(), n: 0)
+                                          pong(xs: nums, n: 0)
                                       return
                                   """;
 
@@ -286,7 +286,7 @@ public class ShapeEffectTests
                                                          record Point
                                                              x: S64
 
-                                                         routine grow_while_held(x: Modifying[List[Point]], y: Modifying[List[Point]])
+                                                         routine grow_while_held(x: @List[Point], y: @List[Point])
                                                              var p = x.modify_at(index: 0)
                                                              y.add_last(value: Point(x: 1))
                                                              p.x = 9
@@ -301,24 +301,24 @@ public class ShapeEffectTests
     }
 
     [Fact]
-    public void Analyze_HeldElementWhileOtherOpenedTokenGrows_Analyzes()
+    public void Analyze_HeldElementWhileOtherReferenceGrows_Errors()
     {
-        AssertAnalyzesSa(source: """
-                                 import IO/Console
+        // Two references on the same kind of list may be the same list: holding an element of one while the other
+        // grows is RV-S640.
+        AnalysisResult result = AnalyzeSa(source: """
+                                                   record Point
+                                                       x: S64
 
-                                 record Point
-                                     x: S64
+                                                   routine grow_while_held(x: @List[Point], y: @List[Point])
+                                                       var p = x.modify_at(index: 0)
+                                                       y.add_last(value: Point(x: 1))
+                                                       p.x = 9
+                                                       return
 
-                                 routine grow_while_held(x: Modifying[List[Point]], y: Modifying[List[Point]])
-                                     modifying x as a, y as b
-                                         var p = a.modify_at(index: 0)
-                                         b.add_last(value: Point(x: 1))
-                                         p.x = 9
-                                     return
-
-                                 routine start()
-                                     return
-                                 """);
+                                                   routine start()
+                                                       return
+                                                   """);
+        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.HeldElementOfAliasReshaped);
     }
 
     [Fact]
@@ -327,7 +327,7 @@ public class ShapeEffectTests
         // Two token parameters of one type may be the same container: the loop opens a use of its container at run
         // time, and a change to the same one fails with ReshapingWhileInUseError.
         AssertAnalyzesSa(source: """
-                                 routine merge_set(into: Modifying[Set[S64]], from: Viewing[Set[S64]])
+                                 routine merge_set(into: @Set[S64], from: %Set[S64])
                                      for v in from
                                          into.add(value: v + 1)
                                      return
@@ -341,10 +341,9 @@ public class ShapeEffectTests
     public void Analyze_LoopOverReadTokenOpenedWithWriteToken_Analyzes()
     {
         AssertAnalyzesSa(source: """
-                                 routine merge_set(into: Modifying[Set[S64]], from: Viewing[Set[S64]])
-                                     modifying into, viewing from
-                                         for v in from
-                                             into.add(value: v + 1)
+                                 routine merge_set(into: @Set[S64], from: %Set[S64])
+                                     for v in from
+                                         into.add(value: v + 1)
                                      return
 
                                  routine start()
@@ -356,7 +355,7 @@ public class ShapeEffectTests
     public void Analyze_SameContainerToWriteAndReadParameter_Errors()
     {
         AnalysisResult result = AssertHasErrorSa(source: """
-                                                         routine extend_list(into: Modifying[List[S64]], from: Viewing[List[S64]])
+                                                         routine extend_list(into: @List[S64], from: %List[S64])
                                                              return
 
                                                          routine start()
@@ -375,7 +374,7 @@ public class ShapeEffectTests
     public void Analyze_ReshapeUnderTryInACalledRoutine_Errors()
     {
         string source = Prelude + """
-                                  routine grow_quietly(into: Modifying[List[S64]])
+                                  routine grow_quietly(into: @List[S64])
                                       var added = try into.add_last(value: 1)
                                       return
 
@@ -397,7 +396,7 @@ public class ShapeEffectTests
     public void Analyze_SameContainerTwiceUnderTry_Errors()
     {
         string source = Prelude + """
-                                  routine copy_into(from: Viewing[List[S64]], into: Modifying[List[S64]])
+                                  routine copy_into(from: %List[S64], into: @List[S64])
                                       for x in from
                                           into.add_last(value: x)
                                       return

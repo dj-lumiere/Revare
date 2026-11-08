@@ -19,7 +19,7 @@ routine chain_of(length: S64) -> Node
         i += 1
     return chain
 
-routine depth(node: Viewing[Node]) -> S64
+routine depth(node: %Node) -> S64
     var n: S64 = 1
     when node.left
         is None => nothing
@@ -29,5 +29,5 @@ routine depth(node: Viewing[Node]) -> S64
 routine start()
     var root = chain_of(length: 5)
     show(root.value)
-    show(depth(node: root.view()))
+    show(depth(node: root))
     return

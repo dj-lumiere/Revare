@@ -6,7 +6,7 @@ namespace Revare.Tests.Analyzer;
 using static TestHelpers;
 
 /// <summary>
-/// A token (<c>Viewing[T]</c> / <c>Modifying[T]</c>) is never a type argument (RV-S601): a container, a <c>Optional</c>, a
+/// A token (<c>%T</c> / <c>@T</c>) is never a type argument (RV-S601): a container, a <c>Optional</c>, a
 /// tuple, a variant or a generic type holding one could keep it after the place it points at is gone. A routine may
 /// return <c>Optional</c> of a token (an iterator's <c>emit</c> under <c>try</c>), and the caller unpacks it with
 /// <c>when</c> where it gets it. A lambda that captures a token is bound to it and is never returned or kept (RV-S606). The first five cases are the analogs of
@@ -30,42 +30,33 @@ public class TokenTypeArgumentTests
     }
 
     [Fact]
-    public void Analyze_EntityFieldListOfTokens_MovedByDestruct_Errors()
+    public void Analyze_EntityFieldListOfReferences_KeepsLinks()
     {
-        AssertHasErrorS601(source: """
-                                        entity Q
-                                            held: List[Viewing[Cell]]
+        // A list a member variable keeps holds links, which may be kept anywhere, even moved out by a destruct.
+        AssertAnalyzesSa(source: Prelude + """
+                                           entity Q
+                                               held: List[%Cell]
 
-                                        global KEPT: Guarded[List[Viewing[Cell]], Exclusive] = Guarded[List[Viewing[Cell]], Exclusive](from: List[Viewing[Cell]]())
-
-                                        routine Q.destruct()
-                                            modifying KEPT as k
-                                                for v in me.held
-                                                    k.add_last(value: v)
-                                            return
-
-                                        routine start()
-                                            var l = Cell(n: 42)
-                                            var q = Q(held: List[Viewing[Cell]]())
-                                            q.held.add_last(value: l.view())
-                                            return
-                                        """,
-            expected: "for member variable 'held'");
+                                           routine start()
+                                               var l = Cell(n: 42)
+                                               var q = Q(held: List[%Cell]())
+                                               q.held.add_last(value: l)
+                                               return
+                                           """);
     }
 
     [Fact]
-    public void Analyze_ModifyingListOfTokensParameter_Errors()
+    public void Analyze_ListOfReferencesParameter_KeepsLinks()
     {
-        AssertHasErrorS601(source: """
-                                        routine fill(xs: Modifying[List[Viewing[Cell]]])
-                                            var l = Cell(n: 42)
-                                            xs.add_last(value: l.view())
-                                            return
+        AssertAnalyzesSa(source: Prelude + """
+                                           routine fill(xs: @List[%Cell])
+                                               var l = Cell(n: 42)
+                                               xs.add_last(value: l)
+                                               return
 
-                                        routine start()
-                                            return
-                                        """,
-            expected: "for parameter 'xs'");
+                                           routine start()
+                                               return
+                                           """);
     }
 
     [Fact]
@@ -74,10 +65,10 @@ public class TokenTypeArgumentTests
         // An optional token on an entity kept in a name is a link: once `l` ends, `when m` gives none.
         AssertAnalyzes(source: Prelude + """
                                         routine start()
-                                            var m: Optional[Viewing[Cell]] = none
+                                            var m: Optional[%Cell] = none
                                             if true
                                                 var l = Cell(n: 42)
-                                                m = l.view()
+                                                m = l
                                             when m
                                                 is None =>
                                                     show("none")
@@ -88,18 +79,25 @@ public class TokenTypeArgumentTests
     }
 
     [Fact]
-    public void Analyze_LocalListOfTokens_Errors()
+    public void Analyze_LocalListOfReferences_KeepsLinks()
     {
-        AssertHasErrorS601(source: """
-                                        routine start()
-                                            var xs = List[Viewing[Cell]]()
-                                            if true
-                                                var l = Cell(n: 42)
-                                                xs.add_last(value: l.view())
-                                            show(f"{xs[0].n}")
-                                            return
-                                        """,
-            expected: "`Viewing[Cell]` in it is a token");
+        // A collection keeps a reference as a link: a use after the entity ended fails when it runs.
+        AssertAnalyzesSa(source: """
+                                 import IO/Console
+
+                                 entity Cell
+                                     n: S64
+
+                                 routine start()
+                                     var xs = List[%Cell]()
+                                     if true
+                                         var l = Cell(n: 42)
+                                         xs.add_last(value: l)
+                                     when try xs[0].n
+                                         is None => show("ended")
+                                         else as n => show(n)
+                                     return
+                                 """);
     }
 
     [Fact]
@@ -108,7 +106,7 @@ public class TokenTypeArgumentTests
         AnalysisResult result = AssertHasErrorSa(source: Prelude + """
                                                                    routine make() -> Callable[(), S64]
                                                                        var l = Cell(n: 42)
-                                                                       var v = l.view()
+                                                                       var v = l
                                                                        return () given (v) => v.n
 
                                                                    routine start()
@@ -127,7 +125,8 @@ public class TokenTypeArgumentTests
         AssertHasErrorS601(source: """
                                         routine start()
                                             var l = Cell(n: 42)
-                                            var xs = [l.view()]
+                                            var v: %Cell = l
+                                            var xs = [v]
                                             return
                                         """,
             expected: "You use `List[Viewing[Cell]]` for this value");
@@ -139,7 +138,8 @@ public class TokenTypeArgumentTests
         AssertHasErrorS601(source: """
                                         routine start()
                                             var l = Cell(n: 42)
-                                            var t = (l.view(), 1)
+                                            var v: %Cell = l
+                                            var t = (v, 1)
                                             return
                                         """,
             expected: "You use `Tuple[Viewing[Cell], S64]` for this value");
@@ -154,24 +154,27 @@ public class TokenTypeArgumentTests
 
                                         routine start()
                                             var l = Cell(n: 42)
-                                            var b = Box(v: l.view())
+                                            var r: %Cell = l
+                                            var b = Box(v: r)
                                             return
                                         """,
             expected: "You use `Box[Viewing[Cell]]` for this value");
     }
 
     [Fact]
-    public void Analyze_VariantCaseHoldingTokenList_Errors()
+    public void Analyze_VariantCaseHoldingReference_Errors()
     {
-        AssertHasErrorS601(source: """
-                                        variant Held
-                                            List[Viewing[Cell]]
-                                            S64
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   variant Held
+                                                                       %Cell
+                                                                       S64
 
-                                        routine start()
-                                            return
-                                        """,
-            expected: "for variant case");
+                                                                   routine start()
+                                                                       return
+                                                                   """,
+            expectedErrorSubstring: "as payload for variant case");
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.Code == SemanticDiagnosticCode.TokenVariantPayloadNotAllowed);
     }
 
     [Fact]

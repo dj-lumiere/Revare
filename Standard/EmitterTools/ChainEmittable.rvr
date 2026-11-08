@@ -60,7 +60,7 @@ routine ChainEmitter[T, TFirstEmitter, TSecondEmitter].emit() -> T
 ### :param other: The emittable to consume after `me`.
 ### :returns: The resulting `ChainEmittable[T, Me, TOther]` value.
 @readonly
-routine Emittable[T].chain[TOther](other: Viewing[TOther]) -> ChainEmittable[T, Me, TOther]
+routine Emittable[T].chain[TOther](other: %TOther) -> ChainEmittable[T, Me, TOther]
 needs TOther obeys Emittable[T]
     danger
         return ChainEmittable[T, Me, TOther](first: me.hijack(), second: other.hijack())

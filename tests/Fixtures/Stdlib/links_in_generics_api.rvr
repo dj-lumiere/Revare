@@ -27,31 +27,31 @@ entity Shelf[T]
     item: T
 
 record LinkPair
-    first: Modifying[Node]?
-    second: Modifying[Node]?
+    first: @Node?
+    second: @Node?
 
 entity Holder
     nodes: List[Node]
 
 entity Watch
-    target: Modifying[Node]?
+    target: @Node?
 
 routine pick[T](a: T, b: T) -> T
     return b
 
-routine read_after[T](n: Modifying[T], holder: Modifying[Holder]) -> S64
+routine read_after[T](n: @T, holder: @Holder) -> S64
 needs T obeys HasId
     holder.nodes.clear()
     return n.ident()
 
-routine grow[T](into: Modifying[List[T]], value: T)
+routine grow[T](into: @List[T], value: T)
     into.add_last(value: steal value)
     return
 
 entity ListShelf
-    other: Modifying[List[S64]]?
+    other: @List[S64]?
 
-routine feed(shelf: Modifying[ListShelf], from: Viewing[List[S64]]) -> S64
+routine feed(shelf: @ListShelf, from: %List[S64]) -> S64
     var fed: S64 = 0
     for y in from
         when shelf.other
@@ -64,13 +64,13 @@ routine feed(shelf: Modifying[ListShelf], from: Viewing[List[S64]]) -> S64
 routine start()
     var a = Node(id: 1)
     var b = Node(id: 2)
-    var s = Shelf[Modifying[Node]?](item: none)
+    var s = Shelf[@Node?](item: none)
     s.item = a
     var p = LinkPair(first: a, second: b)
     var kept = Shelf[LinkPair](item: p)
-    var la: Modifying[Node]? = a
-    var lb: Modifying[Node]? = b
-    var picked = pick[Modifying[Node]?](la, lb)
+    var la: @Node? = a
+    var lb: @Node? = b
+    var picked = pick[@Node?](la, lb)
     show(f"{s.item.id} {kept.item.second.id} {picked.id}")
     drop a
     drop b

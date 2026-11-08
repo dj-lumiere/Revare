@@ -125,7 +125,7 @@ public class KeptEntityReadTests
     public void Analyze_ReturningAnEntityElement_Errors()
     {
         Assert.Contains(filter: IsKeptEntityError, collection: ErrorsFor(body: """
-                                    routine first(boxes: Viewing[List[Box]]) -> Box
+                                    routine first(boxes: %List[Box]) -> Box
                                         return boxes[0]
 
                                     routine start()
@@ -138,7 +138,7 @@ public class KeptEntityReadTests
     public void Analyze_ReturningAFieldOfAViewedEntity_Errors()
     {
         Assert.Contains(filter: IsKeptEntityError, collection: ErrorsFor(body: """
-                                    routine left(p: Viewing[Pair]) -> Box
+                                    routine left(p: %Pair) -> Box
                                         return p.a
 
                                     routine start()
@@ -250,7 +250,7 @@ public class KeptEntityReadTests
     public void Analyze_CopyableElementMessageOffersDuplicate()
     {
         Assert.Contains(filter: IsKeptEntityError, collection: ErrorsFor(body: """
-                                    routine first_row(grid: Viewing[List[List[S64]]]) -> List[S64]
+                                    routine first_row(grid: %List[List[S64]]) -> List[S64]
                                         return grid[0]
 
                                     routine start()

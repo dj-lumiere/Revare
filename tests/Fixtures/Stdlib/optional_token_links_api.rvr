@@ -8,15 +8,15 @@ import IO/Console
 
 entity Node
     id: S64
-    parent: Modifying[Node]?
+    parent: @Node?
 
-routine Node.destruct()
+dangerous routine Node.destruct()
     show(f"end {me.id}")
     return
 
 record Edge
     weight: S64
-    to: Viewing[Node]?
+    to: %Node?
 
 entity Shelf[T]
     held: T
@@ -38,14 +38,14 @@ routine removed_from_list()
         else as p => show(f"parent {p.id}")
     return
 
-routine id_after_clear(n: Modifying[Node], nodes: Modifying[List[Node]]) -> S64
+routine id_after_clear(n: @Node, nodes: @List[Node]) -> S64
     nodes.clear()
     return n.id
 
 routine in_use_while_ended()
     var nodes = List[Node]()
     nodes.add_last(value: Node(id: 3, parent: none))
-    var watch: Modifying[Node]? = none
+    var watch: @Node? = none
     watch = nodes[0]
     when watch
         is None => show("none")
@@ -62,7 +62,7 @@ routine in_use_while_ended()
 
 routine list_of_links()
     var nodes = List[Node]()
-    var links = List[Modifying[Node]?]()
+    var links = List[@Node?]()
     for i in 10 til 13
         nodes.add_last(value: Node(id: i, parent: none))
     for i in 0 til 3
@@ -78,7 +78,7 @@ routine list_of_links()
 routine record_in_list()
     var a = Node(id: 20, parent: none)
     var edges = List[Edge]()
-    edges.add_last(value: Edge(weight: 5, to: a.view()))
+    edges.add_last(value: Edge(weight: 5, to: a))
     var copy = edges[0]
     when copy.to
         is None => show("edge none")
@@ -91,7 +91,7 @@ routine record_in_list()
 
 routine generic_shelf()
     var a = Node(id: 30, parent: none)
-    var shelf = Shelf[Modifying[Node]?](held: none)
+    var shelf = Shelf[@Node?](held: none)
     shelf.held = a
     var copied = shelf.held
     when copied
@@ -105,7 +105,7 @@ routine generic_shelf()
 
 routine plain_tokens()
     var p = Plain(n: 7)
-    var m = p.modify()
+    var m = p
     m.n += 1
     show(p.n)
     return

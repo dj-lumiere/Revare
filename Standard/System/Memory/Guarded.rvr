@@ -7,9 +7,9 @@ import BuilderQuery
 ###
 ### The policy `TPolicy` (an {AccessPolicy}: {ReadOnly} / {Exclusive} / {MultiRead}) is part of the type, so it is
 ### fixed at build time and selected by monomorphization — no runtime dispatch. Unlike {Retained[T]}, the guarded
-### value is reached only through a token: `viewing g as v` binds the {Viewing[T]} `view_enter()` gives and
-### `modifying g as m` the {Modifying[T]} `modify_enter()` gives, and `f(x: g.modify())` holds the access for that one
-### call. Under `Exclusive` or `MultiRead` the block takes the access when it starts (waiting while another job holds
+### value is reached only through a block: `viewing g as v` binds the read reference (`%T`) `view_enter()` gives
+### and `modifying g as m` the write reference (`@T`) `modify_enter()` gives. Under `Exclusive` or `MultiRead` the
+### block takes the access when it starts (waiting while another job holds
 ### it) and gives it up on every way out (`view_exit()` / `modify_exit()`). Which blocks a policy admits (`viewing` or
 ### `modifying`) follows from `TPolicy`. A `ReadOnly` value is read directly.
 ### :typeparam T: The exclusively owned entity type.
@@ -60,37 +60,36 @@ routine Guarded[T, TPolicy].observe() -> Witnessed[T, TPolicy]
 
 # ============================================================================
 # Access — read or change the guarded entity. `viewing g as v` calls `view_enter()` before the block and
-# `view_exit()` on every way out of it, `modifying g as m` calls `modify_enter()` and `modify_exit()`, and a
-# `g.view()` / `g.modify()` argument does the same around its statement.
+# `view_exit()` on every way out of it, and `modifying g as m` calls `modify_enter()` and `modify_exit()`.
 # ============================================================================
 
-### Read access to the value, for a `ReadOnly` Guarded anywhere and for a `g.view()` argument, which the builder
-### opens with {view_enter} around its statement.
-### :returns: A read token on the guarded entity.
+### Read access to the value of a `ReadOnly` Guarded, which the builder takes where the value is read directly
+### (`g.name`). A program does not call it.
+### :returns: A read reference to the guarded entity.
 @readonly
 @untraced
-routine Guarded[T, TPolicy].view() -> Viewing[T]
+routine Guarded[T, TPolicy].view() -> %T
 needs TPolicy in [MultiRead, ReadOnly]
     danger
         return Viewing[T](Hijacked[GuardManager[T, TPolicy]](me).as_entity().raw_data())
 
-### Write access to the value, for a `g.modify()` argument, which the builder opens with {modify_enter} around its
-### statement.
-### :returns: A write token on the guarded entity.
+### Write access to the value, which the builder takes once the access is open. A program does not call it: it opens
+### the Guarded with a `modifying` block.
+### :returns: A write reference to the guarded entity.
 @readonly
 @untraced
-routine Guarded[T, TPolicy].modify() -> Modifying[T]
+routine Guarded[T, TPolicy].modify() -> @T
 needs TPolicy in [Exclusive, MultiRead]
     danger
         return Modifying[T](Hijacked[GuardManager[T, TPolicy]](me).as_entity().raw_data())
 
 ### Takes read access, waiting while a writer holds it: what `viewing g as v` starts with. A `ReadOnly` Guarded takes
 ### nothing.
-### :returns: A read token on the guarded entity, the block's `v`.
+### :returns: A read reference to the guarded entity, the block's `v`.
 ### :throws: {ReenterDuringAccessError} when this job has the access open already: waiting for it would never end.
 @readonly
 @untraced
-routine Guarded[T, TPolicy].view_enter() -> Viewing[T]
+routine Guarded[T, TPolicy].view_enter() -> %T
 needs TPolicy in [MultiRead, ReadOnly]
     danger
         var manager = Hijacked[GuardManager[T, TPolicy]](me).as_entity()
@@ -100,11 +99,11 @@ needs TPolicy in [MultiRead, ReadOnly]
         return Viewing[T](manager.raw_data())
 
 ### Takes write access, waiting while anyone else holds it: what `modifying g as m` starts with.
-### :returns: A write token on the guarded entity, the block's `m`.
+### :returns: A write reference to the guarded entity, the block's `m`.
 ### :throws: {ReenterDuringAccessError} when this job has the access open already: waiting for it would never end.
 @readonly
 @untraced
-routine Guarded[T, TPolicy].modify_enter() -> Modifying[T]
+routine Guarded[T, TPolicy].modify_enter() -> @T
 needs TPolicy in [Exclusive, MultiRead]
     danger
         var manager = Hijacked[GuardManager[T, TPolicy]](me).as_entity()
@@ -113,7 +112,7 @@ needs TPolicy in [Exclusive, MultiRead]
         manager.open(mode: 2)
         return Modifying[T](manager.raw_data())
 
-### Gives up read access on every way out of a `viewing` block, and after a `g.view()` argument's statement.
+### Gives up read access on every way out of a `viewing` block.
 @readonly
 @untraced
 routine Guarded[T, TPolicy].view_exit()
@@ -122,7 +121,7 @@ needs TPolicy in [MultiRead, ReadOnly]
         Hijacked[GuardManager[T, TPolicy]](me).as_entity().close(mode: 1)
     return
 
-### Gives up write access on every way out of a `modifying` block, and after a `g.modify()` argument's statement.
+### Gives up write access on every way out of a `modifying` block.
 @readonly
 @untraced
 routine Guarded[T, TPolicy].modify_exit()
@@ -197,13 +196,12 @@ dangerous routine Guarded[T, TPolicy].release_inner() -> T
 ### Decrements the strong count, tearing down the entity at zero (and the controller when both counts
 ### reach zero). This IS the decrement — no separate `release` verb; `destruct` is the teardown.
 @override
-routine Guarded[T, TPolicy].destruct()
-    danger
-        if Hijacked[GuardManager[T, TPolicy]](me).get_address().is_hollow()
-            return
-        var ctrl = Hijacked[GuardManager[T, TPolicy]](me).as_entity()
-        ctrl.unhold()
+dangerous routine Guarded[T, TPolicy].destruct()
+    if Hijacked[GuardManager[T, TPolicy]](me).get_address().is_hollow()
         return
+    var ctrl = Hijacked[GuardManager[T, TPolicy]](me).as_entity()
+    ctrl.unhold()
+    return
 
 ### Whether this Guarded is hollow: the all-zero value `Guarded[T, TPolicy].hollow()` gives, which holds nothing.
 ### For the standard library and the runtime, whose zero handle a `lateinit` binding starts as. A program writes `Guarded[T]?` for a link that may be missing.

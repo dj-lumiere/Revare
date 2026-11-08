@@ -34,25 +34,27 @@ public class SafetyPathMatrixTests
     {
         AssertHasErrorCode(source: """
                            routine start()
-                               var v: Viewing[Cell] | S64 = 0
+                               var v: %Cell | S64 = 0
                                if true
                                    var l = Cell(n: 42)
-                                   v = l.view()
+                                   v = l
                                return
                            """,
-            code: SemanticDiagnosticCode.TokenMemberVariableNotAllowed, expected: "is a token");
+            code: SemanticDiagnosticCode.TokenMemberVariableNotAllowed, expected: "is a reference");
     }
 
     [Fact]
-    public void Analyze_GlobalOfTokenType_Errors()
+    public void Analyze_GlobalOfReferenceType_KeepsALink()
     {
-        AssertHasErrorCode(source: """
-                           global KEPT: Viewing[Cell] = Cell(n: 1).view()
+        AssertAnalyzesSa(source: """
+                         entity Cell
+                             n: S64
 
-                           routine start()
-                               return
-                           """,
-            code: SemanticDiagnosticCode.TokenMemberVariableNotAllowed, expected: "never kept in a global");
+                         global KEPT: %Cell? = none
+
+                         routine start()
+                             return
+                         """);
     }
 
     [Fact]
@@ -64,7 +66,8 @@ public class SafetyPathMatrixTests
 
                            routine start()
                                var l = Cell(n: 42)
-                               var w = same(x: l.view())
+                               var v: %Cell = l
+                               var w = same(x: v)
                                return
                            """,
             code: SemanticDiagnosticCode.TokenMemberVariableNotAllowed, expected: "makes 'T' of 'same'");
@@ -273,8 +276,7 @@ public class SafetyPathMatrixTests
                            global G: Cell = Cell(n: 1)
 
                            routine change() -> S64
-                               modifying G as m
-                                   m.n = 5
+                               G.n = 5
                                return 0
 
                            routine start()
@@ -418,12 +420,12 @@ public class SafetyPathMatrixTests
                                                                    routine start()
                                                                        var g = Guarded[Cell, Exclusive](from: Cell(n: 42))
                                                                        var other = Cell(n: 0)
-                                                                       var w = other.modify()
+                                                                       var w = other
                                                                        modifying g as m
                                                                            w = m
                                                                        return
                                                                    """,
-            expectedErrorSubstring: "You copy 'm', a `Modifying[Cell]` token");
+            expectedErrorSubstring: "You copy 'm', a `Modifying[Cell]` reference");
         Assert.DoesNotContain(collection: result.Errors, filter: e => e.Message.Contains(value: "none —"));
     }
 

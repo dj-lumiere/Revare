@@ -6,9 +6,9 @@ import IO/Console
 
 entity Friend
     name: S64
-    friend: Modifying[Friend]?
+    friend: @Friend?
 
-routine Friend.destruct()
+dangerous routine Friend.destruct()
     when try me.friend.name
         is None => show(f"{me.name}: friend already ended")
         else as other => show(f"{me.name}: friend {other} still there")

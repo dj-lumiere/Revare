@@ -12,22 +12,23 @@ routine Box.set(value: S64)
 routine start()
     var b = Box(value: 7)
 
-    # Viewing: read-only borrow — scoped token, must use inline or via using
-    viewing b as v
-        show(f"v type: {v.type_name()}")
-        show(f"v.value via forward: {v.value}")
+    # A read reference: a local typed `%Box` reads the entity.
+    var v: %Box = b
+    show(f"v type: {v.type_name()}")
+    show(f"v.value via forward: {v.value}")
 
-    # Modifying: mutable borrow inside a using scope
-    modifying b as m
-        show(f"m type: {m.type_name()}")
-        m.set(value: 42)
+    # A write reference: a second name for an entity changes it.
+    var m = b
+    show(f"m type: {m.type_name()}")
+    m.set(value: 42)
     show(f"after modify.set(42): {b.value}")
 
-    # T.view() peels — directly Viewing[Box] not Viewing[Box]
+    # A read reference taken from a write one.
     var another = Box(value: 100)
-    viewing another as v2
-        show(f"v2 type: {v2.type_name()}")
-        show(f"v2.value: {v2.value}")
+    var w = another
+    var v2: %Box = w
+    show(f"v2 type: {v2.type_name()}")
+    show(f"v2.value: {v2.value}")
 
     show("DONE")
     return

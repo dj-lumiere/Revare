@@ -221,7 +221,7 @@ public class ThreadArgShareabilityTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "a weak handle doesn't keep the entity");
+            expectedErrorSubstring: "a weak handle, but it doesn't keep the entity");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.StealSharedOwnership);
     }
@@ -259,13 +259,13 @@ public class ThreadArgShareabilityTests
     public void Analyze_TokenArgStartedHere_Ok()
     {
         AssertAnalyzesSa(source: Prelude + """
-                                           routine bump(n: Modifying[Node]) -> S64
+                                           routine bump(n: @Node) -> S64
                                                n.value += 1
                                                return n.value
 
                                            routine start()
                                                var node = Node(value: 1)
-                                               var job = bump.to[Work](n: node.modify())
+                                               var job = bump.to[Work](n: node)
                                                job.start_here()
                                                var got = job.retrieve()
                                                return
@@ -276,7 +276,7 @@ public class ThreadArgShareabilityTests
     public void Analyze_TokenArgStartedOnAnotherThread_Errors()
     {
         AssertHasErrorSa(source: Prelude + """
-                                           routine bump(n: Modifying[Node]) -> S64
+                                           routine bump(n: @Node) -> S64
                                                return n.value
 
                                            routine start()
@@ -294,7 +294,7 @@ public class ThreadArgShareabilityTests
     public void Analyze_TokenArgStartedOnAnotherThread_ReportsOnce()
     {
         AnalysisResult result = AnalyzeSa(source: Prelude + """
-                                                          routine bump(n: Modifying[Node]) -> S64
+                                                          routine bump(n: @Node) -> S64
                                                               return n.value
 
                                                           routine start()
@@ -312,7 +312,7 @@ public class ThreadArgShareabilityTests
     public void Analyze_TokenArgWorkLeavingTheRoutine_Errors()
     {
         AssertHasErrorSa(source: Prelude + """
-                                           routine bump(n: Modifying[Node]) -> S64
+                                           routine bump(n: @Node) -> S64
                                                return n.value
 
                                            routine make(node: Node) -> Work[S64]
@@ -328,7 +328,7 @@ public class ThreadArgShareabilityTests
         // A token a `viewing` block opened on a Guarded lasts as long as the block, and the job can run past it, so
         // it is never handed to a job: the job takes the Guarded and opens its own access.
         string source = Prelude + """
-                                  routine work(n: Viewing[Node]) -> S64
+                                  routine work(n: %Node) -> S64
                                       return n.value
 
                                   routine start()

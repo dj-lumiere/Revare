@@ -66,17 +66,16 @@ public class DropBindingTests
     }
 
     [Fact]
-    public void Analyze_DropToken_IsRejected()
+    public void Analyze_DropReference_EndsOnlyTheReference()
     {
-        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
-                                                                   routine start()
-                                                                       var n = Node(value: 1)
-                                                                       var v = n.view()
-                                                                       drop v
-                                                                       return
-                                                                   """,
-            expectedErrorSubstring: "is a Viewing token");
-        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.InvalidDropTarget);
+        AssertAnalyzesSa(source: Prelude + """
+                                           routine start()
+                                               var n = Node(value: 1)
+                                               var v = n
+                                               drop v
+                                               n.value = 2
+                                               return
+                                           """);
     }
 
     [Fact]
@@ -85,7 +84,7 @@ public class DropBindingTests
         AnalysisResult result = AssertHasErrorSa(source: Prelude + """
                                                                    routine start()
                                                                        var n = Node(value: 1)
-                                                                       var v = n.view()
+                                                                       var v = n
                                                                        drop n
                                                                        var x = v.value
                                                                        return
@@ -96,17 +95,15 @@ public class DropBindingTests
     }
 
     [Fact]
-    public void Analyze_WorkCopy_IsRejected()
+    public void Analyze_WorkSecondName_IsAReference()
     {
-        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
-                                                                   routine start()
-                                                                       var job = work.to[Work]()
-                                                                       var other = job
-                                                                       drop other.retrieve()
-                                                                       return
-                                                                   """,
-            expectedErrorSubstring: "with no manager");
-        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.BareEntityAssignment);
+        AssertAnalyzesSa(source: Prelude + """
+                                           routine start()
+                                               var job = work.to[Work]()
+                                               var other = job
+                                               drop other.retrieve()
+                                               return
+                                           """);
     }
 
     [Fact]

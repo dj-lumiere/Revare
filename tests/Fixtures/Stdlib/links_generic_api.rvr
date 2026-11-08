@@ -9,17 +9,17 @@ import IO/Console
 entity Box[T]
     held: T
 
-routine Box[T].destruct()
+dangerous routine Box[T].destruct()
     show("box end")
     return
 
 entity Wrap[T]
-    link: Modifying[T]?
+    link: @T?
 
 entity Lone
     id: S64
 
-routine watch_first[T](items: Modifying[List[T]]) -> Bool
+routine watch_first[T](items: @List[T]) -> Bool
 needs EntityType T
     var w = Wrap[T](link: none)
     w.link = items[0]
@@ -32,7 +32,7 @@ routine start()
     var lists = List[List[S64]]()
     lists.add_last(value: [1, 2, 3])
     lists.add_last(value: [4])
-    var l: Modifying[List[S64]]? = lists[0]
+    var l: @List[S64]? = lists[0]
     show(l.count())
     drop lists.remove_first()
     show(try l.count())
@@ -52,7 +52,7 @@ routine start()
     var stale: S64 = 0
     for i in 0 til 20000
         churn.add_last(value: [i])
-        var k: Modifying[List[S64]]? = churn[0]
+        var k: @List[S64]? = churn[0]
         drop churn.remove_first()
         when k
             is None => stale += 1

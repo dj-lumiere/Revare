@@ -7,14 +7,14 @@ import IO/Console
 entity Reporter
     tag: S64
 
-routine Reporter.destruct()
+dangerous routine Reporter.destruct()
     show(f"reporter {me.tag} reads the log: {LOG.lines.count()} lines, first {LOG.lines[0]}")
     return
 
 entity Log
     lines: List[Text]
 
-routine Log.destruct()
+dangerous routine Log.destruct()
     show(f"log destruct with {me.lines.count()} lines")
     return
 

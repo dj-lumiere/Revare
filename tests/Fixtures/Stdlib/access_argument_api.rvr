@@ -1,31 +1,34 @@
 module Tests/Stdlib/AccessArgumentApi
 
 import IO/Console
-# A Guarded's `view()` / `modify()` passed to a call holds the access for that call: as an argument, as the receiver
-# of a member call, and through a member variable it reads. Several in one statement are taken together.
+# A Guarded is opened with a block, and the names the block gives are references: they go where a reference
+# parameter is expected, and one block opens several Guardeds together.
 
-routine argument_add(entries: Modifying[List[S64]], value: S64)
+routine argument_add(entries: @List[S64], value: S64)
     entries.add_last(value: value)
     return
 
-routine argument_copy_over(into: Modifying[List[S64]], from: Viewing[List[S64]])
-    modifying into, viewing from
-        for v in from
-            into.add_last(value: v)
+routine argument_copy_over(into: @List[S64], from: %List[S64])
+    for v in from
+        into.add_last(value: v)
     return
 
-routine argument_count_of(entries: Viewing[List[S64]]) -> U64
+routine argument_count_of(entries: %List[S64]) -> U64
     return entries.count()
 
 routine start()
     var log = Guarded[List[S64], MultiRead](from: List[S64]())
     var other = Guarded[List[S64], Exclusive](from: [7, 8])
-    argument_add(entries: log.modify(), value: 1)
-    argument_add(entries: log.modify(), value: 2)
-    var n = log.view().count()
-    show(n)
-    argument_copy_over(into: log.modify(), from: other.modify())
-    show(argument_count_of(entries: log.view()))
+    modifying log as entries
+        argument_add(entries: entries, value: 1)
+        argument_add(entries: entries, value: 2)
+    viewing log as entries
+        var n = entries.count()
+        show(n)
+    modifying log as into, other as from
+        argument_copy_over(into: into, from: from)
+    viewing log as entries
+        show(argument_count_of(entries: entries))
     viewing log as entries
         show(entries)
     show("DONE")

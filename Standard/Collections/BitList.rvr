@@ -445,7 +445,7 @@ routine BitList.next_false(after: U64) -> U64?
 ### :param other: The bit list to combine with this one.
 ### :returns: A new `BitList` whose bits are `me[i] and other[i]`.
 @readonly
-routine BitList.bitand(other: Viewing[BitList]) -> BitList
+routine BitList.bitand(other: %BitList) -> BitList
     # Bitwise AND - returns new BitList with shorter length
     var min_count = if me.count < other.count then me.count else other.count
     var result = BitList(min_count)
@@ -462,7 +462,7 @@ routine BitList.bitand(other: Viewing[BitList]) -> BitList
 ### :param other: The bit list to combine with this one.
 ### :returns: A new `BitList` whose length matches the longer input.
 @readonly
-routine BitList.bitor(other: Viewing[BitList]) -> BitList
+routine BitList.bitor(other: %BitList) -> BitList
     # Bitwise OR - returns new BitList with longer length
     var max_count = if me.count > other.count then me.count else other.count
     var result = BitList(max_count)
@@ -480,7 +480,7 @@ routine BitList.bitor(other: Viewing[BitList]) -> BitList
 ### :param other: The bit list to combine with this one.
 ### :returns: A new `BitList` whose bits are set where exactly one input bit is set.
 @readonly
-routine BitList.bitxor(other: Viewing[BitList]) -> BitList
+routine BitList.bitxor(other: %BitList) -> BitList
     # Bitwise XOR - returns new BitList with longer length
     var max_count = if me.count > other.count then me.count else other.count
     var result = BitList(max_count)
@@ -579,7 +579,7 @@ routine BitList.reverse() -> BitList
 ### :param you: The other bit list to compare against.
 ### :returns: `true` if both have the same count and all corresponding bits match.
 @readonly
-routine BitList.eq(you: Viewing[BitList]) -> Bool
+routine BitList.eq(you: %BitList) -> Bool
     if me.count != you.count
         return false
     var i: U64 = 0
@@ -736,10 +736,9 @@ common routine BitList.from_u64(value: U64) -> BitList
 
 ### Frees the bit storage of `me`.
 @override
-routine BitList.destruct()
-    danger
-        me.data.invalidate()
-        return
+dangerous routine BitList.destruct()
+    me.data.invalidate()
+    return
 
 ### Cycle-collector FREE: free the packed word buffer and this list's own box. The elements are bits, so
 ### there is nothing the collector needs to reap — the override exists only to free the heap buffer (the

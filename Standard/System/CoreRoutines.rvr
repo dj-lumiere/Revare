@@ -24,7 +24,7 @@ needs T obeys Splittable
 ### value alone. `Addr.hollow()` (the address 0) is its own routine and is not `dangerous`. Test a handle with
 ### `is_hollow()`, which the nine handle types (`Retained`, `Tracked`, `Guarded`, `Witnessed`, `Roamed`, `Watched`,
 ### `Hijacked`, `Viewing`, `Modifying`) and `Addr` have. A program does not use a hollow handle to say "no link":
-### it writes the link as `Tracked[T]?` or `Modifying[T]?`.
+### it writes the link as `Tracked[T]?` or `@T?`.
 ### :returns: The `T` whose bits are all zero.
 @innate
 infallible common dangerous routine T.hollow() -> T

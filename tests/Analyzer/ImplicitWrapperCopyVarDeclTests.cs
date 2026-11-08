@@ -121,7 +121,7 @@ public class ImplicitWrapperCopyVarDeclTests
                 e.Code == Builder.Diagnostics.SemanticDiagnosticCode.ImplicitWrapperCopy);
     }
 
-    /// <summary>`var v = a.view()` names the token for the rest of its block.</summary>
+    /// <summary>`var v = a` names the token for the rest of its block.</summary>
     [Fact]
     public void Analyze_VarDecl_ViewedFromCall_IsAllowed()
     {
@@ -131,7 +131,7 @@ public class ImplicitWrapperCopyVarDeclTests
 
                         routine start()
                             var a = Node(value: 1)
-                            var v = a.view()
+                            var v = a
                             return
                         """;
 
@@ -139,7 +139,7 @@ public class ImplicitWrapperCopyVarDeclTests
         Assert.Empty(collection: result.Errors);
     }
 
-    /// <summary>`var g = a.modify()` names the token for the rest of its block.</summary>
+    /// <summary>`var g = a` names the token for the rest of its block.</summary>
     [Fact]
     public void Analyze_VarDecl_GraspedFromCall_IsAllowed()
     {
@@ -149,7 +149,7 @@ public class ImplicitWrapperCopyVarDeclTests
 
                         routine start()
                             var a = Node(value: 1)
-                            var g = a.modify()
+                            var g = a
                             return
                         """;
 
@@ -169,7 +169,7 @@ public class ImplicitWrapperCopyVarDeclTests
 
                         routine start()
                             var a = Node(value: 1)
-                            var v = a.view()
+                            var v = a
                             a = Node(value: 2)
                             show(f"{v.value}")
                             return
@@ -192,7 +192,7 @@ public class ImplicitWrapperCopyVarDeclTests
 
                         routine start()
                             var a = Node(value: 1)
-                            var v = a.view()
+                            var v = a
                             show(f"{v.value}")
                             a = Node(value: 2)
                             return
@@ -213,8 +213,8 @@ public class ImplicitWrapperCopyVarDeclTests
                         routine start()
                             var a = Node(value: 1)
                             var b = Node(value: 2)
-                            var v = a.view()
-                            v = b.view()
+                            var v = a
+                            v = b
                             return
                         """;
 
@@ -222,7 +222,7 @@ public class ImplicitWrapperCopyVarDeclTests
         Assert.Empty(collection: result.Errors);
     }
 
-    /// <summary>Inline chained access `a.view().value` is accepted — desugars as a scoped `using`.</summary>
+    /// <summary>Inline chained access `a.value` is accepted — desugars as a scoped `using`.</summary>
     [Fact]
     public void Analyze_InlineMemberAccess_OnViewingCall_IsAccepted()
     {
@@ -306,8 +306,7 @@ public class ImplicitWrapperCopyVarDeclTests
 
                         routine start()
                             var a = Node(value: 1)
-                            viewing a as v
-                                show(f"{v.value}")
+                            show(f"{a.value}")
                             return
                         """;
 

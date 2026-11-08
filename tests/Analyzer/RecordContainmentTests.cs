@@ -199,45 +199,36 @@ public class RecordContainmentTests
     }
 
     /// <summary>
-    /// Verifies semantic analysis behavior for record with viewing field and reports the expected error.
+    /// A record may hold a link to an entity.
     /// </summary>
     [Fact]
-    public void Analyze_RecordWithViewedField_ReportsError()
+    public void Analyze_RecordWithReadLinkField_Builds()
     {
-        // Scoped tokens are caught by S601 (TokenMemberVariableNotAllowed) before S412
+        // A record holds links to entities: a read link is copied with the record.
         string source = """
                         entity Node
                             value: S32
-                        record BadRecord
-                            view: Viewing[Node]
+                        record Pointer
+                            view: %Node
                         """;
 
-        AnalysisResult result = AnalyzeSa(source: source);
-        Assert.Contains(collection: result.Errors,
-            filter: e =>
-                e.Code == SemanticDiagnosticCode.TokenMemberVariableNotAllowed &&
-                e.Message.Contains(value: "view"));
+        Assert.Empty(collection: AnalyzeSa(source: source).Errors);
     }
 
     /// <summary>
-    /// Verifies semantic analysis behavior for record with modifying field and reports the expected error.
+    /// A record may hold a write link to an entity.
     /// </summary>
     [Fact]
-    public void Analyze_RecordWithModifyingField_ReportsError()
+    public void Analyze_RecordWithWriteLinkField_Builds()
     {
-        // Scoped tokens are caught by S601 (TokenMemberVariableNotAllowed) before S412
         string source = """
                         entity Node
                             value: S32
-                        record BadRecord
-                            writer: Modifying[Node]
+                        record Pointer
+                            writer: @Node
                         """;
 
-        AnalysisResult result = AnalyzeSa(source: source);
-        Assert.Contains(collection: result.Errors,
-            filter: e =>
-                e.Code == SemanticDiagnosticCode.TokenMemberVariableNotAllowed &&
-                e.Message.Contains(value: "writer"));
+        Assert.Empty(collection: AnalyzeSa(source: source).Errors);
     }
 
     #endregion
@@ -245,22 +236,23 @@ public class RecordContainmentTests
     #region Multiple token fields both rejected
 
     /// <summary>
-    /// Verifies that two scoped-token fields on the same record both report TokenMemberVariableNotAllowed.
+    /// A reference to a record kept in a record is reported for each member variable.
     /// </summary>
     [Fact]
-    public void Analyze_RecordWithTwoTokenFields_BothReportErrors()
+    public void Analyze_RecordWithReferenceToRecord_ReportsBoth()
     {
+        // A record is a value with no identity, so nothing points at one from storage (RV-S661).
         string source = """
-                        entity Node
-                            value: S32
-                        record BadRecord
-                            reader: Viewing[Node]
-                            writer: Modifying[Node]
+                        record Point
+                            x: S32
+                        record Pair
+                            reader: %Point
+                            writer: @Point
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);
-        Assert.True(condition: result.Errors.Count(predicate: e =>
-            e.Code == SemanticDiagnosticCode.TokenMemberVariableNotAllowed) >= 2);
+        Assert.Equal(expected: 2, actual: result.Errors.Count(predicate: e =>
+            e.Code == SemanticDiagnosticCode.RecordReferenceKept));
     }
 
     #endregion

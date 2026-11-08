@@ -148,7 +148,7 @@ needs RecordType T
 ### Tears down each stored element. No-op for plain values, releases what a counted element holds. All `COUNT`
 ### places hold an element, so the full range is visited. `Items` has no separate allocation of its own to free.
 @override
-routine Items[T, COUNT].destruct()
+dangerous routine Items[T, COUNT].destruct()
     var i: U64 = 0
     until i >= COUNT
         # Read element i in place through the storage pointer (element_at's by-VALUE form copies the whole

@@ -92,10 +92,10 @@ public class EmitterTokenTests
     public void Emitter_ReturnedFromTokenParameter_IsAllowed()
     {
         string source = Prelude + """
-                                  routine walk(xs: Viewing[List[S64]]) -> ListEmitter[S64]
+                                  routine walk(xs: %List[S64]) -> ListEmitter[S64]
                                       return xs.emitter()
 
-                                  routine big(xs: Viewing[List[S64]]) -> WhereEmittable[S64, List[S64]]
+                                  routine big(xs: %List[S64]) -> WhereEmittable[S64, List[S64]]
                                       return xs.where(predicate: v => v > 1)
 
                                   routine start()
@@ -129,7 +129,7 @@ public class EmitterTokenTests
     public void Emitter_Returned_EndsWithTheCallersContainer()
     {
         string source = Prelude + """
-                                  routine walk(xs: Viewing[List[S64]]) -> ListEmitter[S64]
+                                  routine walk(xs: %List[S64]) -> ListEmitter[S64]
                                       return xs.emitter()
 
                                   routine start()
@@ -188,11 +188,12 @@ public class EmitterTokenTests
     [Fact]
     public void EmitterOfRetainedsEntity_Returned_Errors()
     {
-        // Made from the entity itself (`r.view()`), the emitter is a token on it, as one made from a local.
+        // Made from a read reference to the entity itself, the emitter points at it, as one made from a local.
         string source = Prelude + """
                                   routine walk() -> ListEmitter[S64]
                                       var r = Retained[List[S64]](from: [1, 2, 3])
-                                      return r.view().emitter()
+                                      var v: %List[S64] = r
+                                      return v.emitter()
                                   """;
 
         AnalysisResult result = AnalyzeSa(source: source);

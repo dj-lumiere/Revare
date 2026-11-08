@@ -5,19 +5,19 @@ import IO/Console
 # token parameters of the same type, a token taken from a link) opens a use of the walked container at run time: the
 # change works on another container, and on the walked one it stops the program with ReshapingWhileInUseError.
 
-routine copy_into(from: Viewing[List[S64]], into: Modifying[List[S64]])
+routine copy_into(from: %List[S64], into: @List[S64])
     for x in from
         into.add_last(value: x)
     return
 
-routine grow(into: Modifying[List[S64]], value: S64)
+routine grow(into: @List[S64], value: S64)
     into.add_last(value: value)
     return
 
 entity Shelf
-    other: Modifying[List[S64]]?
+    other: @List[S64]?
 
-routine feed(shelf: Modifying[Shelf], from: Viewing[List[S64]]) -> S64
+routine feed(shelf: @Shelf, from: %List[S64]) -> S64
     var fed: S64 = 0
     for y in from
         when shelf.other

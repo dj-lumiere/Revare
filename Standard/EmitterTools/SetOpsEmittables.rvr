@@ -79,7 +79,7 @@ needs T obeys Hashable, Comparable
 ### :param you: The emittable that defines the membership set.
 ### :returns: The resulting `IntersectEmittable[T, Me, TOther]` value.
 @readonly
-routine Emittable[T].intersect[TOther](you: Viewing[TOther]) -> IntersectEmittable[T, Me, TOther]
+routine Emittable[T].intersect[TOther](you: %TOther) -> IntersectEmittable[T, Me, TOther]
 needs TOther obeys Emittable[T]
 needs T obeys Hashable, Comparable
     danger
@@ -112,7 +112,7 @@ needs T obeys Hashable, Comparable
 ### :param you: The emittable that defines the exclusion set.
 ### :returns: The resulting `ExcludeEmittable[T, Me, TOther]` value.
 @readonly
-routine Emittable[T].exclude[TOther](you: Viewing[TOther]) -> ExcludeEmittable[T, Me, TOther]
+routine Emittable[T].exclude[TOther](you: %TOther) -> ExcludeEmittable[T, Me, TOther]
 needs TOther obeys Emittable[T]
 needs T obeys Hashable, Comparable
     danger
@@ -123,7 +123,7 @@ needs T obeys Hashable, Comparable
 ### :param you: The emittable to concatenate before deduplication.
 ### :returns: The resulting `DistinctEmittable[T, ChainEmittable[T, Me, TOther]]` value.
 @readonly
-routine Emittable[T].union[TOther](you: Viewing[TOther]) -> DistinctEmittable[T, ChainEmittable[T, Me, TOther]]
+routine Emittable[T].union[TOther](you: %TOther) -> DistinctEmittable[T, ChainEmittable[T, Me, TOther]]
 needs TOther obeys Emittable[T]
 needs T obeys Hashable, Comparable
     return me.chain(you).distinct()

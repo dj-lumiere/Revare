@@ -25,8 +25,7 @@ public class UsingStatementTests
                             y: S32
 
                         routine test(p: Point)
-                            viewing p as v
-                                var a: S32 = v.x
+                            var a: S32 = p.x
                             return
                         """;
 
@@ -227,8 +226,7 @@ public class UsingStatementTests
                             value: S32
 
                         routine test(d: Data)
-                            viewing d as v
-                                show(v.value)
+                            show(d.value)
                             show(v.value)
                             return
                         """;

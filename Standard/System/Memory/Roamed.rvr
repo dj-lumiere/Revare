@@ -9,8 +9,8 @@ import BuilderQuery
 ### guarantee). Aliasing is free (`.roam()`), so `b = a` maps here, NOT to a bare single-owner entity.
 ###
 ### **Access is coerced through `control`/`access`, with the lock applied TRANSPARENTLY.** `Roamed`
-### `obeys Modifying[T]`: a deref (method dispatch on a `Roamed` receiver, or passing one to a
-### `Modifying[T]`/`Viewing[T]` parameter) coerces to the inner entity via `control()`/`access()`.
+### `obeys @T`: a deref (method dispatch on a `Roamed` receiver, or passing one to a
+### `@T`/`%T` parameter) coerces to the inner entity via `control()`/`access()`.
 ### That coercion does NOT bypass serialization — the builder's lock-bracket lowering wraps the
 ### enclosing access scope in `lock_enter`/`lock_exit` (no-op in LOCAL mode, a reentrant task-keyed
 ### acquire once ESCAPED), so Mielia code never sees the lock while access stays serialized. Holding a
@@ -277,7 +277,7 @@ infallible dangerous routine Roamed[T].raw_inner() -> T
 # ============================================================================
 
 ### Yields the inner entity as an in-flight `T` reference for read-only access.
-### Inserted implicitly at call sites whose parameter is `Viewing[T]`.
+### Inserted implicitly at call sites whose parameter is `%T`.
 ### :returns: The inner entity as `T`.
 @readonly
 @inline
@@ -287,7 +287,7 @@ routine Roamed[T].access() -> T
         return LLVM::reinterpret_bits[Addr, T](ctrl.data_address())
 
 ### Yields the inner entity as an in-flight `T` reference for read/write access.
-### Inserted implicitly at call sites whose parameter is `Modifying[T]`, and at method-dispatch
+### Inserted implicitly at call sites whose parameter is `@T`, and at method-dispatch
 ### deref on a `Roamed` receiver.
 ### :returns: The inner entity as `T`.
 @inline
@@ -296,16 +296,16 @@ routine Roamed[T].control() -> T
         var ctrl = Hijacked[RoamManager](me).as_entity()
         return LLVM::reinterpret_bits[Addr, T](ctrl.data_address())
 
-### Read access to the held entity. A call hands this to a `Viewing[T]` parameter given the handle.
+### Read access to the held entity. A call hands this to a `%T` parameter given the handle.
 ### :returns: The token.
 @readonly
-routine Roamed[T].view() -> Viewing[T]
+routine Roamed[T].view() -> %T
     danger
         return Viewing[T](Hijacked[T](from: Hijacked[RoamManager](me).as_entity().data_address()))
 
-### Write access to the held entity. A call hands this to a `Modifying[T]` parameter given the handle.
+### Write access to the held entity. A call hands this to a `@T` parameter given the handle.
 ### :returns: The token.
-routine Roamed[T].modify() -> Modifying[T]
+routine Roamed[T].modify() -> @T
     danger
         return Modifying[T](Hijacked[T](from: Hijacked[RoamManager](me).as_entity().data_address()))
 
@@ -322,13 +322,12 @@ routine Roamed[T].modify() -> Modifying[T]
 ### the decrement — no separate `release` verb; `destruct` is the teardown (calls the RoamManager's
 ### own `release` count primitive, a different type — no recursion).
 @override
-routine Roamed[T].destruct()
-    danger
-        if me.controller_address().is_hollow()
-            return
-        var ctrl = Hijacked[RoamManager](me).as_entity()
-        ctrl.unhold()
+dangerous routine Roamed[T].destruct()
+    if me.controller_address().is_hollow()
         return
+    var ctrl = Hijacked[RoamManager](me).as_entity()
+    ctrl.unhold()
+    return
 
 ### `==` between two handles, either of which may hold nothing (`Roamed[T].hollow()`): equal when both hold
 ### nothing or both reach the same entity or equal ones, different when only one holds nothing. The builder calls it

@@ -90,21 +90,21 @@ entity RoutineInfo
 ### :param you: The other field to compare against.
 ### :returns: `true` if both fields have the same name.
 @readonly
-routine FieldInfo.eq(you: Viewing[FieldInfo]) -> Bool
+routine FieldInfo.eq(you: %FieldInfo) -> Bool
     return me.name == you.name
 
 ### Returns whether this protocol info is equal to another by name.
 ### :param you: The other protocol info to compare against.
 ### :returns: `true` if both have the same name.
 @readonly
-routine ProtocolInfo.eq(you: Viewing[ProtocolInfo]) -> Bool
+routine ProtocolInfo.eq(you: %ProtocolInfo) -> Bool
     return me.name == you.name
 
 ### Returns whether this routine info is equal to another by name.
 ### :param you: The other routine info to compare against.
 ### :returns: `true` if both have the same name.
 @readonly
-routine RoutineInfo.eq(you: Viewing[RoutineInfo]) -> Bool
+routine RoutineInfo.eq(you: %RoutineInfo) -> Bool
     return me.name == you.name
 
 # ============================================================================
@@ -234,7 +234,7 @@ infallible common routine T.reaches_entity() -> Bool
 @innate
 infallible common routine T.is_retroactive() -> Bool
 
-### Whether this type is a token on a retroactive entity type (`Modifying[Node]` where links to `Node` are kept), so
+### Whether this type is a token on a retroactive entity type (`@Node` where links to `Node` are kept), so
 ### `T?` is a link: the entity's address and its slot generation. `false` for every other type.
 ### :returns: `true` for a token whose optional is a link.
 @readonly

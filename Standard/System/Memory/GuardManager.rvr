@@ -141,8 +141,7 @@ dangerous routine GuardManager[T, TPolicy].drop_data()
 
 ### Tears down the strong and weak counts of the controller.
 @override
-routine GuardManager[T, TPolicy].destruct()
-    danger
-        me.strong_count.destruct()
-        me.weak_count.destruct()
-        return
+dangerous routine GuardManager[T, TPolicy].destruct()
+    me.strong_count.destruct()
+    me.weak_count.destruct()
+    return

@@ -53,14 +53,14 @@ routine run_demo() -> S64
         lst.add_last(value: f)
         dq.add_last(value: f)
         f = f + 1
-    var lv = lst.pick(rng: r.modify())
-    var dv = dq.pick(rng: r.modify())
+    var lv = lst.pick(rng: r)
+    var dv = dq.pick(rng: r)
     show(f"List pick in [0,6): {lv >= 0 and lv < 6}")
     show(f"RotatableList pick in [0,6): {dv >= 0 and dv < 6}")
 
     # shuffle moves elements in place; the multiset is preserved (sum invariant) and
     # the count is unchanged.
-    lst.shuffle(rng: r.modify())
+    lst.shuffle(rng: r)
     var total = 0
     var m: U64 = 0
     until m >= lst.count()

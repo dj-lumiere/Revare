@@ -88,7 +88,7 @@ routine run_process(command: Text) -> ProcessResult
 ### :returns: A `ProcessResult` with exit code, optional signal, and captured streams.
 secret routine run_built(
     file: Text,
-    args: Viewing[List[Text]],
+    args: %List[Text],
     directory: Text,
     env: Dict[Text, Text],
 ) -> ProcessResult
@@ -124,7 +124,7 @@ secret routine run_built(
 ### :returns: A `ProcessResult` with exit code, optional signal, and captured streams.
 routine run_program(
     file: Text,
-    args: Viewing[List[Text]],
+    args: %List[Text],
     working_directory: Directory = Directory(at: ""),
     env: Dict[Text, Text] = {:},
 ) -> ProcessResult

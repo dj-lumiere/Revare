@@ -19,7 +19,7 @@ record Cleaner
     id: S64
 
 @override
-routine Cleaner.destruct()
+dangerous routine Cleaner.destruct()
     when check inner_fail(code: 99)
         is CodeError as e => show(f"cleaner {me.id} received code {e.code}")
         is S64 as v => show(f"cleaner value {v}")

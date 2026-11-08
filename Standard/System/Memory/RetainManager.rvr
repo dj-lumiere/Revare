@@ -92,10 +92,9 @@ dangerous routine RetainManager[T].drop_data()
 
 ### Tears down the counts of the controller once nothing refers to it any more.
 @override
-routine RetainManager[T].destruct()
-    danger
-        if me.should_deallocate_controller()
-            me.strong_count.destruct()
-            me.weak_count.destruct()
-            return
+dangerous routine RetainManager[T].destruct()
+    if me.should_deallocate_controller()
+        me.strong_count.destruct()
+        me.weak_count.destruct()
         return
+    return

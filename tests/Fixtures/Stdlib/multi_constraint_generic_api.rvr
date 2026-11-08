@@ -3,7 +3,7 @@ module Tests/Stdlib/MultiConstraintGenericApi
 import IO/Console
 # Generics with multiple protocol constraints — `T obeys A + B` style (whatever
 # the actual syntax is). Tests that the routine sees both protocol surfaces.
-routine in_set_and_max[T](items: Viewing[List[T]], target: T) -> Bool
+routine in_set_and_max[T](items: %List[T], target: T) -> Bool
 needs RecordType T
 needs T obeys Equatable, Hashable
     # Hashable lets us build a Set; Equatable lets us check contains
@@ -14,14 +14,12 @@ needs T obeys Equatable, Hashable
 
 routine start()
     var nums: List[S64] = [10, 20, 30, 40]
-    modifying nums as g
-        show(f"in_set 20: {in_set_and_max(items: g, target: 20)}")
-        show(f"in_set 99: {in_set_and_max(items: g, target: 99)}")
+    show(f"in_set 20: {in_set_and_max(items: nums, target: 20)}")
+    show(f"in_set 99: {in_set_and_max(items: nums, target: 99)}")
 
     var words: List[Text] = ["alpha", "bravo", "charlie"]
-    modifying words as g
-        show(f"in_set 'bravo': {in_set_and_max(items: g, target: "bravo")}")
-        show(f"in_set 'delta': {in_set_and_max(items: g, target: "delta")}")
+    show(f"in_set 'bravo': {in_set_and_max(items: words, target: "bravo")}")
+    show(f"in_set 'delta': {in_set_and_max(items: words, target: "delta")}")
 
     show("DONE")
     return

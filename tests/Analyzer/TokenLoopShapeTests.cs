@@ -7,7 +7,7 @@ using static TestHelpers;
 
 /// <summary>
 /// A <c>for</c> loop over a token goes through the container the token is on (intent C68): changing that container's
-/// shape in the loop is RV-S625, for a token from <c>xs.view()</c>, from a <c>viewing</c> block, and from a routine that
+/// shape in the loop is RV-S625, for a token from <c>xs</c>, from a <c>viewing</c> block, and from a routine that
 /// may give back any of the tokens handed to it.
 /// </summary>
 public class TokenLoopShapeTests
@@ -25,11 +25,11 @@ public class TokenLoopShapeTests
         AssertReshapeError(source: """
                            routine start()
                                var a: List[S64] = [1, 2, 3]
-                               var w = a.view()
+                               var w = a
                                for x in w
                                    a.add_last(value: x)
                                return
-                           """, expected: "'w' is a token on 'a'");
+                           """, expected: "'w' is a reference on 'a'");
     }
 
     [Fact]
@@ -38,18 +38,18 @@ public class TokenLoopShapeTests
         AssertReshapeError(source: """
                            routine start()
                                var a: List[S64] = [1, 2, 3]
-                               viewing a as w
-                                   for x in w
-                                       a.add_last(value: x)
+                               var w: %List[S64] = a
+                               for x in w
+                                   a.add_last(value: x)
                                return
-                           """, expected: "'w' is a token on 'a'");
+                           """, expected: "'w' is a reference on 'a'");
     }
 
     [Fact]
     public void Analyze_ReshapeAnySourceOfReturnedToken_Errors()
     {
         AssertReshapeError(source: """
-                           routine shorter(x: Viewing[List[S64]], y: Viewing[List[S64]]) -> Viewing[List[S64]]
+                           routine shorter(x: %List[S64], y: %List[S64]) -> %List[S64]
                                if x.count() <= y.count()
                                    return x
                                return y
@@ -57,11 +57,11 @@ public class TokenLoopShapeTests
                            routine start()
                                var a: List[S64] = [1, 2, 3]
                                var b: List[S64] = [4]
-                               var w = shorter(x: a.view(), y: b.view())
+                               var w = shorter(x: a, y: b)
                                for x in w
                                    b.add_last(value: x)
                                return
-                           """, expected: "'w' is a token on 'b'");
+                           """, expected: "'w' is a reference on 'b'");
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class TokenLoopShapeTests
                          routine start()
                              var a: List[S64] = [1, 2, 3]
                              var b: List[S64] = []
-                             var w = a.view()
+                             var w = a
                              for x in w
                                  b.add_last(value: x)
                              return

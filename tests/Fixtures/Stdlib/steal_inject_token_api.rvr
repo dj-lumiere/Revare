@@ -8,7 +8,7 @@ import IO/Console
 entity Item
     name: Text
 
-routine swap_out(items: Modifying[List[Item]], index: U64) -> Text
+routine swap_out(items: @List[Item], index: U64) -> Text
     steal items[index] as old inject Item(name: "fresh")
     return old.name
 

@@ -983,7 +983,7 @@ secret routine FileStorage[T].unmap()
 ### Maps the file for reading only: what `viewing storage as v` starts with.
 ### :returns: A read token on the storage, the block's `v`.
 ### :throws: {NotFoundError} when the file doesn't exist, or the crashable for why it can't be mapped.
-routine FileStorage[T].view_enter() -> Viewing[FileStorage[T]]
+routine FileStorage[T].view_enter() -> %FileStorage[T]
     me.map(write: false)
     return me.view()
 
@@ -991,7 +991,7 @@ routine FileStorage[T].view_enter() -> Viewing[FileStorage[T]]
 ### :returns: A write token on the storage, the block's `m`.
 ### :throws: {NotEnoughPermissionError} when the file can't be written, {NotFoundError} when it doesn't exist, or the
 ###     crashable for why it can't be mapped.
-routine FileStorage[T].modify_enter() -> Modifying[FileStorage[T]]
+routine FileStorage[T].modify_enter() -> @FileStorage[T]
     me.map(write: true)
     return me.modify()
 
@@ -1129,7 +1129,7 @@ routine FileStorage[T].flush()
 
 ### Releases the mapping a block left open, when the storage ends.
 @override
-routine FileStorage[T].destruct()
+dangerous routine FileStorage[T].destruct()
     me.unmap()
     return
 
@@ -1265,7 +1265,7 @@ routine FileSource.exit()
 ### Closes the descriptor at scope exit (RAII). Idempotent with `exit`/`close()` via the `is_closed`
 ### guard, so no double-close.
 @override
-routine FileSource.destruct()
+dangerous routine FileSource.destruct()
     me.close()
     return
 
@@ -1332,6 +1332,6 @@ routine FileSink.exit()
 ### Closes the descriptor at scope exit (RAII). Idempotent with `exit`/`close()` via the `is_closed`
 ### guard, so no double-close.
 @override
-routine FileSink.destruct()
+dangerous routine FileSink.destruct()
     me.close()
     return

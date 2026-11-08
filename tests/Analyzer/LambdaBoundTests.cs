@@ -49,7 +49,7 @@ public class LambdaBoundTests
     public void Bound_ForElementToken_Analyzes()
     {
         AssertAnalyzes(source: Prelude + """
-                                         routine total(boards: Viewing[List[Board]]) -> S64
+                                         routine total(boards: %List[Board]) -> S64
                                              var sum: S64 = 0
                                              for board in boards
                                                  var plus = (k: S64) given board => board.limit + k
@@ -88,7 +88,7 @@ public class LambdaBoundTests
     public void Bound_AssignedToField_IsRejected()
     {
         AssertHasErrorSa(source: Prelude + """
-                                           routine Board.watch(holder: Modifying[List[Holder]])
+                                           routine Board.watch(holder: @List[Holder])
                                                var f = (v: S64) => v > me.limit
                                                holder[0].callback = f
                                                return

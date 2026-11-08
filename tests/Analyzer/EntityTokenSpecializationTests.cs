@@ -4,7 +4,7 @@ using static TestHelpers;
 
 /// <summary>
 /// A member of a specialization family (<c>routine Random.next[U64]()</c>) is called through an entity's token: a
-/// <c>Modifying[Random]</c> reaches every member, a <c>Viewing[Random]</c> only the members that read.
+/// <c>@Random</c> reaches every member, a <c>%Random</c> only the members that read.
 /// </summary>
 public class EntityTokenSpecializationTests
 {
@@ -14,12 +14,12 @@ public class EntityTokenSpecializationTests
         AssertAnalyzesSa(source: """
                                  import Random
 
-                                 routine draw(rng: Modifying[Random]) -> U64
+                                 routine draw(rng: @Random) -> U64
                                      return rng.next[U64]()
 
                                  routine start()
                                      var r = make_random(seed: 1)
-                                     drop draw(rng: r.modify())
+                                     drop draw(rng: r)
                                      return
                                  """);
     }
@@ -30,14 +30,14 @@ public class EntityTokenSpecializationTests
         AssertHasErrorSa(source: """
                                  import Random
 
-                                 routine peek(rng: Viewing[Random]) -> U64
+                                 routine peek(rng: %Random) -> U64
                                      return rng.next[U64]()
 
                                  routine start()
                                      var r = make_random(seed: 1)
-                                     drop peek(rng: r.view())
+                                     drop peek(rng: r)
                                      return
                                  """,
-            expectedErrorSubstring: "only reads it. Take a 'Modifying[Random]' to call it.");
+            expectedErrorSubstring: "only reads it. Take a write reference ('Modifying[Random]') to call it.");
     }
 }

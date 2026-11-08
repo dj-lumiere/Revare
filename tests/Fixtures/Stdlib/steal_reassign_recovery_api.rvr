@@ -8,7 +8,7 @@ entity Node
     value: S64
     children: List[Node]
 
-routine Node.destruct()
+dangerous routine Node.destruct()
     show(f"ends {me.value}")
     me.children.destruct()
     return
@@ -32,7 +32,7 @@ routine chain(n: S64) -> Node
         left = steal node
     return left
 
-routine sum(tree: Viewing[Node]) -> S64
+routine sum(tree: %Node) -> S64
     var total = tree.value
     for child in tree.children
         total += sum(tree: child)

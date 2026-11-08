@@ -7,15 +7,15 @@ import IO/Console
 entity Box
     n: S64
 
-routine shorter(x: Viewing[List[S64]], y: Viewing[List[S64]]) -> Viewing[List[S64]]
+routine shorter(x: %List[S64], y: %List[S64]) -> %List[S64]
     if x.count() <= y.count()
         return x
     return y
 
-routine shortest(p: Viewing[List[S64]], q: Viewing[List[S64]]) -> Viewing[List[S64]]
+routine shortest(p: %List[S64], q: %List[S64]) -> %List[S64]
     return shorter(x: p, y: q)
 
-routine first_box(x: Modifying[List[Box]], y: Modifying[List[Box]]) -> Modifying[Box]
+routine first_box(x: @List[Box], y: @List[Box]) -> @Box
     return if x.count() > 0 then x.modify_at(index: 0) else y.modify_at(index: 0)
 
 routine start()

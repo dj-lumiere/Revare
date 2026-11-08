@@ -39,6 +39,6 @@ routine start()
     show(f"kept: {kept.to[List]()}")
 
     # From the entity itself it is a token, used while the entity is there.
-    var view_walk = r.view().emitter()
+    var view_walk = r.emitter()
     show(f"view: {view_walk.emit()}")
     return

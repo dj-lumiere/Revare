@@ -6,11 +6,10 @@ namespace Revare.Tests.Analyzer;
 using static TestHelpers;
 
 /// <summary>
-/// Tests for the analysis of <c>viewing</c> / <c>modifying</c> blocks and of a Guarded's <c>view()</c> /
-/// <c>modify()</c> passed to a call: opening a Guarded again inside a block of the same routine (RV-S630, for reading
-/// and for writing), naming a target twice (RV-S650), a target the block can't open that way (RV-S651),
-/// <c>try</c> on a target that can't be tried (RV-S611), the access call anywhere but passed to a call (RV-S652), and
-/// the token of a block handed to a job (RV-S632).
+/// Tests for the analysis of <c>viewing</c> / <c>modifying</c> blocks: opening a Guarded again inside a block of the
+/// same routine (RV-S630, for reading and for writing), naming a target twice (RV-S650), a target the block can't open
+/// that way (RV-S651), a target that needs no block (RV-S660), a Guarded's <c>view()</c> / <c>modify()</c> written in a
+/// program (RV-S659), and the reference of a block handed to a job (RV-S632).
 /// </summary>
 public class AccessBlockAnalysisTests
 {
@@ -103,7 +102,7 @@ public class AccessBlockAnalysisTests
     public void Analyze_AccessArgumentInsideBlock_SameHandle_Errors()
     {
         string source = Prelude + """
-                                  routine peek(c: Viewing[Counter]) -> S64
+                                  routine peek(c: %Counter) -> S64
                                       return c.value
 
                                   routine start()
@@ -168,17 +167,17 @@ public class AccessBlockAnalysisTests
     }
 
     [Fact]
-    public void Analyze_TryOnToken_Errors()
+    public void Analyze_TryOnReference_NeedsNoBlock()
     {
         string source = Prelude + """
-                                  routine bump(c: Modifying[Counter])
+                                  routine bump(c: @Counter)
                                       try modifying c
                                           nothing
                                       return
                                   """;
 
-        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "opening it never fails");
-        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.TryAccessOnUntryable);
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "is a reference already");
+        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.AccessBlockNotNeeded);
     }
 
     [Fact]
@@ -191,16 +190,16 @@ public class AccessBlockAnalysisTests
                                       return
                                   """;
 
-        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "isn't passed to a call");
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "opened with a block");
         Assert.Contains(collection: result.Errors,
-            filter: e => e.Code == SemanticDiagnosticCode.GuardAccessOutsideArgument);
+            filter: e => e.Code == SemanticDiagnosticCode.ReferenceVerbWritten);
     }
 
     [Fact]
-    public void Analyze_AccessArgument_Ok()
+    public void Analyze_AccessArgument_SaysToOpenWithBlock()
     {
         string source = Prelude + """
-                                  routine bump(c: Modifying[Counter])
+                                  routine bump(c: @Counter)
                                       c.value += 1
                                       return
 
@@ -211,14 +210,15 @@ public class AccessBlockAnalysisTests
                                       return
                                   """;
 
-        Assert.Empty(collection: AnalyzeSa(source: source).Errors);
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "`modifying s as m`");
+        Assert.Equal(expected: 2, actual: result.Errors.Count(predicate: e => e.Code == SemanticDiagnosticCode.ReferenceVerbWritten));
     }
 
     [Fact]
     public void Analyze_AccessArgumentInCondition_Errors()
     {
         string source = Prelude + """
-                                  routine big(c: Viewing[Counter]) -> Bool
+                                  routine big(c: %Counter) -> Bool
                                       return c.value > 10
 
                                   routine start()
@@ -228,9 +228,9 @@ public class AccessBlockAnalysisTests
                                       return
                                   """;
 
-        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "statement of its own");
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "`viewing s as v`");
         Assert.Contains(collection: result.Errors,
-            filter: e => e.Code == SemanticDiagnosticCode.GuardAccessOutsideArgument);
+            filter: e => e.Code == SemanticDiagnosticCode.ReferenceVerbWritten);
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class AccessBlockAnalysisTests
     {
         // The token a `modifying` block binds is a plain Modifying: it is the one writer by where it came from.
         string source = Prelude + """
-                                  routine two(a: Modifying[Counter], b: Modifying[Counter])
+                                  routine two(a: @Counter, b: @Counter)
                                       a.value += 1
                                       b.value += 1
                                       return
@@ -251,7 +251,7 @@ public class AccessBlockAnalysisTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "the write token a 'modifying' block opened");
+            expectedErrorSubstring: "the write reference a 'modifying' block opened");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.ExclusiveTokenDuplicate);
         Assert.DoesNotContain(collection: result.Errors,
@@ -262,7 +262,7 @@ public class AccessBlockAnalysisTests
     public void Analyze_BlockTokenToWork_Errors()
     {
         string source = Prelude + """
-                                  routine bump(c: Modifying[Counter]) -> S64
+                                  routine bump(c: @Counter) -> S64
                                       c.value += 1
                                       return c.value
 
@@ -284,7 +284,7 @@ public class AccessBlockAnalysisTests
     public void Analyze_ViewOnExclusive_SaysToModify()
     {
         string source = Prelude + """
-                                  routine peek(c: Viewing[Counter]) -> S64
+                                  routine peek(c: %Counter) -> S64
                                       return c.value
 
                                   routine start()
@@ -355,14 +355,29 @@ public class AccessBlockAnalysisTests
     }
 
     [Fact]
-    public void Analyze_TwoTokensOpenedTogether_MayChangeShapeWhileTheOtherIsWalked()
+    public void Analyze_BlockOverReferences_NeedsNoBlock()
     {
-        // Two tokens on the same kind of list may be the same list, unless one block opened both.
+        // References are used directly: a block opens a Guarded (or a type with an enter / exit pair).
         string source = """
-                        routine merge(into: Modifying[List[S64]], from: Viewing[List[S64]])
+                        routine merge(into: @List[S64], from: %List[S64])
                             modifying into, viewing from
                                 for v in from
                                     into.add_last(value: v)
+                            return
+                        """;
+
+        AnalysisResult result = AnalyzeSa(source: source);
+        Assert.Equal(expected: 2, actual: result.Errors.Count(predicate: e => e.Code == SemanticDiagnosticCode.AccessBlockNotNeeded));
+    }
+
+    [Fact]
+    public void Analyze_GrowWhileWalkingAReferenceThatMayBeIt_Analyzes()
+    {
+        // Two references on the same kind of list may be the same list: the loop checks its list at run time.
+        string source = """
+                        routine merge(into: @List[S64], from: %List[S64])
+                            for v in from
+                                into.add_last(value: v)
                             return
                         """;
 
@@ -382,7 +397,7 @@ public class AccessBlockAnalysisTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "use it directly");
-        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.AccessTargetNotOpenable);
+        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.AccessBlockNotNeeded);
     }
 
     /// <summary>A weak handle is held first: a block on a Tracked points to hold().</summary>
@@ -402,7 +417,7 @@ public class AccessBlockAnalysisTests
         Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.AccessTargetNotOpenable);
     }
 
-    /// <summary>A view_enter that gives no Viewing token is RV-S654.</summary>
+    /// <summary>A view_enter that gives no read reference is RV-S654.</summary>
     [Fact]
     public void Analyze_EnterWithoutToken_Errors()
     {
@@ -423,11 +438,11 @@ public class AccessBlockAnalysisTests
                                       return
                                   """;
 
-        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "returns a 'Viewing[...]'");
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "returns a read reference (`%T`)");
         Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.AccessEnterWithoutToken);
     }
 
-    /// <summary>In a try block the name is an Optional of the token, branched with when.</summary>
+    /// <summary>In a try block the name is an Optional of the reference, branched with when.</summary>
     [Fact]
     public void Analyze_TryBlockNameIsMaybe()
     {

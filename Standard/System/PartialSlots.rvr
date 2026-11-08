@@ -165,7 +165,7 @@ needs RecordType T
 ### :param index: The zero-based position.
 ### :returns: A write token on the element.
 ### :throws: {IndexOutOfBoundsError} if `index >= count()`.
-routine PartialSlots[T, COUNT].modify_at(index: U64) -> Modifying[T]
+routine PartialSlots[T, COUNT].modify_at(index: U64) -> @T
 needs EntityType T
     if index >= me.used
         throw IndexOutOfBoundsError(index: index, count: me.used)
@@ -177,7 +177,7 @@ needs EntityType T
 ### :returns: A read token on the element.
 ### :throws: {IndexOutOfBoundsError} if `index >= count()`.
 @readonly
-routine PartialSlots[T, COUNT].view_at(index: U64) -> Viewing[T]
+routine PartialSlots[T, COUNT].view_at(index: U64) -> %T
 needs EntityType T
     if index >= me.used
         throw IndexOutOfBoundsError(index: index, count: me.used)
@@ -244,11 +244,10 @@ routine PartialSlotsEmitter[T, COUNT].emit() -> T
 
 ### Tears down the elements held. The places that hold none are not touched.
 @override
-routine PartialSlots[T, COUNT].destruct()
+dangerous routine PartialSlots[T, COUNT].destruct()
     var i: U64 = 0
     until i >= me.used
-        danger
-            me.places.get_raw(index: i).destruct()
+        me.places.get_raw(index: i).destruct()
         i = i + 1
     return
 

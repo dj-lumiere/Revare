@@ -257,7 +257,7 @@ public class FeatureCoverageTests
                               module Test/Feat/Generic
                               import IO/Console
 
-                              routine in_set[T](items: Viewing[List[T]], target: T) -> Bool
+                              routine in_set[T](items: %List[T], target: T) -> Bool
                               needs RecordType T
                               needs T obeys Equatable, Hashable
                                   var s: Set[T] = Set[T]()
@@ -267,11 +267,9 @@ public class FeatureCoverageTests
 
                               routine start()
                                   var nums: List[S64] = [10, 20, 30]
-                                  viewing nums as g
-                                      show(f"{in_set(items: g, target: 20)}")
+                                  show(f"{in_set(items: nums, target: 20)}")
                                   var words: List[Text] = ["a", "b"]
-                                  viewing words as g
-                                      show(f"{in_set(items: g, target: "b")}")
+                                  show(f"{in_set(items: words, target: "b")}")
                                   return
                               """;
         _ = GenerateIr(source: source);

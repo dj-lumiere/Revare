@@ -21,7 +21,7 @@ routine find(n: S64) -> Node
         throw AbsentValueError()
     return Node(value: n, next: none)
 
-routine total(head: Viewing[Node]) -> S64
+routine total(head: %Node) -> S64
     var sum = head.value
     when head.next
         is None => return sum

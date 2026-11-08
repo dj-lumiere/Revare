@@ -275,6 +275,5 @@ routine RoamManager.data_address() -> Addr
 
 ### Ends the controller. The entity itself is freed by the release and cycle collection paths.
 @override
-routine RoamManager.destruct()
-    danger
-        return
+dangerous routine RoamManager.destruct()
+    return

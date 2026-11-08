@@ -8,7 +8,7 @@ import IO/Console
 entity Item
     n: S64
 
-routine Item.destruct()
+dangerous routine Item.destruct()
     show(f"destruct {me.n}")
     return
 
@@ -23,7 +23,7 @@ routine gept_pass_on[T](x: T) -> S64
 routine gept_count_one[T](x: T) -> S64
     return 1
 
-routine gept_keep_in[T](xs: Modifying[List[T]], x: T)
+routine gept_keep_in[T](xs: @List[T], x: T)
     if xs.count() > 5
         return
     xs.add_last(value: steal x)
@@ -40,7 +40,7 @@ routine start()
     show("after failed add_at")
     var w = try xs.add_at(index: 0, value: Item(n: 5))
     show("after add_at")
-    gept_keep_in(xs: xs.modify(), x: Item(n: 6))
+    gept_keep_in(xs: xs, x: Item(n: 6))
     show(f"kept {xs.count()}")
     show("end")
     return

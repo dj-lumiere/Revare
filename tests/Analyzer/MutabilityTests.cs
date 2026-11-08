@@ -247,10 +247,9 @@ public class MutabilityTests
     /// Verifies semantic analysis behavior for nested hijacking and reports the expected error.
     /// </summary>
     [Fact]
-    public void Analyze_NestedHijacking_ReportsError()
+    public void Analyze_BlockOnEntity_NeedsNoBlock()
     {
-        // Nested modifying (partial modifying) should not be allowed
-        // You cannot modify a child of an already-modifying object
+        // An entity is used directly: a `modifying` block over one (or over a part of one) is not needed.
         string source = """
                         entity Child
                             value: S64
@@ -267,13 +266,8 @@ public class MutabilityTests
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);
-        Assert.True(condition: result.Errors.Count > 0);
         Assert.Contains(collection: result.Errors,
-            filter: e =>
-                e.Message.Contains(value: "modify",
-                    comparisonType: StringComparison.OrdinalIgnoreCase) ||
-                e.Message.Contains(value: "nested",
-                    comparisonType: StringComparison.OrdinalIgnoreCase));
+            filter: e => e.Code == SemanticDiagnosticCode.AccessBlockNotNeeded);
     }
 
     #endregion
@@ -284,7 +278,7 @@ public class MutabilityTests
     /// Verifies semantic analysis behavior for entity bare assignment and reports the expected error.
     /// </summary>
     [Fact]
-    public void Analyze_EntityBareAssignment_ReportsError()
+    public void Analyze_EntitySecondName_IsAWriteReference()
     {
         string source = """
                         entity Document
@@ -293,11 +287,12 @@ public class MutabilityTests
                         routine test()
                             var doc1 = Document(title: "My Doc")
                             var doc2 = doc1
+                            doc2.title = "Other"
                             return
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);
-        Assert.Contains(collection: result.Errors,
+        Assert.DoesNotContain(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.BareEntityAssignment);
     }
     /// <summary>
@@ -452,7 +447,7 @@ public class MutabilityTests
     /// Entity ownership is non-copyable: use steal to explicitly transfer.
     /// </summary>
     [Fact]
-    public void Analyze_EntityParameterBareAssignment_ReportsError()
+    public void Analyze_EntityParameterSecondName_IsAWriteReference()
     {
         string source = """
                         entity Doc
@@ -464,7 +459,7 @@ public class MutabilityTests
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);
-        Assert.Contains(collection: result.Errors,
+        Assert.DoesNotContain(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.BareEntityAssignment);
     }
 

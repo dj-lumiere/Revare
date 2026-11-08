@@ -19,7 +19,7 @@ public class RoutineValueTokenTests
                                    entity Box
                                        n: S64
 
-                                   routine pick_second(a: Modifying[Box], b: Modifying[Box]) -> Modifying[Box]
+                                   routine pick_second(a: @Box, b: @Box) -> @Box
                                        return b
 
                                    """;
@@ -37,7 +37,7 @@ public class RoutineValueTokenTests
     {
         AssertHasErrorEndedBy(body: """
                             routine start()
-                                var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+                                var f: Callable[(@Box, @Box), @Box] = pick_second
                                 var a = Box(n: 1)
                                 var b = Box(n: 2)
                                 var r = f(a, b)
@@ -52,7 +52,7 @@ public class RoutineValueTokenTests
     {
         AssertHasErrorEndedBy(body: """
                             routine start()
-                                var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+                                var f: Callable[(@Box, @Box), @Box] = pick_second
                                 var a = Box(n: 1)
                                 var b = Box(n: 2)
                                 var r = f(a, b)
@@ -67,7 +67,7 @@ public class RoutineValueTokenTests
     {
         AssertAnalyzesSa(source: Prelude + """
                                            routine start()
-                                               var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+                                               var f: Callable[(@Box, @Box), @Box] = pick_second
                                                var a = Box(n: 1)
                                                var b = Box(n: 2)
                                                var c = Box(n: 3)
@@ -83,7 +83,7 @@ public class RoutineValueTokenTests
     {
         AssertHasErrorEndedBy(body: """
                             routine start()
-                                var f = (x: Modifying[Box], y: Modifying[Box]) given () => y
+                                var f = (x: @Box, y: @Box) given () => y
                                 var a = Box(n: 1)
                                 var b = Box(n: 2)
                                 var r = f(a, b)
@@ -98,7 +98,7 @@ public class RoutineValueTokenTests
     {
         AssertHasErrorEndedBy(body: """
                             entity Holder
-                                f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]]
+                                f: Callable[(@Box, @Box), @Box]
 
                             routine start()
                                 var h = Holder(f: pick_second)
@@ -116,7 +116,7 @@ public class RoutineValueTokenTests
     {
         AssertHasErrorEndedBy(body: """
                             routine start()
-                                var fs = List[Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]]]()
+                                var fs = List[Callable[(@Box, @Box), @Box]]()
                                 fs.add_last(value: pick_second)
                                 var a = Box(n: 1)
                                 var b = Box(n: 2)
@@ -131,7 +131,7 @@ public class RoutineValueTokenTests
     public void Analyze_GlobalRoutineValueResultAfterAnArgumentEnds_Errors()
     {
         AssertHasErrorEndedBy(body: """
-                            global chooser: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+                            global chooser: Callable[(@Box, @Box), @Box] = pick_second
 
                             routine start()
                                 var a = Box(n: 1)
@@ -153,7 +153,7 @@ public class RoutineValueTokenTests
                             routine start()
                                 var a = Box(n: 1)
                                 var b = Box(n: 2)
-                                var r = pick[Modifying[Box]](a.modify(), b.modify())
+                                var r = pick[@Box](a, b)
                                 drop b
                                 show(r.n)
                                 return
@@ -161,26 +161,24 @@ public class RoutineValueTokenTests
     }
 
     [Fact]
-    public void Analyze_LambdaGivingATokenOnWhatItCaptured_Errors()
+    public void Analyze_LambdaGivingAReferenceOnWhatItCaptured_IsCheckedWhereUsed()
     {
-        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
-                                                                   routine start()
-                                                                       var a = Box(n: 1)
-                                                                       var b = Box(n: 2)
-                                                                       var f = (x: Modifying[Box]) given (b) => b.modify()
-                                                                       var r = f(a)
-                                                                       show(r.n)
-                                                                       return
-                                                                   """,
-            expectedErrorSubstring: "which the lambda captured");
-        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.TokenReturnNotAllowed);
+        AssertAnalyzesSa(source: Prelude + """
+                                           routine start()
+                                               var a = Box(n: 1)
+                                               var b = Box(n: 2)
+                                               var f = (x: @Box) given (b) => b
+                                               var r = f(a)
+                                               show(r.n)
+                                               return
+                                           """);
     }
 
     [Fact]
     public void Analyze_GenericRoutineOverTokensAfterAnArgumentEnds_Errors()
     {
         AssertHasErrorEndedBy(body: """
-                            routine pick_v[T](a: Modifying[T], b: Modifying[T]) -> Modifying[T]
+                            routine pick_v[T](a: @T, b: @T) -> @T
                                 return b
 
                             routine start()

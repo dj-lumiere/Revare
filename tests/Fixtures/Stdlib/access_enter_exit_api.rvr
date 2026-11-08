@@ -3,8 +3,7 @@ module Tests/Stdlib/AccessEnterExitApi
 import IO/Console
 # A block enters any type that declares `view_enter()` / `view_exit()` (and `modify_enter()` / `modify_exit()`): the
 # enter gives the block's token and the exit runs on every way out. `modifying a, b` enters `a` then `b` and gives them
-# up in the opposite order. A `g.modify()` argument enters the Guarded around its statement. A Watched gives a Roamed
-# with `hold()` while its entity lives.
+# up in the opposite order. A Watched gives a Roamed with `hold()` while its entity lives.
 
 entity Counter
     value: S64
@@ -15,17 +14,17 @@ entity Door
     log: List[Text]
     inner: Counter
 
-routine Door.view_enter() -> Viewing[Counter]
+routine Door.view_enter() -> %Counter
     me.log.add_last(value: f"enter {me.name}")
-    return me.inner.view()
+    return me.inner
 
 routine Door.view_exit()
     me.log.add_last(value: f"exit {me.name}")
     return
 
-routine Door.modify_enter() -> Modifying[Counter]
+routine Door.modify_enter() -> @Counter
     me.log.add_last(value: f"enter {me.name} to write")
-    return me.inner.modify()
+    return me.inner
 
 routine Door.modify_exit()
     me.log.add_last(value: f"exit {me.name}")
@@ -37,7 +36,7 @@ routine first_positive(g: Guarded[Counter, MultiRead]) -> S64
             return c.value
     return 0
 
-routine add_one(c: Modifying[Counter])
+routine add_one(c: @Counter)
     c.value = c.value + 1
     return
 
@@ -62,8 +61,10 @@ routine start()
     show(f"after: {first_positive(g: shared)}")
 
     var g = Guarded[Counter, Exclusive](from: Counter(value: 40))
-    add_one(c: g.modify())
-    add_one(c: g.modify())
+    modifying g as c
+        add_one(c: c)
+    modifying g as c
+        add_one(c: c)
     modifying g as c
         show(f"guarded: {c.value}")
 

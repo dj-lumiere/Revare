@@ -9,7 +9,7 @@ entity Task
     level: S64
 
 @override
-routine Task.destruct()
+dangerous routine Task.destruct()
     show(f"end {me.id}")
     return
 

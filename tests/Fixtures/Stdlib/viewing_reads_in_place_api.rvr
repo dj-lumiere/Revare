@@ -9,23 +9,23 @@ entity Counter
     n: S64
 
 record Link
-    target: Modifying[Counter]?
+    target: @Counter?
     keep: Retained[Counter]
     weight: S64
 
-routine total(links: Viewing[List[Link]]) -> S64
+routine total(links: %List[Link]) -> S64
     var sum: S64 = links[0].target.n
     for l in links
         sum += l.target.n
-        sum += l.keep.view().n
+        sum += l.keep.n
         sum += l.weight
     return sum
 
-routine bump(links: Modifying[List[Link]])
+routine bump(links: @List[Link])
     for l in links
         l.target.n += 1
         var held = l.keep
-        held.modify().n += 10
+        held.n += 10
     return
 
 routine start()
@@ -35,6 +35,6 @@ routine start()
     links.add_last(value: Link(target: a, keep: b, weight: 1000))
     show(total(links: links))
     bump(links: links)
-    show(f"{a.n} {b.view().n}")
+    show(f"{a.n} {b.n}")
     show(total(links: links))
     return

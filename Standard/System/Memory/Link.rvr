@@ -3,7 +3,7 @@ module System/Memory
 import BuilderQuery
 
 ### A token taken from a link is in use. A link is an optional token on an entity kept in a place (`parent:
-### Modifying[Node]?` in a member variable, a collection's element, a global, a local): it never keeps its entity alive,
+### @Node?` in a member variable, a collection's element, a global, a local): it never keeps its entity alive,
 ### and it reads as none once the entity ended. The builder keeps one of these in each arm of a `when` that takes a link
 ### and binds its token, for as long as the arm runs. The entity's destruct waits while one is kept, and its end lets
 ### the destruct run when the entity ended meanwhile. For a type no link is kept to, it does nothing, so a generic body
@@ -31,7 +31,7 @@ routine StaleLinkError.crash_message() -> Text
 ### :returns: A write token on the entity.
 ### :throws: {StaleLinkError} The entity the link names has ended.
 ### :throws: {AbsentValueError} The link is empty.
-routine take_modifying_link[E](link: Modifying[E]?) -> Modifying[E]
+routine take_modifying_link[E](link: @E?) -> @E
 needs EntityType E
     when link
         is None =>
@@ -45,7 +45,7 @@ needs EntityType E
 ### :returns: A read token on the entity.
 ### :throws: {StaleLinkError} The entity the link names has ended.
 ### :throws: {AbsentValueError} The link is empty.
-routine take_viewing_link[E](link: Viewing[E]?) -> Viewing[E]
+routine take_viewing_link[E](link: %E?) -> %E
 needs EntityType E
     when link
         is None =>
@@ -57,18 +57,18 @@ needs EntityType E
 ### The address a write link holds, whether or not its entity has ended: 0 for an empty link.
 ### :param link: The link.
 ### :returns: The address.
-secret routine link_address[E](link: Modifying[E]?) -> Addr
+secret routine link_address[E](link: @E?) -> Addr
 needs EntityType E
     danger
-        return LLVM::link_token[E](link: LLVM::reinterpret_bits[Modifying[E]?, U128](link))
+        return LLVM::link_token[E](link: LLVM::reinterpret_bits[@E?, U128](link))
 
 ### The address a read-only link holds, whether or not its entity has ended: 0 for an empty link.
 ### :param link: The link.
 ### :returns: The address.
-secret routine link_address[E](link: Viewing[E]?) -> Addr
+secret routine link_address[E](link: %E?) -> Addr
 needs EntityType E
     danger
-        return LLVM::link_token[E](link: LLVM::reinterpret_bits[Viewing[E]?, U128](link))
+        return LLVM::link_token[E](link: LLVM::reinterpret_bits[%E?, U128](link))
 
 ### Marks a token taken from a link as in use, until the result ends.
 ### :returns: What ends the use.
@@ -99,10 +99,9 @@ infallible routine Viewing[T].begin_link_use() -> LinkUse[T]
 ### Ends the use of a token taken from a link. When the entity ended while the token was in use, its slot goes back to
 ### its store now.
 @override
-infallible routine LinkUse[T].destruct()
+infallible dangerous routine LinkUse[T].destruct()
     if T.is_retroactive()
-        danger
-            C::rf_slot_use_end(box: me.at)
+        C::rf_slot_use_end(box: me.at)
     return
 
 ### The start of an entity's end, which the builder puts first in a written `destruct`. For an entity of a retroactive
@@ -147,10 +146,10 @@ needs EntityType T
 ### :param token: The token.
 ### :throws: {EntityEndedError} The entity has ended.
 @inline
-routine require_modifying_live[T](token: Modifying[T])
+routine require_modifying_live[T](token: @T)
     if T.is_retroactive()
         danger
-            if C::rf_slot_ended(box: LLVM::reinterpret_bits[Modifying[T], Addr](token)) != 0
+            if C::rf_slot_ended(box: LLVM::reinterpret_bits[@T, Addr](token)) != 0
                 throw EntityEndedError(type_name: T.type_name())
     return
 
@@ -158,10 +157,10 @@ routine require_modifying_live[T](token: Modifying[T])
 ### :param token: The token.
 ### :throws: {EntityEndedError} The entity has ended.
 @inline
-routine require_viewing_live[T](token: Viewing[T])
+routine require_viewing_live[T](token: %T)
     if T.is_retroactive()
         danger
-            if C::rf_slot_ended(box: LLVM::reinterpret_bits[Viewing[T], Addr](token)) != 0
+            if C::rf_slot_ended(box: LLVM::reinterpret_bits[%T, Addr](token)) != 0
                 throw EntityEndedError(type_name: T.type_name())
     return
 
@@ -222,7 +221,7 @@ dangerous routine LLVM::link_same[T](a: U128, b: U128) -> Bool
 ### :param link: One link.
 ### :param you: The other link.
 ### :returns: `true` for the same link.
-secret routine link_eq[T](link: T?, you: Viewing[T?]) -> Bool
+secret routine link_eq[T](link: T?, you: %(T?)) -> Bool
     danger
         var other = Hijacked[T?](you).peek()
         return LLVM::reinterpret_bits[T?, U128](link) == LLVM::reinterpret_bits[T?, U128](other)

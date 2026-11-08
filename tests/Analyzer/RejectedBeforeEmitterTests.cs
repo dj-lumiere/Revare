@@ -261,16 +261,16 @@ public class RejectedBeforeEmitterTests
                          entity Box
                              n: S64
 
-                         routine bump(boxes: Viewing[List[Box]])
+                         routine bump(boxes: %List[Box])
                              boxes[0].n += 1
                              return
 
                          routine start()
                              var boxes = [Box(n: 1)]
-                             bump(boxes: boxes.view())
+                             bump(boxes: boxes)
                              return
                          """,
-            expectedErrorSubstring: "reached through a read-only token");
+            expectedErrorSubstring: "reached through a read reference");
     }
 
     [Fact]

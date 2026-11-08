@@ -86,7 +86,6 @@ routine SignalCaster.duplicate() -> SignalCaster
 
 ### Drops this handle; the monitor frees once the last handle goes.
 @override
-routine SignalCaster.destruct()
-    danger
-        C::rf_signal_drop(sig: me.sig)
-        return
+dangerous routine SignalCaster.destruct()
+    C::rf_signal_drop(sig: me.sig)
+    return

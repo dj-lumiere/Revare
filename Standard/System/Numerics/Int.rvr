@@ -695,7 +695,7 @@ secret routine integer_text(v: Int, radix: U64) -> Text
 ### of its list of limbs.
 @inline
 @override
-routine Int.destruct()
+dangerous routine Int.destruct()
     if me.owner.is_hollow()
         return
     me.owner.destruct()

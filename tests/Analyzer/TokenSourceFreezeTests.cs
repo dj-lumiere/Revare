@@ -23,7 +23,7 @@ public class TokenSourceFreezeTests
                                        me.n = me.n + 1
                                        return
 
-                                   routine take(m: Modifying[Box], b: Box)
+                                   routine take(m: @Box, b: Box)
                                        m.bump()
                                        return
 
@@ -35,14 +35,14 @@ public class TokenSourceFreezeTests
         string source = Prelude + """
                                   routine start()
                                       var a = Box(n: 1)
-                                      modifying a as m
-                                          a = Box(n: 50)
-                                          m.bump()
+                                      var m = a
+                                      a = Box(n: 50)
+                                      m.bump()
                                       return
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "You are using the token 'm'");
+            expectedErrorSubstring: "You are using the reference 'm'");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged);
     }
@@ -53,14 +53,14 @@ public class TokenSourceFreezeTests
         string source = Prelude + """
                                   routine start()
                                       var a = Box(n: 1)
-                                      viewing a as v
-                                          var b = steal a
-                                          show(f"{v.n}")
+                                      var v: %Box = a
+                                      var b = steal a
+                                      show(f"{v.n}")
                                       return
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "You are using the token 'v'");
+            expectedErrorSubstring: "You are using the reference 'v'");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged);
     }
@@ -71,7 +71,7 @@ public class TokenSourceFreezeTests
         string source = Prelude + """
                                   routine start()
                                       var a = Box(n: 1)
-                                      take(m: a.modify(), b: steal a)
+                                      take(m: a, b: steal a)
                                       return
                                   """;
 
@@ -87,8 +87,7 @@ public class TokenSourceFreezeTests
         string source = Prelude + """
                                   routine start()
                                       var a = Box(n: 1)
-                                      modifying a as m
-                                          m.bump()
+                                      a.bump()
                                       a = Box(n: 50)
                                       show(f"{a.n}")
                                       return
@@ -106,9 +105,8 @@ public class TokenSourceFreezeTests
                                   routine start()
                                       var a = Box(n: 1)
                                       var b = Box(n: 2)
-                                      modifying a as m
-                                          b = Box(n: 9)
-                                          m.bump()
+                                      b = Box(n: 9)
+                                      a.bump()
                                       show(f"{a.n} {b.n}")
                                       return
                                   """;
@@ -162,7 +160,7 @@ public class TokenSourceFreezeTests
         string source = Prelude + """
                                   routine start()
                                       var a = Box(n: 1)
-                                      a.modify().bump()
+                                      a.bump()
                                       a = Box(n: 3)
                                       show(f"{a.n}")
                                       return

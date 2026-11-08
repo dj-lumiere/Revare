@@ -6,18 +6,18 @@ import IO/Console
 # ends only when `xs` changes, not when an unrelated local does. A slice is a new list holding nothing of its
 # source, so stealing it leaves the source free to grow.
 
-routine size_of(s: Modifying[List[Dict[S32, S32]]], at: U64) -> U64
+routine size_of(s: @List[Dict[S32, S32]], at: U64) -> U64
     return s[at].count()
 
-routine size_through_view(s: Viewing[List[Dict[S32, S32]]]) -> U64
+routine size_through_view(s: %List[Dict[S32, S32]]) -> U64
     return s[0].count()
 
-routine put(s: Modifying[List[Dict[S32, S32]]])
+routine put(s: @List[Dict[S32, S32]])
     var result = s[0]
     result[7] = 70
     return
 
-routine show_sorted(sets: Viewing[List[Dict[S32, S32]]])
+routine show_sorted(sets: %List[Dict[S32, S32]])
     for (index, set) in sets.enumerate()
         var keys = set.keys()
         keys.sort()
@@ -33,7 +33,7 @@ routine total(cells: List[S64]) -> S64
         sum += c
     return sum
 
-routine grow(cells: Modifying[List[S64]])
+routine grow(cells: @List[S64])
     cells.add_last(value: 9)
     return
 
@@ -46,7 +46,7 @@ routine start()
     var first = level[0 til 2]
     var job = total.to[Work](cells: steal first)
     show(f"{job.retrieve()}")
-    grow(cells: level.modify())
+    grow(cells: level)
     show(f"{level}")
     show("DONE")
     return

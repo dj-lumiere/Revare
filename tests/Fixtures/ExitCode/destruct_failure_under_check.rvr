@@ -10,7 +10,7 @@ entity Q
 routine nope() -> S64
     throw VerificationFailedError()
 
-routine Q.destruct()
+dangerous routine Q.destruct()
     drop nope()
     return
 

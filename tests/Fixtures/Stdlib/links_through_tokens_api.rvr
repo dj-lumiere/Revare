@@ -8,15 +8,15 @@ import IO/Console
 entity Creature
     x: S64
     y: S64
-    parent: Modifying[Creature]?
+    parent: @Creature?
 
-routine total(links: Viewing[List[Modifying[Creature]?]]) -> S64
+routine total(links: %List[@Creature?]) -> S64
     var sum: S64 = links[0].x
     for at in links
         sum += at.x
     return sum
 
-routine nudge(links: Modifying[List[Modifying[Creature]?]])
+routine nudge(links: @List[@Creature?])
     for at in links
         when at
             is None => nothing
@@ -25,12 +25,12 @@ routine nudge(links: Modifying[List[Modifying[Creature]?]])
                 c.x = c.y + 2
     return
 
-routine parent_x(c: Viewing[Creature]) -> S64
+routine parent_x(c: %Creature) -> S64
     when c.parent
         is None => return -1
         else as p => return p.x
 
-routine keyed(links: Viewing[Dict[S64, Modifying[Creature]?]]) -> S64
+routine keyed(links: %Dict[S64, @Creature?]) -> S64
     var sum: S64 = 0
     for (k, link) in links
         when link
@@ -42,7 +42,7 @@ routine start()
     var herd = List[Creature]()
     herd.add_last(value: Creature(x: 1, y: 1, parent: none))
     herd.add_last(value: Creature(x: 3, y: 1, parent: none))
-    var links = List[Modifying[Creature]?]()
+    var links = List[@Creature?]()
     links.add_last(value: herd[0])
     links.add_last(value: herd[1])
     show(total(links: links))
@@ -53,7 +53,7 @@ routine start()
         kids.add_last(value: Creature(x: 0, y: 0, parent: at))
     for kid in kids
         show(parent_x(c: kid))
-    var by_key = Dict[S64, Modifying[Creature]?]()
+    var by_key = Dict[S64, @Creature?]()
     by_key[2] = herd[1]
     by_key[3] = herd[0]
     show(keyed(links: by_key))

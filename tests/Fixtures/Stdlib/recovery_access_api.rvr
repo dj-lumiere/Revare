@@ -11,7 +11,7 @@ crashable NopeError
 routine NopeError.crash_message() -> Text
     return "nope"
 
-routine pick(xs: Viewing[List[S64]], i: U64) -> S64
+routine pick(xs: %List[S64], i: U64) -> S64
     if i > 1000
         throw NopeError()
     var v = xs[i]
@@ -22,7 +22,7 @@ routine letter(t: Text, i: U64) -> Char
         throw AbsentValueError()
     return t[i]
 
-routine score(d: Viewing[Dict[Text, S64]], name: Text) -> S64
+routine score(d: %Dict[Text, S64], name: Text) -> S64
     if name == ""
         throw NopeError()
     return d[name] * 10
@@ -40,17 +40,17 @@ routine parsed(t: Text) -> S64
     return big.to[S64]()
 
 # a generic routine: the subscript is the instance's own
-routine first_of[T](xs: Viewing[List[T]]) -> T
+routine first_of[T](xs: %List[T]) -> T
 needs RecordType T
     if xs.count() > 1000
         throw AbsentValueError()
     return xs[0]
 
 # a failable routine with a subscript, called bare by another failable one
-routine last_of(xs: Viewing[List[S64]]) -> S64
+routine last_of(xs: %List[S64]) -> S64
     return xs[xs.count() - 1]
 
-routine last_plus_one(xs: Viewing[List[S64]]) -> S64
+routine last_plus_one(xs: %List[S64]) -> S64
     if xs.count() > 1000
         throw AbsentValueError()
     return last_of(xs: xs) + 1
@@ -60,28 +60,28 @@ routine start()
     xs.add_last(value: 4)
     xs.add_last(value: 5)
     var empty = List[S64]()
-    show(f"try pick(1): {try pick(xs: xs.view(), i: 1)}")
-    show(f"try pick(9): {try pick(xs: xs.view(), i: 9)}")
-    show(f"grab pick(9): {check pick(xs: xs.view(), i: 9)}")
-    show(f"check pick(9): {check pick(xs: xs.view(), i: 9)}")
+    show(f"try pick(1): {try pick(xs: xs, i: 1)}")
+    show(f"try pick(9): {try pick(xs: xs, i: 9)}")
+    show(f"grab pick(9): {check pick(xs: xs, i: 9)}")
+    show(f"check pick(9): {check pick(xs: xs, i: 9)}")
     show(f"try letter(1): {try letter(t: "abc", i: 1)}")
     show(f"grab letter(9): {check letter(t: "abc", i: 9)}")
     var d = Dict[Text, S64]()
     d["ann"] = 3
-    show(f"try score(ann): {try score(d: d.view(), name: "ann")}")
-    show(f"check score(bob): {check score(d: d.view(), name: "bob")}")
-    show(f"grab score(empty): {check score(d: d.view(), name: "")}")
+    show(f"try score(ann): {try score(d: d, name: "ann")}")
+    show(f"check score(bob): {check score(d: d, name: "bob")}")
+    show(f"grab score(empty): {check score(d: d, name: "")}")
     show(f"try narrow(100): {try narrow(n: 100)}")
     show(f"grab narrow(300): {check narrow(n: 300)}")
     show(f"try parsed(42): {try parsed(t: "42")}")
     show(f"grab parsed(4x): {check parsed(t: "4x")}")
     show(f"grab parsed(huge): {check parsed(t: "99999999999999999999")}")
-    show(f"try first_of(xs): {try first_of(xs: xs.view())}")
-    show(f"try first_of(empty): {try first_of(xs: empty.view())}")
+    show(f"try first_of(xs): {try first_of(xs: xs)}")
+    show(f"try first_of(empty): {try first_of(xs: empty)}")
     var words = List[Text]()
-    show(f"check first_of(words): {check first_of(xs: words.view())}")
-    show(f"try last_plus_one(xs): {try last_plus_one(xs: xs.view())}")
-    show(f"grab last_plus_one(empty): {check last_plus_one(xs: empty.view())}")
+    show(f"check first_of(words): {check first_of(xs: words)}")
+    show(f"try last_plus_one(xs): {try last_plus_one(xs: xs)}")
+    show(f"grab last_plus_one(empty): {check last_plus_one(xs: empty)}")
     show(f"try xs[7]: {try xs[7]}")
     show(f"try xs[0] + xs[1]: {try xs[0] + xs[1]}")
     show("DONE")

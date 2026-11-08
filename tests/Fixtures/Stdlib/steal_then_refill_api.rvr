@@ -8,7 +8,7 @@ import IO/Console
 entity Item
     n: S64
 
-routine Item.destruct()
+dangerous routine Item.destruct()
     show(f"destruct {me.n}")
     return
 

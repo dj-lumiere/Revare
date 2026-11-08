@@ -196,22 +196,21 @@ dangerous routine BTreeDictNode[TKey, TValue].children_get(i: U64) -> Hijacked[B
 ### stored key and value, then frees this node's own allocation. Visited inline (never bound to a
 ### `var`) so scope-exit teardown doesn't double-free.
 @override
-routine BTreeDictNode[TKey, TValue].destruct()
-    danger
-        if not me.is_leaf
-            var ci: U64 = 0
-            until ci >= me.child_count
-                me
-                    .children_get(ci)
-                    .as_entity()
-                    .destruct()
-                ci = ci + 1
-        var ki: U64 = 0
-        until ki >= me.key_count
-            me.key_get(ki).destruct()
-            me.value_get(ki).destruct()
-            ki = ki + 1
-        return
+dangerous routine BTreeDictNode[TKey, TValue].destruct()
+    if not me.is_leaf
+        var ci: U64 = 0
+        until ci >= me.child_count
+            me
+                .children_get(ci)
+                .as_entity()
+                .destruct()
+            ci = ci + 1
+    var ki: U64 = 0
+    until ki >= me.key_count
+        me.key_get(ki).destruct()
+        me.value_get(ki).destruct()
+        ki = ki + 1
+    return
 
 ### Cycle-collector TRACE: recurse into every child node, then report each stored key AND value to the
 ### collector. Overrides the universal member-walk (keys/values live in fixed inline arrays the generic
@@ -249,12 +248,11 @@ infallible dangerous routine BTreeDictNode[TKey, TValue].roam_free()
 
 ### Frees the entire backing B-tree — every node, key, and value — at scope exit.
 @override
-routine SortedDict[TKey, TValue].destruct()
-    danger
-        if me.root is None
-            return
-        me.root!!.as_entity().destruct()
+dangerous routine SortedDict[TKey, TValue].destruct()
+    if me.root is None
         return
+    me.root!!.as_entity().destruct()
+    return
 
 ### Cycle-collector TRACE: delegate to the root node's recursive trace (reports every key/value).
 @override
@@ -410,7 +408,7 @@ secret routine BTreeDictNode[TKey, TValue].children_truncate(n: U64)
 ### :param start: Zero-based start index in `other`.
 ### :param count: Number of entries to copy.
 secret routine BTreeDictNode[TKey, TValue].entries_add_range_from(
-    other: Viewing[BTreeDictNode[TKey, TValue]],
+    other: %BTreeDictNode[TKey, TValue],
     start: U64,
     count: U64,
 )
@@ -444,7 +442,7 @@ secret routine BTreeDictNode[TKey, TValue].entries_add_range_from(
 ### :param start: Zero-based start index in `other`.
 ### :param count: Number of child pointers to copy.
 secret routine BTreeDictNode[TKey, TValue].children_add_range_from(
-    other: Viewing[BTreeDictNode[TKey, TValue]],
+    other: %BTreeDictNode[TKey, TValue],
     start: U64,
     count: U64,
 )
@@ -539,7 +537,7 @@ routine SortedDict[TKey, TValue].clear()
 ### :returns: Smallest index `i` where `node.keys[i] >= key`, or `keys_count()` if all keys are smaller.
 @readonly
 @inline
-secret routine SortedDict[TKey, TValue].lower_bound(node: Viewing[BTreeDictNode[TKey, TValue]], key: TKey) -> U64
+secret routine SortedDict[TKey, TValue].lower_bound(node: %BTreeDictNode[TKey, TValue], key: TKey) -> U64
     var lo: U64 = 0
     var hi = node.keys_count()
     until lo >= hi
@@ -578,7 +576,7 @@ routine SortedDict[TKey, TValue].lacks_key(key: TKey) -> Bool
 ### :returns: `true` if found anywhere in the subtree.
 @readonly
 @inline
-secret routine SortedDict[TKey, TValue].search_node(node: Viewing[BTreeDictNode[TKey, TValue]], key: TKey) -> Bool
+secret routine SortedDict[TKey, TValue].search_node(node: %BTreeDictNode[TKey, TValue], key: TKey) -> Bool
     danger
         var i = me.lower_bound(node: node, key: key)
         if i < node.keys_count() and key == node.key_get(i)
@@ -593,7 +591,7 @@ secret routine SortedDict[TKey, TValue].search_node(node: Viewing[BTreeDictNode[
 ### :throws: `KeyNotFoundError` if `key` is not present.
 @readonly
 @overridable
-routine SortedDict[TKey, TValue].getitem(key: Viewing[TKey]) -> TValue
+routine SortedDict[TKey, TValue].getitem(key: %TKey) -> TValue
 needs RecordType TValue
     if me.root is None
         throw KeyNotFoundError(key: key.represent())
@@ -607,7 +605,7 @@ needs RecordType TValue
 ### :returns: The value mapped to `key`.
 ### :throws: `KeyNotFoundError` if `key` is not present.
 @readonly
-secret routine SortedDict[TKey, TValue].get_from_node(node: Viewing[BTreeDictNode[TKey, TValue]], key: TKey) -> TValue
+secret routine SortedDict[TKey, TValue].get_from_node(node: %BTreeDictNode[TKey, TValue], key: TKey) -> TValue
     danger
         var i = me.lower_bound(node: node, key: key)
         if i < node.keys_count() and key == node.key_get(i)
@@ -648,7 +646,7 @@ routine SortedDict[TKey, TValue].slot(key: TKey, seed: TValue) -> Hijacked[TValu
 ### :param key: The key whose value cell to locate.
 ### :returns: A {Hijacked[TValue]} addressing the value cell.
 @readonly
-secret routine SortedDict[TKey, TValue].value_slot_in(node: Viewing[BTreeDictNode[TKey, TValue]], key: TKey) -> Hijacked[TValue]
+secret routine SortedDict[TKey, TValue].value_slot_in(node: %BTreeDictNode[TKey, TValue], key: TKey) -> Hijacked[TValue]
     danger
         var i = me.lower_bound(node: node, key: key)
         if i < node.keys_count() and key == node.key_get(i)
@@ -705,7 +703,7 @@ secret routine SortedDict[TKey, TValue].put(key: TKey, value: TValue) -> Bool
 ### :returns: `true` if a new entry was inserted; `false` if an existing key was updated.
 @inline
 secret routine SortedDict[TKey, TValue].insert_non_full(
-    node: Modifying[BTreeDictNode[TKey, TValue]],
+    node: @BTreeDictNode[TKey, TValue],
     key: TKey,
     value: TValue,
 ) -> Bool
@@ -745,7 +743,7 @@ secret routine SortedDict[TKey, TValue].insert_non_full(
 ### :param parent_node: The parent node that owns the full child.
 ### :param child_idx: Index of the full child within `parent_node`'s children buffer.
 @inline
-secret routine SortedDict[TKey, TValue].split_child(parent_node: Modifying[BTreeDictNode[TKey, TValue]], child_idx: U64)
+secret routine SortedDict[TKey, TValue].split_child(parent_node: @BTreeDictNode[TKey, TValue], child_idx: U64)
     danger
         var child = parent_node.children_get(child_idx).as_entity()
         var mid = LLVM::unsigned_div(B_DICT -% 1, 2)
@@ -825,7 +823,7 @@ routine SortedDict[TKey, TValue].remove(key: TKey) -> Bool
 ### :param ending: `true` if the removed entry is to be torn down, `false` if it only moves elsewhere and stays in use.
 ### :returns: `true` if the key was found and removed.
 @inline
-secret routine SortedDict[TKey, TValue].remove_from_node(node: Modifying[BTreeDictNode[TKey, TValue]], key: TKey, ending: Bool) -> Bool
+secret routine SortedDict[TKey, TValue].remove_from_node(node: @BTreeDictNode[TKey, TValue], key: TKey, ending: Bool) -> Bool
     danger
         var i = me.lower_bound(node: node, key: key)
 
@@ -887,7 +885,7 @@ secret routine SortedDict[TKey, TValue].remove_from_node(node: Modifying[BTreeDi
 ### :returns: The in-order predecessor entry.
 @inline
 secret routine SortedDict[TKey, TValue].get_predecessor(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
+    node: %BTreeDictNode[TKey, TValue],
     idx: U64,
 ) -> (TKey, TValue)
     danger
@@ -903,7 +901,7 @@ secret routine SortedDict[TKey, TValue].get_predecessor(
 ### :returns: The in-order successor entry.
 @inline
 secret routine SortedDict[TKey, TValue].get_successor(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
+    node: %BTreeDictNode[TKey, TValue],
     idx: U64,
 ) -> (TKey, TValue)
     danger
@@ -916,7 +914,7 @@ secret routine SortedDict[TKey, TValue].get_successor(
 ### :param node: The parent node whose two adjacent children are merged.
 ### :param i: Index of the separator entry and the left child that absorbs the right.
 @inline
-secret routine SortedDict[TKey, TValue].merge_children_at(node: Modifying[BTreeDictNode[TKey, TValue]], i: U64)
+secret routine SortedDict[TKey, TValue].merge_children_at(node: @BTreeDictNode[TKey, TValue], i: U64)
     danger
         var left = node.children_get(i).as_entity()
         var right = node.children_get(i +% 1).as_entity()
@@ -938,7 +936,7 @@ secret routine SortedDict[TKey, TValue].merge_children_at(node: Modifying[BTreeD
 ### :param i: The child index that is about to be descended into.
 ### :returns: The adjusted child index after any rotation or merge.
 @inline
-secret routine SortedDict[TKey, TValue].fix_child(node: Modifying[BTreeDictNode[TKey, TValue]], i: U64) -> U64
+secret routine SortedDict[TKey, TValue].fix_child(node: @BTreeDictNode[TKey, TValue], i: U64) -> U64
     danger
         if node
             .children_get(i)
@@ -969,7 +967,7 @@ secret routine SortedDict[TKey, TValue].fix_child(node: Modifying[BTreeDictNode[
 ### :param node: The parent node.
 ### :param i: Index of the child that receives the borrowed entry.
 @inline
-secret routine SortedDict[TKey, TValue].rotate_right_at(node: Modifying[BTreeDictNode[TKey, TValue]], i: U64)
+secret routine SortedDict[TKey, TValue].rotate_right_at(node: @BTreeDictNode[TKey, TValue], i: U64)
     danger
         var left = node.children_get(i -% 1).as_entity()
         var child = node.children_get(i).as_entity()
@@ -999,7 +997,7 @@ secret routine SortedDict[TKey, TValue].rotate_right_at(node: Modifying[BTreeDic
 ### :param node: The parent node.
 ### :param i: Index of the child that receives the borrowed entry.
 @inline
-secret routine SortedDict[TKey, TValue].rotate_left_at(node: Modifying[BTreeDictNode[TKey, TValue]], i: U64)
+secret routine SortedDict[TKey, TValue].rotate_left_at(node: @BTreeDictNode[TKey, TValue], i: U64)
     danger
         var right = node.children_get(i +% 1).as_entity()
         var child = node.children_get(i).as_entity()
@@ -1026,7 +1024,7 @@ secret routine SortedDict[TKey, TValue].rotate_left_at(node: Modifying[BTreeDict
 ### Recomputes `node.subtree_size` from its entries and children.
 ### :param node: The node whose subtree size is to be refreshed.
 @inline
-secret routine SortedDict[TKey, TValue].update_subtree_size(node: Modifying[BTreeDictNode[TKey, TValue]])
+secret routine SortedDict[TKey, TValue].update_subtree_size(node: @BTreeDictNode[TKey, TValue])
     danger
         if node.is_leaf
             node.subtree_size = node.keys_count()
@@ -1062,7 +1060,7 @@ routine SortedDict[TKey, TValue].get_by_rank(i: U64) -> (TKey, TValue)
 ### :returns: The `(TKey, TValue)` tuple at that rank.
 @readonly
 secret routine SortedDict[TKey, TValue].get_by_rank_node(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
+    node: %BTreeDictNode[TKey, TValue],
     rank: U64,
 ) -> (TKey, TValue)
     danger
@@ -1102,7 +1100,7 @@ routine SortedDict[TKey, TValue].get_or(key: TKey, default: TValue) -> TValue
 ### :returns: The mapped value if found, otherwise `default`.
 @readonly
 secret routine SortedDict[TKey, TValue].get_or_from_node(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
+    node: %BTreeDictNode[TKey, TValue],
     key: TKey,
     default: TValue,
 ) -> TValue
@@ -1185,8 +1183,8 @@ routine SortedDict[TKey, TValue].keys() -> List[TKey]
 ### :param result: The list to append keys into.
 @readonly
 secret routine SortedDict[TKey, TValue].collect_keys(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
-    result: Modifying[List[TKey]],
+    node: %BTreeDictNode[TKey, TValue],
+    result: @List[TKey],
 )
     danger
         var i: U64 = 0
@@ -1220,8 +1218,8 @@ routine SortedDict[TKey, TValue].values() -> List[TValue]
 ### :param result: The list to append values into.
 @readonly
 secret routine SortedDict[TKey, TValue].collect_values(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
-    result: Modifying[List[TValue]],
+    node: %BTreeDictNode[TKey, TValue],
+    result: @List[TValue],
 )
     danger
         var i: U64 = 0
@@ -1247,7 +1245,7 @@ secret routine SortedDict[TKey, TValue].collect_values(
 ### :returns: The entry at that rank.
 @readonly
 secret routine SortedDict[TKey, TValue].get_by_rank(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
+    node: %BTreeDictNode[TKey, TValue],
     rank: U64,
 ) -> (TKey, TValue)
     danger
@@ -1296,8 +1294,8 @@ routine SortedDict[TKey, TValue].to[List[(TKey, TValue)]]() -> List[(TKey, TValu
 ### :param result: The list to append entries into.
 @readonly
 secret routine SortedDict[TKey, TValue].collect_inorder(
-    node: Viewing[BTreeDictNode[TKey, TValue]],
-    result: Modifying[List[(TKey, TValue)]],
+    node: %BTreeDictNode[TKey, TValue],
+    result: @List[(TKey, TValue)],
 )
     danger
         var i: U64 = 0

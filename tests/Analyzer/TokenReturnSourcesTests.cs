@@ -19,15 +19,15 @@ public class TokenReturnSourcesTests
                                    entity Box
                                        n: S64
 
-                                   routine shorter(x: Viewing[List[S64]], y: Viewing[List[S64]]) -> Viewing[List[S64]]
+                                   routine shorter(x: %List[S64], y: %List[S64]) -> %List[S64]
                                        if x.count() <= y.count()
                                            return x
                                        return y
 
-                                   routine shortest(p: Viewing[List[S64]], q: Viewing[List[S64]]) -> Viewing[List[S64]]
+                                   routine shortest(p: %List[S64], q: %List[S64]) -> %List[S64]
                                        return shorter(x: p, y: q)
 
-                                   routine first_box(x: Viewing[List[Box]], y: Viewing[List[Box]]) -> Viewing[Box]
+                                   routine first_box(x: %List[Box], y: %List[Box]) -> %Box
                                        return if x.count() > 0 then x.view_at(index: 0) else y.view_at(index: 0)
 
                                    """;
@@ -66,7 +66,7 @@ public class TokenReturnSourcesTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "You are using the token 'v'");
+            expectedErrorSubstring: "You are using the reference 'v'");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged &&
                          e.Message.Contains(value: "'a'"));
@@ -79,7 +79,7 @@ public class TokenReturnSourcesTests
                                   routine start()
                                       var a = [1, 2, 3]
                                       var keep = [9]
-                                      var v = keep.view()
+                                      var v: %List[S64] = keep
                                       if a.count() > 0
                                           var b = [4, 5]
                                           v = shorter(x: a, y: b)
@@ -88,7 +88,7 @@ public class TokenReturnSourcesTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "You are using the token 'v'");
+            expectedErrorSubstring: "You are using the reference 'v'");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged &&
                          e.Message.Contains(value: "'b'"));
@@ -111,7 +111,7 @@ public class TokenReturnSourcesTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "You are using the token 'first'");
+            expectedErrorSubstring: "You are using the reference 'first'");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged &&
                          e.Message.Contains(value: "'ys[...]'"));
@@ -131,7 +131,7 @@ public class TokenReturnSourcesTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "You are using the token 'w'");
+            expectedErrorSubstring: "You are using the reference 'w'");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged &&
                          e.Message.Contains(value: "'b'"));
@@ -141,11 +141,11 @@ public class TokenReturnSourcesTests
     public void Analyze_ReturnLocalToken_StillErrors()
     {
         string source = Prelude + """
-                                  routine pick(x: Viewing[List[S64]]) -> Viewing[List[S64]]
+                                  routine pick(x: %List[S64]) -> %List[S64]
                                       var mine = [1]
                                       if x.count() > 0
                                           return x
-                                      return mine.view()
+                                      return mine
 
                                   routine start()
                                       var a = [1, 2, 3]
@@ -154,7 +154,7 @@ public class TokenReturnSourcesTests
                                   """;
 
         AnalysisResult result = AssertHasErrorSa(source: source,
-            expectedErrorSubstring: "from 'me' or from a token parameter");
+            expectedErrorSubstring: "from 'me' or from a reference parameter");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenReturnNotAllowed &&
                          e.Message.Contains(value: "'mine'"));
@@ -164,10 +164,10 @@ public class TokenReturnSourcesTests
     public void Analyze_ReturnOwnedEntityParameterToken_StillErrors()
     {
         string source = Prelude + """
-                                  routine pick(x: Viewing[List[S64]], y: List[S64]) -> Viewing[List[S64]]
+                                  routine pick(x: %List[S64], y: List[S64]) -> %List[S64]
                                       if x.count() > 0
                                           return x
-                                      return y.view()
+                                      return y
 
                                   routine start()
                                       var a = [1, 2, 3]

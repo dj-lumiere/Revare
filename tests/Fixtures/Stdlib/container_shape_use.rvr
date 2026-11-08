@@ -9,7 +9,7 @@ import IO/Console
 entity Box
     n: S64
 
-routine first_big(xs: Modifying[List[S64]]) -> S64
+routine first_big(xs: @List[S64]) -> S64
     for x in xs
         if x > 5
             return x
@@ -30,7 +30,7 @@ routine start()
     nums.add_last(value: 11)
     show(f"loops: total={total} count={nums.count()}")
 
-    var big = first_big(xs: nums.modify())
+    var big = first_big(xs: nums)
     nums.add_last(value: 12)
     show(f"after return in loop: big={big} count={nums.count()}")
 

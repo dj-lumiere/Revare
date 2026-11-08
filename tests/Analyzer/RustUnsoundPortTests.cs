@@ -110,7 +110,7 @@ public class RustUnsoundPortTests
                            routine start()
                                var r = Retained(from: Holder(inner: Cell(n: 42)))
                                var r2 = r
-                               var v = r.inner.view()
+                               var v = r.inner
                                r2.inner = Cell(n: 7)
                                show(f"{v.n}")
                                return
@@ -125,8 +125,8 @@ public class RustUnsoundPortTests
                            entity Holder
                                inner: Cell
 
-                           routine mix(a: Modifying[Holder], b: Modifying[Holder]) -> S64
-                               var t = a.inner.view()
+                           routine mix(a: @Holder, b: @Holder) -> S64
+                               var t = a.inner
                                b.inner = Cell(n: 7)
                                return t.n
 
@@ -143,19 +143,19 @@ public class RustUnsoundPortTests
     public void Analyze_CopiedWriteTokenHandedTwice_Errors()
     {
         AssertHasErrorCode(source: """
-                           routine bump2(a: Modifying[Cell], b: Modifying[Cell])
+                           routine bump2(a: @Cell, b: @Cell)
                                a.n = a.n + 1
                                b.n = b.n + 10
                                return
 
                            routine start()
                                var c = Cell(n: 0)
-                               var m = c.modify()
+                               var m = c
                                var m2 = m
                                bump2(a: m, b: m2)
                                return
                            """,
-            code: SemanticDiagnosticCode.SameContainerTwiceInCall, expected: "tokens taken from the same 'c'");
+            code: SemanticDiagnosticCode.SameContainerTwiceInCall, expected: "references taken from the same 'c'");
     }
 
     // ---- a callback the library calls changes the container it works on (Rust #82282, #80335) ----------------
@@ -229,14 +229,14 @@ public class RustUnsoundPortTests
                            entity A
                                n: S64
 
-                           routine A.destruct()
+                           dangerous routine A.destruct()
                                show(f"{GB.n}")
                                return
 
                            entity B
                                n: S64
 
-                           routine B.destruct()
+                           dangerous routine B.destruct()
                                show(f"{GA.n}")
                                return
 
@@ -261,7 +261,7 @@ public class RustUnsoundPortTests
                                  routine start()
                                      var r = Retained(from: Holder(inner: Cell(n: 42)))
                                      var r2 = Retained(from: Holder(inner: Cell(n: 1)))
-                                     var v = r.inner.view()
+                                     var v = r.inner
                                      r2.inner = Cell(n: 7)
                                      show(f"{v.n}")
                                      return
@@ -305,7 +305,7 @@ public class RustUnsoundPortTests
                                  entity Reporter
                                      tag: S64
 
-                                 routine Reporter.destruct()
+                                 dangerous routine Reporter.destruct()
                                      show(f"{LOG.n}")
                                      return
 

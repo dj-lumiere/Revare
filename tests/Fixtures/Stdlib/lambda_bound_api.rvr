@@ -21,13 +21,13 @@ routine Board.add_big(extra: S64)
 routine apply(f: Callable[(S64,), S64], x: S64) -> S64
     return f(x)
 
-routine fill(items: Modifying[List[S64]], count: S64)
+routine fill(items: @List[S64], count: S64)
     var push = (v: S64) given items => items.add_last(v)
     for i in 0 til count
         push(i)
     return
 
-routine sum_with(items: Viewing[List[S64]]) -> S64
+routine sum_with(items: %List[S64]) -> S64
     var total: S64 = 0
     var scale = (v: S64) given items => v * items.count().to[S64]()
     for v in items
@@ -37,7 +37,7 @@ routine sum_with(items: Viewing[List[S64]]) -> S64
 entity Tile
     n: S64
 
-routine tile_sums(tiles: Viewing[List[Tile]]) -> List[S64]
+routine tile_sums(tiles: %List[Tile]) -> List[S64]
     var sums = List[S64]()
     for tile in tiles
         var plus = (k: S64) given tile => tile.n + k
@@ -55,14 +55,14 @@ routine start()
     show(f"apply: {apply(f: add_first, x: 5)}")
     var n = xs.get_count(predicate: v given xs => v > xs[0])
     show(f"after first: {n}")
-    fill(items: xs.modify(), count: 3)
+    fill(items: xs, count: 3)
     show(f"xs: {xs}")
-    show(f"sum_with: {sum_with(items: xs.view())}")
+    show(f"sum_with: {sum_with(items: xs)}")
     var picked = xs.select(transform: v given xs => v - xs[0]).to[List]()
     show(f"picked: {picked}")
     var tiles = List[Tile]()
     tiles.add_last(Tile(n: 1))
     tiles.add_last(Tile(n: 2))
-    show(f"tile_sums: {tile_sums(tiles: tiles.view())}")
+    show(f"tile_sums: {tile_sums(tiles: tiles)}")
     show("DONE")
     return

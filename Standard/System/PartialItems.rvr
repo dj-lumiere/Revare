@@ -239,11 +239,10 @@ routine PartialItemsEmitter[T, COUNT].emit() -> T
 
 ### Tears down the elements held. The places that hold none are not touched.
 @override
-routine PartialItems[T, COUNT].destruct()
+dangerous routine PartialItems[T, COUNT].destruct()
     var i: U64 = 0
     until i >= me.used
-        danger
-            me.places.get_raw(index: i).destruct()
+        me.places.get_raw(index: i).destruct()
         i = i + 1
     return
 

@@ -50,11 +50,10 @@ routine Watched[T].hold() -> Roamed[T]
 ### Releases the weak observation. If this was the last observer of an already-dead (tombstoned)
 ### controller, the controller struct is finally freed. Called at scope exit like any owned handle.
 @override
-routine Watched[T].destruct()
-    danger
-        if me.ctrl.is_not_hollow()
-            Hijacked[RoamManager](from: me.ctrl).as_entity().unobserve()
-        return
+dangerous routine Watched[T].destruct()
+    if me.ctrl.is_not_hollow()
+        Hijacked[RoamManager](from: me.ctrl).as_entity().unobserve()
+    return
 
 ### Whether this Watched is hollow: the all-zero value `Watched[T].hollow()` gives, which observes nothing.
 ### For the standard library and the runtime, whose zero handle a `lateinit` binding starts as. A program writes `Watched[T]?` for a link that may be missing.

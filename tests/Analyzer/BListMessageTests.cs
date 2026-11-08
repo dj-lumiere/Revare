@@ -54,14 +54,14 @@ public sealed class BListMessageTests
         string source = """
                         routine start()
                             var xs: List[S64] = [1, 2]
-                            viewing xs as v
-                                v.add_last(3)
+                            var v: %List[S64] = xs
+                            v.add_last(3)
                             return
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);
         SemanticError error = Assert.Single(collection: result.Errors);
-        Assert.Contains(expectedSubstring: "'v' is a Viewing token, which is read-only", actualString: error.Message);
+        Assert.Contains(expectedSubstring: "'v' is a read reference", actualString: error.Message);
     }
 
     /// <summary>The reshaping ban names the call the user wrote (<c>bag.put()</c>), not the path inside it.</summary>

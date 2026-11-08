@@ -6,10 +6,10 @@ import EmitterTools
 # Collecting into a fixed-size Items (C64), terminals and adapters straight on an emitter (C63), and emitters
 # returned from a routine (C62).
 
-routine big_ones(xs: Viewing[List[S64]]) -> WhereEmittable[S64, List[S64]]
+routine big_ones(xs: %List[S64]) -> WhereEmittable[S64, List[S64]]
     return xs.where(predicate: v => v > 1)
 
-routine walk_of(xs: Viewing[List[S64]]) -> ListEmitter[S64]
+routine walk_of(xs: %List[S64]) -> ListEmitter[S64]
     var it = xs.emitter()
     return it
 

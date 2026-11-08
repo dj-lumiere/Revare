@@ -14,7 +14,7 @@ needs Equatable everywhere
     ### :param you: The other value to compare against.
     ### :returns: `true` if this value equals `you`.
     @readonly
-    routine Me.eq(you: Viewing[Me]) -> Bool
+    routine Me.eq(you: %Me) -> Bool
 
     ### Returns whether both values are not equal.
     ### This generated helper is expected to remain the logical inverse of `eq`.
@@ -22,4 +22,4 @@ needs Equatable everywhere
     ### :returns: `true` if this value does not equal `you`.
     @readonly
     @generated
-    routine Me.ne(you: Viewing[Me]) -> Bool
+    routine Me.ne(you: %Me) -> Bool

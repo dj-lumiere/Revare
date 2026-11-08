@@ -41,5 +41,5 @@ routine start()
         added(b: b)
         literal_bare(b: b)
         show(f"after round {round}, strong {b.strong_count()}")
-    show(b.view().n)
+    show(b.n)
     return

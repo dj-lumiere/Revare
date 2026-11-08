@@ -1,7 +1,7 @@
-v type: Viewing[Box]
+v type: %Box
 v.value via forward: 7
-m type: Modifying[Box]
+m type: @Box
 after modify.set(42): 42
-v2 type: Viewing[Box]
+v2 type: %Box
 v2.value: 100
 DONE

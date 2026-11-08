@@ -6,17 +6,17 @@ import IO/Console
 entity Counter
     n: S64
 
-routine bump(c: Modifying[Counter]) -> S64
+routine bump(c: @Counter) -> S64
     c.n += 1
     return c.n
 
 routine start()
     var counter = Counter(n: 0)
-    var job = bump.to[Work](c: counter.modify())
+    var job = bump.to[Work](c: counter)
     job.start_here()
     var got = job.retrieve()
     var shared = Retained[Counter](from: Counter(n: 5))
-    var job2 = bump.to[Work](c: shared.modify())
+    var job2 = bump.to[Work](c: shared)
     job2.start_here()
     var got2 = job2.retrieve()
     show(f"{got} {got2}")

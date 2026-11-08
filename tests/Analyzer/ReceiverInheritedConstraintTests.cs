@@ -9,7 +9,7 @@ using static TestHelpers;
 /// Tests for the generalized <c>needs T in [Types]</c> (type-equality) constraint when the
 /// constrained parameter is INHERITED FROM THE RECEIVER rather than supplied as an explicit type
 /// argument at the call site — e.g. <c>Box[T].only_ab() needs T in [Alpha, Beta]</c> called on a
-/// <c>Box[Gamma]</c>, or the stdlib <c>Guarded[T, P].modify() needs P in [Exclusive, MultiRead]</c>.
+/// <c>Box[Gamma]</c>, or the stdlib <c>Guarded[T, P] needs P in [Exclusive, MultiRead]</c>.
 ///
 /// Such constraints used to be silently dropped during memberRoutine resolution (the resolved instance
 /// memberRoutine kept only constraints on its OWN generic params, discarding owner-param constraints), so
@@ -82,7 +82,7 @@ public class ReceiverInheritedConstraintTests
     public void Analyze_ClaimOnReadOnly_Errors()
     {
         string source = LockPrelude + """
-                                      routine bump(c: Modifying[Counter])
+                                      routine bump(c: @Counter)
                                           c.value += 1
                                           return
 
@@ -102,7 +102,7 @@ public class ReceiverInheritedConstraintTests
     public void Analyze_InspectOnExclusive_Errors()
     {
         string source = LockPrelude + """
-                                      routine peek(c: Viewing[Counter])
+                                      routine peek(c: %Counter)
                                           show(f"{c.value}")
                                           return
 

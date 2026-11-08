@@ -10,32 +10,32 @@ entity Node
     id: S64
     value: S64
 
-routine Node.destruct()
+dangerous routine Node.destruct()
     show(f"end {me.id}")
     return
 
 entity Holder
     nodes: List[Node]
 
-routine Node.kill(holder: Modifying[Holder]) -> S64
+routine Node.kill(holder: @Holder) -> S64
     holder.nodes.clear()
     show(f"after kill {me.id}")
     return me.id
 
 entity Watch
-    target: Modifying[Node]?
+    target: @Node?
 
 entity Wrap[T]
-    link: Modifying[T]?
+    link: @T?
 
-routine peek[T](w: Modifying[Wrap[T]], holder: Modifying[Holder]) -> S64
+routine peek[T](w: @Wrap[T], holder: @Holder) -> S64
     when w.link
         is None => return -1
         else as n =>
             holder.nodes.clear()
             return 1
 
-routine what_happened(w: Viewing[Watch]) -> Text
+routine what_happened(w: %Watch) -> Text
     when check w.target.value
         is S64 as v => return f"value {v}"
         is AbsentValueError => return "no link"

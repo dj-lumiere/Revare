@@ -44,14 +44,13 @@ needs RecordType T
 ### Frees the live arm: the success arm frees `T`, and the crashable arm frees the caught error and the object it
 ### lives in.
 @override
-routine Check[T].destruct()
-    danger
-        when me
-            is T as v =>
-                v.destruct()
-            is Crashables as e =>
-                e.free()
-        return
+dangerous routine Check[T].destruct()
+    when me
+        is T as v =>
+            v.destruct()
+        is Crashables as e =>
+            e.free()
+    return
 
 ### Reports the live arm's strong edges to the cycle collector: the success arm reports `T`'s, and a caught error
 ### holds none.

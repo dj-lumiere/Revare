@@ -20,7 +20,7 @@ public class ReadonlyMeViewingTests
                                        x: S64
 
                                    record Link
-                                       target: Modifying[Creature]?
+                                       target: @Creature?
                                        keep: Retained[Creature]
                                        weight: S64
 

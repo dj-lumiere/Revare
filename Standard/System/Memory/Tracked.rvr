@@ -91,13 +91,12 @@ routine Tracked[T].diagnose() -> Text
 ### Decrements the weak count, tearing down the controller when both counts reach zero. This IS the
 ### decrement — no separate `release` verb; `destruct` is the teardown.
 @override
-routine Tracked[T].destruct()
-    danger
-        if me.get_address().is_hollow()
-            return
-        var ctrl = hijacked_from[RetainManager[T]](me.get_address()).as_entity()
-        ctrl.unobserve()
+dangerous routine Tracked[T].destruct()
+    if me.get_address().is_hollow()
         return
+    var ctrl = hijacked_from[RetainManager[T]](me.get_address()).as_entity()
+    ctrl.unobserve()
+    return
 
 ### Whether this Tracked is hollow: the all-zero value `Tracked[T].hollow()` gives, which holds nothing.
 ### For the standard library and the runtime, whose zero handle a `lateinit` binding starts as. A program writes `Tracked[T]?` for a link that may be missing.

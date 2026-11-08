@@ -162,7 +162,7 @@ routine Random.range(low: U64, high: U64) -> U64
 ### :returns: The element at a uniformly random index.
 ### :throws: {AbsentValueError} The collection is empty.
 @readonly
-routine ModifyingIndexable[T].pick(rng: Modifying[Random]) -> T
+routine ModifyingIndexable[T].pick(rng: @Random) -> T
 needs RecordType T
     var n = me.count()
     if n == 0
@@ -173,7 +173,7 @@ needs RecordType T
 ### value from `rng` per element.
 ### Elements are moved (never copied), so lists of owned entities shuffle safely.
 ### :param rng: The generator to draw from, as a mutable borrow.
-routine List[T].shuffle(rng: Modifying[Random])
+routine List[T].shuffle(rng: @Random)
     var n = me.count()
     if n <= 1
         return

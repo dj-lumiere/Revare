@@ -356,8 +356,8 @@ needs RecordType TElement
 ### :param priorities: The priorities to assign at matching positions.
 @reshaping
 routine PriorityQueue[TPriority, TElement].add_all(
-    elements: Viewing[List[TElement]],
-    priorities: Viewing[List[TPriority]],
+    elements: %List[TElement],
+    priorities: %List[TPriority],
 )
 needs RecordType TElement
 needs RecordType TPriority
@@ -483,24 +483,23 @@ secret routine PriorityQueue[TPriority, TElement].shown_order() -> List[U64]
 
 ### Tears down each stored priority and element, then frees the buffers.
 @override
-routine PriorityQueue[TPriority, TElement].destruct()
-    danger
-        # Tear down each stored priority and element before freeing the buffers. No-op for value
-        # types; frees owned entity priorities/elements.
-        var i: U64 = 0
-        until i >= me.count
-            me.priorities
-                .offset(TPriority.data_size() * i)
-                .peek()
-                .destruct()
-            me.elements
-                .offset(TElement.data_size() * i)
-                .peek()
-                .destruct()
-            i = i + 1
-        me.priorities.invalidate()
-        me.elements.invalidate()
-        return
+dangerous routine PriorityQueue[TPriority, TElement].destruct()
+    # Tear down each stored priority and element before freeing the buffers. No-op for value
+    # types; frees owned entity priorities/elements.
+    var i: U64 = 0
+    until i >= me.count
+        me.priorities
+            .offset(TPriority.data_size() * i)
+            .peek()
+            .destruct()
+        me.elements
+            .offset(TElement.data_size() * i)
+            .peek()
+            .destruct()
+        i = i + 1
+    me.priorities.invalidate()
+    me.elements.invalidate()
+    return
 
 ### Cycle-collector TRACE: report every live priority and element to the collector via the two dense
 ### backing buffers (`0..count`). A `Roamed` priority/element reports its controller; a value one is a

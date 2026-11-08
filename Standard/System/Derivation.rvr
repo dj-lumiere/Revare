@@ -350,7 +350,7 @@ needs CrashableType T
 ### nothing holds the hollow address and ends nothing. The record/entity/variant destroy templates are kind-gated and
 ### none match a RoutineType, so a routine-typed member (`entity Callback { f: Callable[...] }`) ends through this.
 @override
-infallible routine T.destruct()
+infallible dangerous routine T.destruct()
 needs RoutineType T
     danger
         closure_release(bound: LLVM::routine_bound[T](me))
@@ -432,7 +432,7 @@ needs AnyType T
 ### :param you: The value to compare against.
 ### :returns: `true` if the two compare equal.
 @overridable
-routine T.eq(you: Viewing[T]) -> Bool
+routine T.eq(you: %T) -> Bool
 needs T obeys Equatable
     expand m in allmemvarof(T)
         if me.$nameof(m) != you.$nameof(m)
@@ -446,7 +446,7 @@ needs T obeys Equatable
 ### :param you: The value to compare against.
 ### :returns: Whether `me` is smaller than, equal to, or larger than `you`.
 @overridable
-routine T.compare(you: Viewing[T]) -> ComparisonSign
+routine T.compare(you: %T) -> ComparisonSign
 needs T obeys Comparable
     expand m in allmemvarof(T)
         if me.$nameof(m).compare(you: you.$nameof(m)) != SAME
@@ -481,7 +481,7 @@ needs FlagsType T
 ### :param you: The value to compare against.
 ### :returns: `true` if the two compare equal.
 @override
-routine T.eq(you: Viewing[T]) -> Bool
+routine T.eq(you: %T) -> Bool
 needs EntityType T
 needs T obeys Equatable
     var mine = me.get_address()
@@ -523,7 +523,7 @@ needs T obeys Hashable
 ### :param you: The value to compare against.
 ### :returns: `true` if the two compare equal.
 @override
-routine T.eq(you: Viewing[T]) -> Bool
+routine T.eq(you: %T) -> Bool
 needs ChoiceType T
     return LLVM::reinterpret_bits[T, S32](me) == LLVM::reinterpret_bits[T, S32](you)
 
@@ -531,7 +531,7 @@ needs ChoiceType T
 ### :param you: The value to compare against.
 ### :returns: Whether `me` is smaller than, equal to, or larger than `you`.
 @override
-routine T.compare(you: Viewing[T]) -> ComparisonSign
+routine T.compare(you: %T) -> ComparisonSign
 needs ChoiceType T
     return LLVM::reinterpret_bits[T, S32](me).compare(you: LLVM::reinterpret_bits[T, S32](you))
 
@@ -553,7 +553,7 @@ needs ChoiceType T
 ### :param you: The value to compare against.
 ### :returns: `true` if the two compare equal.
 @override
-routine T.eq(you: Viewing[T]) -> Bool
+routine T.eq(you: %T) -> Bool
 needs FlagsType T
     return LLVM::reinterpret_bits[T, U64](me) == LLVM::reinterpret_bits[T, U64](you)
 
@@ -635,28 +635,28 @@ needs FlagsType T
 ### so `a < b` (-> `a.lt(b)`) resolves for Char, numerics, records, collections uniformly.
 ### :param you: The value to compare against.
 ### :returns: `true` if `me` is smaller than `you`.
-routine T.lt(you: Viewing[T]) -> Bool
+routine T.lt(you: %T) -> Bool
 needs T obeys Comparable
     return me.compare(you: you) == ME_SMALL
 
 ### Whether `me` orders before or equal to `you`.
 ### :param you: The value to compare against.
 ### :returns: `true` if `me` is not larger than `you`.
-routine T.le(you: Viewing[T]) -> Bool
+routine T.le(you: %T) -> Bool
 needs T obeys Comparable
     return me.compare(you: you) != ME_LARGE
 
 ### Whether `me` orders after `you`.
 ### :param you: The value to compare against.
 ### :returns: `true` if `me` is larger than `you`.
-routine T.gt(you: Viewing[T]) -> Bool
+routine T.gt(you: %T) -> Bool
 needs T obeys Comparable
     return me.compare(you: you) == ME_LARGE
 
 ### Whether `me` orders after or equal to `you`.
 ### :param you: The value to compare against.
 ### :returns: `true` if `me` is not smaller than `you`.
-routine T.ge(you: Viewing[T]) -> Bool
+routine T.ge(you: %T) -> Bool
 needs T obeys Comparable
     return me.compare(you: you) != ME_SMALL
 
@@ -825,7 +825,7 @@ needs T obeys Copyable
 ### the entity owns, and the builder adds the same `C::rf_invalidate(ptr: me.get_address())` before each of its returns. The
 ### `allmemvarof` walk covers every owned member including `secret`.
 @overridable
-infallible routine T.destruct()
+infallible dangerous routine T.destruct()
 needs RecordType T
     expand m in allmemvarof(T)
         me.$nameof(m).destruct()
@@ -851,7 +851,7 @@ needs EntityType T
 ### own-type children of a node (a tree node's second child) end with the node's members, one nested call each, so a tree is as
 ### deep as its second and later children go.
 @override
-infallible routine T.destruct()
+infallible dangerous routine T.destruct()
 needs EntityType T
     danger
         # A hollow entity (all zero, the member variable of a hollow value) has nothing to tear down.
@@ -880,7 +880,7 @@ needs EntityType T
 ### one arm live at a time). `branchof` generates one `is $typeof(m) v =>` clause per payload arm; the
 ### `else` arm covers the payload-less / void arms (nothing to destroy).
 @override
-infallible routine T.destruct()
+infallible dangerous routine T.destruct()
 needs VariantType T
     when me
         expand m in branchof(T)

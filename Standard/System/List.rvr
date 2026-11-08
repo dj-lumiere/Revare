@@ -202,7 +202,7 @@ secret routine List[T].grow_by_one()
 ### NOTE: Stub signature — implementation pending. Tracking:
 ###       memory/bytes_io_api_plan.md (v0.1.0 first additions).
 @reshaping
-routine List[T].add_range(you: Viewing[Emittable[T]])
+routine List[T].add_range(you: %Emittable[T])
     # TODO(fast-io): hoist capacity-reserve when `you` exposes a known count.
     # For now, fall back to per-element append so the routine type-checks while the
     # optimized path is being designed.
@@ -390,7 +390,7 @@ secret routine List[T].exchange(index: U64, value: T) -> T
 ### :param index: The position of the element.
 ### :returns: A write token on the element.
 @overridable
-routine List[T].modify_at(index: U64) -> Modifying[T]
+routine List[T].modify_at(index: U64) -> @T
 needs AnyType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
@@ -402,7 +402,7 @@ needs AnyType T
 ### :param index: The position of the element.
 ### :returns: A write token on the element.
 @override
-routine List[T].modify_at(index: U64) -> Modifying[T]
+routine List[T].modify_at(index: U64) -> @T
 needs EntityType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
@@ -416,7 +416,7 @@ needs EntityType T
 ### :returns: A read token on the element.
 @readonly
 @overridable
-routine List[T].view_at(index: U64) -> Viewing[T]
+routine List[T].view_at(index: U64) -> %T
 needs AnyType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
@@ -429,7 +429,7 @@ needs AnyType T
 ### :returns: A read token on the element.
 @readonly
 @override
-routine List[T].view_at(index: U64) -> Viewing[T]
+routine List[T].view_at(index: U64) -> %T
 needs EntityType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
@@ -532,7 +532,7 @@ routine List[T].emitter() -> ListEmitter[T]
 ### :returns: The token.
 ### :throws: {AbsentValueError} The walk is over.
 @overridable
-routine ListEmitter[T].emit() -> Modifying[T]
+routine ListEmitter[T].emit() -> @T
 needs AnyType T
     if me.index >= me.count
         throw AbsentValueError()
@@ -545,7 +545,7 @@ needs AnyType T
 ### :returns: The token.
 ### :throws: {AbsentValueError} The walk is over.
 @override
-routine ListEmitter[T].emit() -> Modifying[T]
+routine ListEmitter[T].emit() -> @T
 needs EntityType T
     if me.index >= me.count
         throw AbsentValueError()
@@ -591,16 +591,15 @@ routine ListTakingEmitter[T].emit() -> T
 
 ### Ends the elements not handed over yet, then frees the buffer.
 @override
-routine ListTakingEmitter[T].destruct()
-    danger
-        var elem_size = T.data_size()
-        for i in me.index til me.count
-            me.data
-                .offset(elem_size * i)
-                .peek()
-                .destruct()
-        me.data.invalidate()
-        return
+dangerous routine ListTakingEmitter[T].destruct()
+    var elem_size = T.data_size()
+    for i in me.index til me.count
+        me.data
+            .offset(elem_size * i)
+            .peek()
+            .destruct()
+    me.data.invalidate()
+    return
 
 ### A list a walk takes apart: what `(steal xs).where(...)` walks. Its walk hands each element over (`take_each`), and
 ### the elements no walk took end with it.
@@ -623,7 +622,7 @@ routine TakenList[T].emitter() -> ListTakingEmitter[T]
 ### :returns: `true` if both have equal count and all corresponding elements are equal.
 @readonly
 @overridable
-routine List[T].eq(you: Viewing[List[T]]) -> Bool
+routine List[T].eq(you: %List[T]) -> Bool
 needs T obeys Equatable
     if me.count() != you.count()
         return false
@@ -640,7 +639,7 @@ needs T obeys Equatable
 ### :returns: `true` if the lengths match and every pair of elements is equal.
 @readonly
 @override
-routine List[T].eq(you: Viewing[List[T]]) -> Bool
+routine List[T].eq(you: %List[T]) -> Bool
 needs EntityType T
 needs T obeys Equatable
     if me.count() != you.count()
@@ -661,7 +660,7 @@ needs T obeys Equatable
 ### :param value: The value to search for.
 ### :returns: `true` if `value` is found; `false` if no element matches.
 @readonly
-routine List[T].has(value: Viewing[T]) -> Bool
+routine List[T].has(value: %T) -> Bool
 needs T obeys Equatable
     var i: U64 = 0
     until i >= me.count()
@@ -674,7 +673,7 @@ needs T obeys Equatable
 ### :param value: The value to look for.
 ### :returns: `true` when `value` is absent.
 @readonly
-routine List[T].lacks(value: Viewing[T]) -> Bool
+routine List[T].lacks(value: %T) -> Bool
 needs T obeys Equatable
     return not me.has(value)
 
@@ -715,7 +714,7 @@ routine List[T].diagnose() -> Text
 ### :param count: The number of elements to copy.
 ### :throws: {IndexOutOfBoundsError} if `from + count` exceeds `source.count()`.
 @reshaping
-routine List[T].add_range(source: Viewing[List[T]], from: U64, count: U64)
+routine List[T].add_range(source: %List[T], from: U64, count: U64)
 needs RecordType T
     if count == 0
         return
@@ -1016,7 +1015,7 @@ routine List[T].insertion_sort_by(start: U64, end: U64, compare: Callable[(T, T)
 ### :param mid: Start index of the second sorted run (and exclusive end of the first).
 ### :param right: Exclusive end index of the second sorted run.
 ### :param buffer: A pre-allocated list used as temporary storage during the merge.
-routine List[T].merge_into(left: U64, mid: U64, right: U64, buffer: Modifying[List[T]])
+routine List[T].merge_into(left: U64, mid: U64, right: U64, buffer: @List[T])
 needs T obeys Comparable
     # Copy [left, right) into the buffer
     var i = left
@@ -1071,7 +1070,7 @@ routine List[T].merge_into_by(
     left: U64,
     mid: U64,
     right: U64,
-    buffer: Modifying[List[T]],
+    buffer: @List[T],
     compare: Callable[(T, T), Bool],
 )
     var i = left
@@ -1115,16 +1114,15 @@ routine List[T].merge_into_by(
 
 ### Destroys each live element (no-op for value-typed `T`), then frees the backing buffer.
 @override
-routine List[T].destruct()
-    danger
-        var elem_size = T.data_size()
-        for i in 0 til me.count()
-            me.data
-                .offset(elem_size * i)
-                .peek()
-                .destruct()
-        me.data.invalidate()
-        return
+dangerous routine List[T].destruct()
+    var elem_size = T.data_size()
+    for i in 0 til me.count()
+        me.data
+            .offset(elem_size * i)
+            .peek()
+            .destruct()
+    me.data.invalidate()
+    return
 
 ### Cycle-collector TRACE: report every live element to the collector (a `Roamed` element reports its
 ### controller, a value element is a no-op) via the backing buffer. Overrides the universal member-walk —

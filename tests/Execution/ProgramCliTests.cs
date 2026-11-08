@@ -487,6 +487,67 @@ public sealed class ProgramCliTests : IDisposable
     }
 
     [Fact]
+    public void MigrateReferences_WritesSigns_DropsVerbsAndBlocks_MarksDestructs()
+    {
+        string dir = OldProject(name: "references", oldManifest: false, files:
+        [
+            ("old.rvr",
+                "module Test/ReferencesRa\n" +
+                "import IO/Console\n" +
+                "entity Node\n" +
+                "    id: S64\n" +
+                "    parent: Modifying[Node]?\n" +
+                "\n" +
+                "routine Node.destruct()\n" +
+                "    danger\n" +
+                "        show(\"end\")\n" +
+                "    return\n" +
+                "\n" +
+                "routine total(n: Viewing[Node], ns: Modifying[List[Viewing[Node]?]]) -> S64\n" +
+                "    return n.id\n" +
+                "\n" +
+                "routine start()\n" +
+                "    var a = Node(id: 1, parent: none)\n" +
+                "    var g = Guarded[Node, Exclusive](from: Node(id: 2, parent: none))\n" +
+                "    show(f\"{a.view().id} Viewing[Node]\")  # Viewing[Node]\n" +
+                "    modifying a as m\n" +
+                "        m.id += 1\n" +
+                "    show(total(n: g.modify(), ns: []))\n" +
+                "    var pool = PoolManager.set_up()\n" +
+                "    return\n")
+        ]);
+
+        (int code, string output) = RunMain("migrate", "--step", "references", dir);
+        Assert.Equal(expected: 0, actual: code);
+        Assert.Contains(expectedSubstring: "1 file(s) changed", actualString: output);
+        Assert.Contains(expectedSubstring: "'g.modify()' opens a Guarded for one call", actualString: output);
+        Assert.Contains(expectedSubstring: "'PoolManager' is gone", actualString: output);
+        Assert.Equal(
+            expected: "module Test/ReferencesRa\n" +
+                      "import IO/Console\n" +
+                      "entity Node\n" +
+                      "    id: S64\n" +
+                      "    parent: @Node?\n" +
+                      "\n" +
+                      "dangerous routine Node.destruct()\n" +
+                      "    show(\"end\")\n" +
+                      "    return\n" +
+                      "\n" +
+                      "routine total(n: %Node, ns: @List[%Node?]) -> S64\n" +
+                      "    return n.id\n" +
+                      "\n" +
+                      "routine start()\n" +
+                      "    var a = Node(id: 1, parent: none)\n" +
+                      "    var g = Guarded[Node, Exclusive](from: Node(id: 2, parent: none))\n" +
+                      "    show(f\"{a.id} Viewing[Node]\")  # Viewing[Node]\n" +
+                      "    a.id += 1\n" +
+                      "    show(total(n: g.modify(), ns: []))\n" +
+                      "    var pool = PoolManager.set_up()\n" +
+                      "    return\n",
+            actual: File.ReadAllText(path: Path.Combine(path1: dir, path2: "old.rvr")));
+    }
+
+    [Fact]
     public void MigrateTypeNames_RenamesAtomicAndCircularList_KeepsStringsAndComments()
     {
         string dir = OldProject(name: "type-names", oldManifest: false, files:

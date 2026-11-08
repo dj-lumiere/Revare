@@ -9,7 +9,7 @@ import IO/Console
 entity Cell
     n: S64
 
-routine Cell.destruct()
+dangerous routine Cell.destruct()
     show(f"destruct cell {me.n}")
     return
 
@@ -24,12 +24,12 @@ routine Shelf.keep(value: Held)
     return
 
 routine read(value: Held) -> S64
-    return value.cell.view().n
+    return value.cell.n
 
 routine checked_read(value: Held) -> S64
-    if value.cell.view().n > 9
+    if value.cell.n > 9
         throw AbsentValueError()
-    return value.cell.view().n
+    return value.cell.n
 
 routine make(n: S64) -> Held
     return Held(cell: Retained[Cell](from: Cell(n: n)))
@@ -50,7 +50,7 @@ routine start()
     show(f"work {job.retrieve()}")
     var e = make(n: 5)
     var moved = steal e
-    show(f"moved {moved.cell.view().n}")
+    show(f"moved {moved.cell.n}")
     for i in 6 til 9
         var looped = make(n: i)
         kept.add_last(steal looped)

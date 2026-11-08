@@ -3,7 +3,7 @@ module System/Memory
 import BuilderQuery
 ### Represents temporary read-only access to a value where it is stored: an entity, or a record in its place
 ### (a variable, a field, a container slot). It is the address of that place, the same as `Hijacked[T]`.
-### `Viewing[T]` is the non-Assignable access token produced by `.view()` for single-threaded observation.
+### `%T` is the non-Assignable access token produced by `.view()` for single-threaded observation.
 ### :typeparam T: The type being viewed.
 ### :see: {Modifying[T]}, {Guarded[T, TPolicy]}
 @llvm("ptr")
@@ -11,18 +11,18 @@ record Viewing[T]
     nothing
 
 ### Produces a temporary read-only view of `me`.
-### :returns: The resulting `Viewing[T]` value.
+### :returns: The resulting `%T` value.
 ### :note: Entity-only. A record's token is made by whatever holds the record in place (a container hands
 ###        one out for its element), from that place's address: `me` here could be a copy.
 @readonly
-infallible routine T.view() -> Viewing[T]
+infallible routine T.view() -> %T
 needs EntityType T
     danger
         return Viewing[T](me.hijack())
 
 # NOTE: No creators, no manual methods - all operations handled by builder
 # The address member variable is managed internally by the `.view()` implementation
-# Users should NEVER create Viewing[T] values directly
+# Users should NEVER create %T values directly
 
 # ============================================================================
 # A target of a block that opens several at once
@@ -43,7 +43,7 @@ routine Viewing[T].enlist_identity()
 # ============================================================================
 
 ### Yields the inner entity as an in-flight `T` reference for read-only access.
-### Inserted implicitly at call sites whose parameter is `Viewing[T]`.
+### Inserted implicitly at call sites whose parameter is `%T`.
 ### :returns: The inner entity as `T`.
 @readonly
 @inline
@@ -96,12 +96,12 @@ routine Viewing[T].diagnose() -> Text
 
 ### Ends a read token. It holds nothing that needs tearing down.
 @override
-routine Viewing[T].destruct()
+dangerous routine Viewing[T].destruct()
     return
 
 ### Whether this Viewing is hollow: the all-zero value `Viewing[T].hollow()` gives, which holds nothing.
-### For the standard library and the runtime, whose zero handle a `lateinit` binding starts as. A program writes `Viewing[T]?` for a link that may be missing.
+### For the standard library and the runtime, whose zero handle a `lateinit` binding starts as. A program writes `%T?` for a link that may be missing.
 ### :returns: `true` when it holds nothing.
 @readonly
 routine Viewing[T].is_hollow() -> Bool
-    return LLVM::reinterpret_bits[Viewing[T], Addr](me).is_hollow()
+    return LLVM::reinterpret_bits[%T, Addr](me).is_hollow()

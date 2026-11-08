@@ -4,7 +4,7 @@ import IO/Console
 # An index counted from the end (`xs[^1]`) on a token: the element a `for` binds over a list of lists is a token on
 # the inner list, and `^1` reads that list's count.
 
-routine last_of(xs: Viewing[List[S64]]) -> S64
+routine last_of(xs: %List[S64]) -> S64
     return xs[^1]
 
 routine start()
@@ -20,5 +20,5 @@ routine start()
     for xs in lists
         xs[^1] = xs[^1] * 2
     show(lists)
-    show(last_of(xs: lists[0].view()))
+    show(last_of(xs: lists[0]))
     return

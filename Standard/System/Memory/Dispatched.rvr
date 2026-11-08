@@ -59,7 +59,7 @@ needs RecordType T
 ### A write token on the value at `at`: the entity there, or the record or handle in its own memory.
 ### :param at: The address the protocol value keeps.
 ### :returns: The token.
-secret routine dispatched_modify[T](at: Addr) -> Modifying[T]
+secret routine dispatched_modify[T](at: Addr) -> @T
 needs AnyType T
     danger
         return Modifying[T](Hijacked[T](from: at))

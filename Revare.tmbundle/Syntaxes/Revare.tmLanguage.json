@@ -29,8 +29,8 @@
       "patterns": [
         {
           "comment": "Annotations (@target, @link, @positional, @reshaping, @readonly, @writable, @llvm, @inline, @innate, @override, @overridable, @crash_only, @dangerous, @generated, ...)",
-          "name": "storage.modifier.annotation.revare",
-          "match": "@\\w+"
+          "match": "^\\s*(@\\w+)",
+          "captures": { "1": { "name": "storage.modifier.annotation.revare" } }
         },
         {
           "comment": "Type declarations",
@@ -225,13 +225,18 @@
       "patterns": [
         {
           "comment": "Compound annotation",
-          "name": "storage.modifier.annotation.revare",
-          "match": "@\\[[a-zA-Z_][a-zA-Z0-9_, ]*\\]"
+          "match": "^\\s*(@\\[[a-zA-Z_][a-zA-Z0-9_, ]*\\])",
+          "captures": { "1": { "name": "storage.modifier.annotation.revare" } }
         },
         {
           "comment": "Annotation",
-          "name": "storage.modifier.annotation.revare",
-          "match": "@[a-zA-Z_][a-zA-Z0-9_]*"
+          "match": "^\\s*(@[a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": { "1": { "name": "storage.modifier.annotation.revare" } }
+        },
+        {
+          "comment": "The sign of a reference type: %T reads, @T writes",
+          "name": "keyword.operator.reference.revare",
+          "match": "[@%](?=[A-Z(])"
         },
         {
           "comment": "Arrows",

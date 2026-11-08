@@ -7,7 +7,7 @@ entity Step
     name: Text
 
 @override
-routine Step.destruct()
+dangerous routine Step.destruct()
     show(f"end {me.name}")
     return
 

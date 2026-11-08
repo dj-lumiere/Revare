@@ -23,9 +23,8 @@ needs EntityType T
 
 ### Ends the use of the container's shape.
 @override
-infallible routine ShapeUse.destruct()
-    danger
-        C::rf_shape_use_end(at: me.at)
+infallible dangerous routine ShapeUse.destruct()
+    C::rf_shape_use_end(at: me.at)
     return
 
 ### Checks that no use of this container's shape is open, before a change that adds to or removes from it. Only the

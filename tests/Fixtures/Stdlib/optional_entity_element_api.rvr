@@ -7,7 +7,7 @@ import IO/Console
 entity Box
     n: S64
 
-routine Box.destruct()
+dangerous routine Box.destruct()
     show(f"ends {me.n}")
     return
 

@@ -149,7 +149,7 @@ routine ZipEmitter[TFirst, TSecond, TFirstEmitter, TSecondEmitter].emit() -> Tup
 ### :param a: The first source emittable to zip.
 ### :param b: The second source emittable to zip.
 ### :returns: The resulting `ZipEmittable[TFirst, TSecond, TFirstSource, TSecondSource]` value.
-routine zip[TFirst, TSecond, TFirstSource, TSecondSource](a: Viewing[TFirstSource], b: Viewing[TSecondSource]) -> ZipEmittable[TFirst, TSecond, TFirstSource, TSecondSource]
+routine zip[TFirst, TSecond, TFirstSource, TSecondSource](a: %TFirstSource, b: %TSecondSource) -> ZipEmittable[TFirst, TSecond, TFirstSource, TSecondSource]
 needs TFirstSource obeys Emittable[TFirst]
 needs TSecondSource obeys Emittable[TSecond]
     danger
@@ -183,9 +183,9 @@ routine Zip3Emitter[TFirst, TSecond, TThird, TFirstEmitter, TSecondEmitter, TThi
 ### :param c: The third source emittable to zip.
 ### :returns: The resulting `Zip3Emittable[TFirst, TSecond, TThird, TFirstSource, TSecondSource, TThirdSource]` value.
 routine zip[TFirst, TSecond, TThird, TFirstSource, TSecondSource, TThirdSource](
-    a: Viewing[TFirstSource],
-    b: Viewing[TSecondSource],
-    c: Viewing[TThirdSource],
+    a: %TFirstSource,
+    b: %TSecondSource,
+    c: %TThirdSource,
 ) -> Zip3Emittable[TFirst, TSecond, TThird, TFirstSource, TSecondSource, TThirdSource]
 needs TFirstSource obeys Emittable[TFirst]
 needs TSecondSource obeys Emittable[TSecond]
@@ -228,10 +228,10 @@ routine Zip4Emitter[TFirst, TSecond, TThird, TFourth, TFirstEmitter, TSecondEmit
 ### :param d: The fourth source emittable to zip.
 ### :returns: The resulting `Zip4Emittable[TFirst, TSecond, TThird, TFourth, TFirstSource, TSecondSource, TThirdSource, TFourthSource]` value.
 routine zip[TFirst, TSecond, TThird, TFourth, TFirstSource, TSecondSource, TThirdSource, TFourthSource](
-    a: Viewing[TFirstSource],
-    b: Viewing[TSecondSource],
-    c: Viewing[TThirdSource],
-    d: Viewing[TFourthSource],
+    a: %TFirstSource,
+    b: %TSecondSource,
+    c: %TThirdSource,
+    d: %TFourthSource,
 ) -> Zip4Emittable[TFirst, TSecond, TThird, TFourth, TFirstSource, TSecondSource, TThirdSource, TFourthSource]
 needs TFirstSource obeys Emittable[TFirst]
 needs TSecondSource obeys Emittable[TSecond]

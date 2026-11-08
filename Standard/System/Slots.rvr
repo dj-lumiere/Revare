@@ -77,7 +77,7 @@ infallible routine Slots[T, COUNT].get_raw(index: U64) -> T
 ### :param index: The zero-based position.
 ### :returns: A write token on the element.
 ### :throws: {IndexOutOfBoundsError} if `index >= COUNT`.
-routine Slots[T, COUNT].modify_at(index: U64) -> Modifying[T]
+routine Slots[T, COUNT].modify_at(index: U64) -> @T
 needs EntityType T
     if index >= COUNT
         throw IndexOutOfBoundsError(index: index, count: me.count())
@@ -90,7 +90,7 @@ needs EntityType T
 ### :returns: A read token on the element.
 ### :throws: {IndexOutOfBoundsError} if `index >= COUNT`.
 @readonly
-routine Slots[T, COUNT].view_at(index: U64) -> Viewing[T]
+routine Slots[T, COUNT].view_at(index: U64) -> %T
 needs EntityType T
     if index >= COUNT
         throw IndexOutOfBoundsError(index: index, count: me.count())
@@ -152,7 +152,7 @@ routine Slots[T, COUNT].swap(first: U64, second: U64)
 
 ### Tears down each element once. Every place holds an element, so the full range is visited.
 @override
-routine Slots[T, COUNT].destruct()
+dangerous routine Slots[T, COUNT].destruct()
     var i: U64 = 0
     until i >= COUNT
         LLVM::load_element_ref[Slots[T, COUNT], T](me.hijack(), i).destruct()
@@ -298,10 +298,9 @@ routine SlotsTakingEmitter[T, COUNT].emit() -> T
 
 ### Ends the elements not handed over yet.
 @override
-routine SlotsTakingEmitter[T, COUNT].destruct()
-    danger
-        for i in me.index til COUNT
-            LLVM::load_element_ref[Slots[T, COUNT], T](me.data.hijack(), i).destruct()
+dangerous routine SlotsTakingEmitter[T, COUNT].destruct()
+    for i in me.index til COUNT
+        LLVM::load_element_ref[Slots[T, COUNT], T](me.data.hijack(), i).destruct()
     return
 
 ### Returns true when both hold equal elements in the same order.
@@ -309,7 +308,7 @@ routine SlotsTakingEmitter[T, COUNT].destruct()
 ### :returns: `true` if every corresponding pair of elements is equal.
 ### :note: Requires `T` to obey `Equatable`: `==` on places of other elements is a build error.
 @readonly
-routine Slots[T, COUNT].eq(you: Viewing[Slots[T, COUNT]]) -> Bool
+routine Slots[T, COUNT].eq(you: %Slots[T, COUNT]) -> Bool
 needs T obeys Equatable
     for i in 0 til COUNT
         if me.get_raw(index: i) != you.get_raw(index: i)
@@ -323,7 +322,7 @@ needs T obeys Equatable
 ### :returns: `ME_SMALL`, `SAME`, or `ME_LARGE`.
 ### :note: Requires `T` to obey `Comparable`.
 @readonly
-routine Slots[T, COUNT].compare(you: Viewing[Slots[T, COUNT]]) -> ComparisonSign
+routine Slots[T, COUNT].compare(you: %Slots[T, COUNT]) -> ComparisonSign
 needs T obeys Comparable
     for i in 0 til COUNT
         var sign = me.get_raw(index: i).compare(you.get_raw(index: i))

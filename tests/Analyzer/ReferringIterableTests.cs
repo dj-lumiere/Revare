@@ -6,28 +6,28 @@ namespace Revare.Tests.Analyzer;
 using static TestHelpers;
 
 /// <summary>
-/// Tests for accepting a protocol type argument inside <c>Viewing[T]</c> /
-/// <c>Modifying[T]</c>, and for iterating over such a parameter via a
+/// Tests for accepting a protocol type argument inside <c>%T</c> /
+/// <c>@T</c>, and for iterating over such a parameter via a
 /// transparent-protocol unwrap. Regression coverage for the
-/// <c>List[T].add_range(other: Viewing[Iterable[T]])</c> shape introduced
+/// <c>List[T].add_range(other: %Iterable[T])</c> shape introduced
 /// alongside the BytesIO API.
 /// </summary>
 public class ReferringIterableTests
 {
     #region S152 — ReferenceTypeConstraintViolation should NOT fire on protocols
 
-    /// <summary>Verifies Viewing[Iterable[T]] parameter does not trigger S152.</summary>
+    /// <summary>Verifies %Iterable[T] parameter does not trigger S152.</summary>
     [Fact]
     public void Referring_Iterable_AsParameter_NoS152()
     {
         // Iterable[T] is a protocol — not an entity by category, but any concrete
         // value bound to the parameter at the call site WILL be an entity (or
         // fail S152 at that site). The check at the declaration site must
-        // accept protocol type arguments so `Viewing[Iterable[T]]` typechecks.
+        // accept protocol type arguments so `%Iterable[T]` typechecks.
         string source = """
                         module L/Test
                         import IO/Console
-                        routine consume_iterable[T](xs: Viewing[Emittable[T]])
+                        routine consume_iterable[T](xs: %Emittable[T])
                             return
                         """;
 
@@ -36,15 +36,15 @@ public class ReferringIterableTests
             filter: e => e.Code == SemanticDiagnosticCode.ReferenceTypeConstraintViolation);
     }
 
-    /// <summary>Verifies Modifying[Iterable[T]] parameter does not trigger S152.</summary>
+    /// <summary>Verifies @Iterable[T] parameter does not trigger S152.</summary>
     [Fact]
     public void Controlling_Iterable_AsParameter_NoS152()
     {
-        // Same rule applies to Modifying[T] (extends Viewing[T]).
+        // Same rule applies to @T (extends %T).
         string source = """
                         module L/Test
                         import IO/Console
-                        routine consume_mut[T](xs: Modifying[Emittable[T]])
+                        routine consume_mut[T](xs: @Emittable[T])
                             return
                         """;
 
@@ -57,17 +57,17 @@ public class ReferringIterableTests
 
     #region S205 — TypeNotIterable should NOT fire on Viewing[Iterable[T]]
 
-    /// <summary>Verifies for-loop over Viewing[Iterable[T]] does not trigger S205.</summary>
+    /// <summary>Verifies for-loop over %Iterable[T] does not trigger S205.</summary>
     [Fact]
     public void ForLoop_Over_Referring_Iterable_NoS205()
     {
         // The transparent-protocol unwrap in GetIterableElementType lets us
-        // iterate a `Viewing[Iterable[T]]` directly — the for-loop sees
+        // iterate a `%Iterable[T]` directly — the for-loop sees
         // through the marker wrapper to the underlying Iterable[T].
         string source = """
                         module L/Test
                         import IO/Console
-                        routine sum_it(xs: Viewing[Emittable[S64]]) -> S64
+                        routine sum_it(xs: %Emittable[S64]) -> S64
                             var total = 0
                             for x in xs
                                 total = total + x

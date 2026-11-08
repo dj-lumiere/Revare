@@ -28,13 +28,13 @@ public class DictReshapeTests
                     return
                 """)]
     [InlineData("""
-                routine restock(d: Modifying[Dict[Text, S64]])
+                routine restock(d: @Dict[Text, S64])
                     d["kiwi"] = 1
                     return
                 routine test()
                     var stock = Dict[Text, S64]()
                     for entry in stock
-                        restock(d: stock.modify())
+                        restock(d: stock)
                     return
                 """)]
     [InlineData("""

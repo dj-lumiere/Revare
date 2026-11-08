@@ -37,7 +37,7 @@ routine Slime.hp() -> S64
 routine Slime.attack() -> S64
     return 2
 
-routine Slime.destruct()
+dangerous routine Slime.destruct()
     ENDED += 1
     show(f"slime ends at {me.life}")
     return
@@ -59,7 +59,7 @@ routine Boss.hp() -> S64
 routine Boss.attack() -> S64
     return me.rage * 3
 
-routine Boss.destruct()
+dangerous routine Boss.destruct()
     ENDED += 1
     show(f"boss ends at {me.life}")
     return
@@ -100,7 +100,7 @@ entity Arena
     boss: Enemy
     spare: Enemy?
 
-routine show_hp(e: Viewing[Enemy])
+routine show_hp(e: %Enemy)
     show(f"hp {e.hp()}")
     return
 
@@ -108,7 +108,7 @@ routine finish(e: Enemy)
     show(f"finishing at {e.hp()}")
     return
 
-routine total_area(shapes: Viewing[List[Shape]]) -> S64
+routine total_area(shapes: %List[Shape]) -> S64
     var total: S64 = 0
     for s in shapes
         total += s.area()

@@ -7,7 +7,7 @@ import IO/Console
 entity Node
     value: S64
 
-routine Node.destruct()
+dangerous routine Node.destruct()
     show(f"ends {me.value}")
     return
 

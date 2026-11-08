@@ -26,7 +26,7 @@ routine join(op: Op, left: Node, right: Node) -> Node
     return Node(op: op, value: 0, kids: kids)
 
 # A tree evaluator that calls itself plainly: no `try`, no `when check` on the way down.
-routine eval(e: Viewing[Node]) -> S64
+routine eval(e: %Node) -> S64
     if e.op == Op.NUM
         return e.value
     var l = eval(e: e.kids.view_at(index: 0))
@@ -44,7 +44,7 @@ routine apply(f: Callable[(S64,), S64], x: S64) -> S64
 routine twice(f: Callable[(S64,), S64], x: S64) -> S64
     return apply(f: f, x: apply(f: f, x: x))
 
-routine show_check(label: Text, e: Viewing[Node])
+routine show_check(label: Text, e: %Node)
     when check eval(e: e)
         is S64 as v => show(f"{label}: {v}")
         is DivisionByZeroError => show(f"{label}: division by zero")
@@ -55,15 +55,15 @@ routine show_check(label: Text, e: Viewing[Node])
 
 routine start()
     var ok = join(op: Op.ADD, left: leaf(value: 2), right: join(op: Op.ADD, left: leaf(value: 3), right: leaf(value: 4)))
-    show_check(label: "ok", e: ok.view())
+    show_check(label: "ok", e: ok)
     var deep = join(op: Op.ADD, left: leaf(value: 1),
         right: join(op: Op.ADD, left: leaf(value: 2), right: join(op: Op.DIV, left: leaf(value: 7), right: leaf(value: 0))))
-    show_check(label: "deep", e: deep.view())
+    show_check(label: "deep", e: deep)
     var big = join(op: Op.ADD, left: leaf(value: S64_MAX), right: leaf(value: 1))
-    show_check(label: "big", e: big.view())
+    show_check(label: "big", e: big)
     var far = join(op: Op.AT, left: leaf(value: 0), right: leaf(value: 9))
-    show_check(label: "far", e: far.view())
-    show(f"try deep: {try eval(e: deep.view())}")
+    show_check(label: "far", e: far)
+    show(f"try deep: {try eval(e: deep)}")
     show(f"lambda: {try twice(f: x => 100 // x, x: 0)}")
     show(f"lambda value: {try twice(f: x => x + 1, x: 5)}")
     show(f"plain value: {try apply(f: x => x *% 2, x: 21)}")

@@ -160,21 +160,20 @@ secret routine BTreeListNode[T].children_add_last(value: Hijacked[BTreeListNode[
 ### stored key, then frees this node's own allocation. Children/keys are visited inline (never bound
 ### to a `var`) so scope-exit teardown doesn't double-free them.
 @override
-routine BTreeListNode[T].destruct()
-    danger
-        if not me.is_leaf
-            var ci: U64 = 0
-            until ci >= me.child_count
-                me
-                    .children_get(ci)
-                    .as_entity()
-                    .destruct()
-                ci = ci + 1
-        var ki: U64 = 0
-        until ki >= me.key_count
-            me.keys_get(ki).destruct()
-            ki = ki + 1
-        return
+dangerous routine BTreeListNode[T].destruct()
+    if not me.is_leaf
+        var ci: U64 = 0
+        until ci >= me.child_count
+            me
+                .children_get(ci)
+                .as_entity()
+                .destruct()
+            ci = ci + 1
+    var ki: U64 = 0
+    until ki >= me.key_count
+        me.keys_get(ki).destruct()
+        ki = ki + 1
+    return
 
 ### Cycle-collector TRACE: recurse into every child node, then report each stored key to the collector
 ### (a `Roamed` key reports its controller; a value key is a no-op). Overrides the universal member-walk
@@ -296,7 +295,7 @@ secret routine BTreeListNode[T].children_truncate(n: U64)
 ### :param start: Zero-based start index in `other`.
 ### :param count: Number of keys to copy.
 secret routine BTreeListNode[T].keys_add_range_from(
-    you: Viewing[BTreeListNode[T]],
+    you: %BTreeListNode[T],
     start: U64,
     count: U64,
 )
@@ -320,7 +319,7 @@ secret routine BTreeListNode[T].keys_add_range_from(
 ### :param start: Zero-based start index in `other`.
 ### :param count: Number of child pointers to copy.
 secret routine BTreeListNode[T].children_add_range_from(
-    you: Viewing[BTreeListNode[T]],
+    you: %BTreeListNode[T],
     start: U64,
     count: U64,
 )
@@ -406,12 +405,11 @@ routine SortedList[T].clear()
 ### of scope. The root node is visited inline (never bound to a `var`) so scope-exit teardown
 ### doesn't double-free it.
 @override
-routine SortedList[T].destruct()
-    danger
-        if me.root is None
-            return
-        me.root!!.as_entity().destruct()
+dangerous routine SortedList[T].destruct()
+    if me.root is None
         return
+    me.root!!.as_entity().destruct()
+    return
 
 ### Cycle-collector TRACE: delegate to the root node's recursive trace (reports every key in the tree).
 @override
@@ -458,7 +456,7 @@ routine SortedList[T].lacks(value: T) -> Bool
 ### :returns: `true` if found anywhere in the subtree.
 @readonly
 @inline
-secret routine SortedList[T].search_node(node: Viewing[BTreeListNode[T]], value: T) -> Bool
+secret routine SortedList[T].search_node(node: %BTreeListNode[T], value: T) -> Bool
     danger
         var i = me.lower_bound(node: node, value: value)
         if i < node.keys_count() and value == node.keys_get(i)
@@ -483,7 +481,7 @@ routine SortedList[T].count_of(value: T) -> U64
 ### :param value: The value to count.
 ### :returns: Number of occurrences found in the subtree.
 @readonly
-secret routine SortedList[T].count_in_node(node: Viewing[BTreeListNode[T]], value: T) -> U64
+secret routine SortedList[T].count_in_node(node: %BTreeListNode[T], value: T) -> U64
     danger
         var count: U64 = 0
         var i: U64 = 0
@@ -509,7 +507,7 @@ secret routine SortedList[T].count_in_node(node: Viewing[BTreeListNode[T]], valu
 ### :returns: Smallest index `i` where `node.keys[i] >= value`, or `keys_count()` if all keys are smaller.
 @readonly
 @inline
-secret routine SortedList[T].lower_bound(node: Viewing[BTreeListNode[T]], value: T) -> U64
+secret routine SortedList[T].lower_bound(node: %BTreeListNode[T], value: T) -> U64
     var lo: U64 = 0
     var hi = node.keys_count()
     until lo >= hi
@@ -526,7 +524,7 @@ secret routine SortedList[T].lower_bound(node: Viewing[BTreeListNode[T]], value:
 ### :returns: Smallest index `i` where `node.keys[i] > value`, or `keys_count()` if all keys are `<= value`.
 @readonly
 @inline
-secret routine SortedList[T].upper_bound(node: Viewing[BTreeListNode[T]], value: T) -> U64
+secret routine SortedList[T].upper_bound(node: %BTreeListNode[T], value: T) -> U64
     var lo: U64 = 0
     var hi = node.keys_count()
     until lo >= hi
@@ -578,7 +576,7 @@ routine SortedList[T].add(value: T)
 ### :param node: A non-full node to insert into.
 ### :param value: The element to insert.
 @inline
-secret routine SortedList[T].insert_non_full(node: Modifying[BTreeListNode[T]], value: T)
+secret routine SortedList[T].insert_non_full(node: @BTreeListNode[T], value: T)
     danger
         if node.is_leaf
             var i = me.upper_bound(node: node, value: value)
@@ -601,7 +599,7 @@ secret routine SortedList[T].insert_non_full(node: Modifying[BTreeListNode[T]], 
 ### :param parent_node: The parent node that owns the full child.
 ### :param child_idx: Index of the full child within `parent_node`'s children buffer.
 @inline
-secret routine SortedList[T].split_child(parent_node: Modifying[BTreeListNode[T]], child_idx: U64)
+secret routine SortedList[T].split_child(parent_node: @BTreeListNode[T], child_idx: U64)
     danger
         var child = parent_node.children_get(child_idx).as_entity()
         var mid = LLVM::unsigned_div(B_LIST -% 1, 2)
@@ -680,7 +678,7 @@ routine SortedList[T].remove(value: T) -> Bool
 ### :param ending: `true` if the removed entry is to be torn down, `false` if it only moves elsewhere and stays in use.
 ### :returns: `true` if a matching element was found and removed.
 @inline
-secret routine SortedList[T].remove_from_node(node: Modifying[BTreeListNode[T]], value: T, ending: Bool) -> Bool
+secret routine SortedList[T].remove_from_node(node: @BTreeListNode[T], value: T, ending: Bool) -> Bool
     danger
         var i = me.lower_bound(node: node, value: value)
 
@@ -736,7 +734,7 @@ secret routine SortedList[T].remove_from_node(node: Modifying[BTreeListNode[T]],
 ### :param idx: Index of the separator key whose left child to descend.
 ### :returns: The in-order predecessor key.
 @inline
-secret routine SortedList[T].get_predecessor(node: Viewing[BTreeListNode[T]], idx: U64) -> T
+secret routine SortedList[T].get_predecessor(node: %BTreeListNode[T], idx: U64) -> T
     danger
         var current = node.children_get(idx).as_entity()
         until current.is_leaf
@@ -748,7 +746,7 @@ secret routine SortedList[T].get_predecessor(node: Viewing[BTreeListNode[T]], id
 ### :param idx: Index of the separator key whose right child to descend.
 ### :returns: The in-order successor key.
 @inline
-secret routine SortedList[T].get_successor(node: Viewing[BTreeListNode[T]], idx: U64) -> T
+secret routine SortedList[T].get_successor(node: %BTreeListNode[T], idx: U64) -> T
     danger
         var current = node.children_get(idx +% 1).as_entity()
         until current.is_leaf
@@ -759,7 +757,7 @@ secret routine SortedList[T].get_successor(node: Viewing[BTreeListNode[T]], idx:
 ### :param node: The parent node whose two adjacent children are merged.
 ### :param i: Index of the separator key and the left child that absorbs the right.
 @inline
-secret routine SortedList[T].merge_children_at(node: Modifying[BTreeListNode[T]], i: U64)
+secret routine SortedList[T].merge_children_at(node: @BTreeListNode[T], i: U64)
     danger
         var left = node.children_get(i).as_entity()
         var right = node.children_get(i +% 1).as_entity()
@@ -779,7 +777,7 @@ secret routine SortedList[T].merge_children_at(node: Modifying[BTreeListNode[T]]
 ### :param i: The child index that is about to be descended into.
 ### :returns: The adjusted child index after any rotation or merge.
 @inline
-secret routine SortedList[T].fix_child(node: Modifying[BTreeListNode[T]], i: U64) -> U64
+secret routine SortedList[T].fix_child(node: @BTreeListNode[T], i: U64) -> U64
     danger
         if node
             .children_get(i)
@@ -810,7 +808,7 @@ secret routine SortedList[T].fix_child(node: Modifying[BTreeListNode[T]], i: U64
 ### :param node: The parent node.
 ### :param i: Index of the child that receives the borrowed key.
 @inline
-secret routine SortedList[T].rotate_right_at(node: Modifying[BTreeListNode[T]], i: U64)
+secret routine SortedList[T].rotate_right_at(node: @BTreeListNode[T], i: U64)
     danger
         var left = node.children_get(i -% 1).as_entity()
         var child = node.children_get(i).as_entity()
@@ -835,7 +833,7 @@ secret routine SortedList[T].rotate_right_at(node: Modifying[BTreeListNode[T]], 
 ### :param node: The parent node.
 ### :param i: Index of the child that receives the borrowed key.
 @inline
-secret routine SortedList[T].rotate_left_at(node: Modifying[BTreeListNode[T]], i: U64)
+secret routine SortedList[T].rotate_left_at(node: @BTreeListNode[T], i: U64)
     danger
         var right = node.children_get(i +% 1).as_entity()
         var child = node.children_get(i).as_entity()
@@ -858,7 +856,7 @@ secret routine SortedList[T].rotate_left_at(node: Modifying[BTreeListNode[T]], i
 ### Recomputes `node.subtree_size` from its keys and children.
 ### :param node: The node whose subtree size is to be refreshed.
 @inline
-secret routine SortedList[T].update_subtree_size(node: Modifying[BTreeListNode[T]])
+secret routine SortedList[T].update_subtree_size(node: @BTreeListNode[T])
     danger
         if node.is_leaf
             node.subtree_size = node.keys_count()
@@ -904,7 +902,7 @@ routine SortedList[T].get_by_rank(rank: U64) -> T
 ### :param rank: Zero-based position in the in-order traversal of this subtree.
 ### :returns: The element at that rank.
 @readonly
-secret routine SortedList[T].get_at_subtree_rank(node: Viewing[BTreeListNode[T]], rank: U64) -> T
+secret routine SortedList[T].get_at_subtree_rank(node: %BTreeListNode[T], rank: U64) -> T
     danger
         if node.is_leaf
             return node.keys_get(rank)
@@ -953,10 +951,10 @@ routine SortedList[T].range(min_val: T, max_val: T) -> List[T]
 ### :param result: The list to append matching elements into.
 @readonly
 secret routine SortedList[T].range_collect(
-    node: Viewing[BTreeListNode[T]],
+    node: %BTreeListNode[T],
     min_val: T,
     max_val: T,
-    result: Modifying[List[T]],
+    result: @List[T],
 )
     danger
         var i: U64 = 0
@@ -1053,8 +1051,8 @@ routine SortedList[T].to[List[T]]() -> List[T]
 ### :param result: The list to append elements into.
 @readonly
 secret routine SortedList[T].collect_inorder(
-    node: Viewing[BTreeListNode[T]],
-    result: Modifying[List[T]],
+    node: %BTreeListNode[T],
+    result: @List[T],
 )
     danger
         var i: U64 = 0
@@ -1118,7 +1116,7 @@ routine SortedList[T].diagnose() -> Text
 ### :param you: The list to compare against.
 ### :returns: `true` if element-wise equal.
 @readonly
-routine SortedList[T].eq(you: Viewing[SortedList[T]]) -> Bool
+routine SortedList[T].eq(you: %SortedList[T]) -> Bool
     if me.count != you.count
         return false
     var i: U64 = 0

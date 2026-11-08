@@ -23,19 +23,19 @@ public class ReadOnlyWalkTests
 
     [Theory]
     [InlineData("""
-                routine bump(boxes: Viewing[List[Box]])
+                routine bump(boxes: %List[Box])
                     for b in boxes
                         b.n += 1
                     return
                 """)]
     [InlineData("""
-                routine bump(boxes: Viewing[List[Box]])
+                routine bump(boxes: %List[Box])
                     for b in boxes
                         b.n = 0
                     return
                 """)]
     [InlineData("""
-                routine bump(boxes: Viewing[List[Box]])
+                routine bump(boxes: %List[Box])
                     for b in boxes.where(x => x.n > 1)
                         b.n = 0
                     return
@@ -48,7 +48,7 @@ public class ReadOnlyWalkTests
                     return
                 """)]
     [InlineData("""
-                routine bump(b: Viewing[Box])
+                routine bump(b: %Box)
                     b.n += 1
                     return
                 """)]
@@ -63,7 +63,7 @@ public class ReadOnlyWalkTests
     public void Analyze_WriteThroughModifyingWalk_NoError()
     {
         AnalysisResult result = AnalyzeSa(source: Box + """
-                                                       routine bump(boxes: Modifying[List[Box]])
+                                                       routine bump(boxes: @List[Box])
                                                            for b in boxes
                                                                b.n += 1
                                                            return

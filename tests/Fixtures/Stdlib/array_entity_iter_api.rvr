@@ -5,7 +5,7 @@ entity Res
     n: S64
 
 @override
-routine Res.destruct()
+dangerous routine Res.destruct()
     show(f"destruct {me.n}")
     return
 

@@ -850,16 +850,18 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     : $"'{Shown(path: local.Source)}', which belongs to this routine";
             report(code: SemanticDiagnosticCode.TokenReturnNotAllowed,
                 message:
-                $"You are returning a token taken from {what}. It is gone when the routine returns, so the token " +
-                "would point at freed memory. Return a token taken from 'me' or from a token parameter " +
-                "(declare it Viewing[T] or Modifying[T], callers can still pass the entity itself).",
+                $"You are returning a reference taken from {what}. It is gone when the routine returns, so the reference " +
+                "would point at freed memory. Return a reference taken from 'me' or from a reference parameter " +
+                "(declare it `%T` or `@T`, callers can still pass the entity itself).",
                 location: local.Ret.Location);
         }
     }
 
     /// <summary>
-    /// RV-S600 for a lambda that gives a token: it takes the token from one of its parameters, never from what it
-    /// captured. A call through a routine value then gives a token on what the call handed it, as a direct call does.
+    /// A lambda that gives a reference takes it from one of its parameters (a call through the routine value then
+    /// gives a reference on what the call handed it, as a direct call does) or from what it captured, which the builder
+    /// cannot follow to the call: such a lambda is marked, so its entity's type is retroactive and each use of what a
+    /// routine value call gives is checked at run time. A reference from a temporary is RV-S600.
     /// </summary>
     private void CheckLambdaReturns(RoutineDeclaration routine)
     {
@@ -879,14 +881,19 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     return;
                 }
 
-                string what = other.StartsWith(value: "~", comparisonType: StringComparison.Ordinal) || other == UnknownOrigin
-                    ? "a temporary or something the builder cannot trace to a parameter"
-                    : $"'{Shown(path: other)}', which the lambda captured";
+                // A reference taken from what the lambda captured is one whose entity the builder cannot follow to
+                // the call: its type becomes retroactive, and each use of what a call gives is checked then.
+                if (!other.StartsWith(value: "~", comparisonType: StringComparison.Ordinal) && other != UnknownOrigin)
+                {
+                    lambda.GivesUnprovenToken = true;
+                    return;
+                }
+
                 report(code: SemanticDiagnosticCode.TokenReturnNotAllowed,
                     message:
-                    $"Your lambda gives a token taken from {what}. A call of it would hand back a token the caller " +
-                    "cannot follow to what it passed. Give a token taken from one of the lambda's parameters, and pass " +
-                    "the entity in as an argument.",
+                    "Your lambda gives a reference taken from a temporary or something the builder cannot trace to a " +
+                    "parameter or a capture. It is gone when the lambda returns. Give a reference taken from one of " +
+                    "the lambda's parameters or from what it captured.",
                     location: lambda.Body.Location);
             });
     }
@@ -1289,8 +1296,8 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
 
             owner.Report(code: SemanticDiagnosticCode.TokenUsedAfterSourceChanged,
                 message:
-                $"You are using the token '{id.Name}', but {t.EndedBy} (line {t.EndedAt?.Line}). '{id.Name}' no " +
-                "longer points at a live entity. Take the token again after that line, or use it before.",
+                $"You are using the reference '{id.Name}', but {t.EndedBy} (line {t.EndedAt?.Line}). '{id.Name}' no " +
+                "longer points at a live entity. Take the reference again after that line, or use it before.",
                 location: id.Location);
         }
 
@@ -1871,8 +1878,8 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             {
                 owner.Report(code: SemanticDiagnosticCode.WriteThroughReadOnlyWrapper,
                     message:
-                    $"You are writing to '{root}', an element of a loop over a read token. The loop only lets you " +
-                    "read its elements. Loop over a write token instead ('.modify()', or a 'Modifying[T]' parameter).",
+                    $"You are writing to '{root}', an element of a loop over a read reference. The loop only lets you " +
+                    "read its elements. Loop over a write reference instead (an `@T` parameter, or the container itself).",
                     location: at);
             }
 
@@ -2051,9 +2058,9 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                         UnderOrEqual(path: x, prefix: y) || UnderOrEqual(path: y, prefix: x))));
                     owner.Report(code: SemanticDiagnosticCode.SameContainerTwiceInCall,
                         message:
-                        $"You are handing '{pa}' and '{pb}' of '{callee.Name}' tokens taken from the same '{shared}', " +
+                        $"You are handing '{pa}' and '{pb}' of '{callee.Name}' references taken from the same '{shared}', " +
                         "and one of them is written: a change through one changes what the other reads. Pass one " +
-                        "token, or tokens on two different entities.",
+                        "reference, or references on two different entities.",
                         location: call.Location);
                     return;
                 }
@@ -2145,8 +2152,8 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                             : $"a routine value it is handed may replace '{Shown(path: path)}'";
                         owner.Report(code: SemanticDiagnosticCode.TokenSourceReplaced,
                             message:
-                            $"This call is handed a token taken from '{Shown(path: hit.Origin)}', but {by} while the " +
-                            "call is still using that token, which would leave it pointing at freed memory. Change it " +
+                            $"This call is handed a reference taken from '{Shown(path: hit.Origin)}', but {by} while the " +
+                            "call is still using that reference, which would leave it pointing at freed memory. Change it " +
                             "in a separate statement, before or after the call.",
                             location: call.Location);
                         break;
@@ -2310,9 +2317,9 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
     {
         report(code: SemanticDiagnosticCode.SourceIterableKept,
             message:
-            $"You are keeping '{type.BareName}' {where}. It points at the container it walks, so it is a token: a " +
+            $"You are keeping '{type.BareName}' {where}. It points at the container it walks, so it is a reference: a " +
             "local variable may hold it until the container changes shape or ends, and a routine may return one made " +
-            "from 'me' or from a token parameter (declare it Viewing[T] or Modifying[T]), but it cannot go anywhere " +
+            "from 'me' or from a reference parameter (declare it `%T` or `@T`), but it cannot go anywhere " +
             "else that outlives the container. Collect it with '.to[List]()', build it from 'steal' " +
             "('(steal xs).emitter()') so it holds the elements itself, or keep the container in a 'Retained' and " +
             "take the emitter from the handle ('r.emitter()'), which holds one more reference to it.",
@@ -2347,18 +2354,18 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             (effects.ContainsKey(key: MeSlot) || mintsWriteToken))
         {
             string through = IsReadToken(type: receiver.ResolvedType)
-                ? $"a read token ('{receiver.ResolvedType!.Name}')"
-                : $"'{(receiver as IdentifierExpression)?.Name}', an element of a loop over a read token";
+                ? $"a read reference ('{receiver.ResolvedType!.Name}')"
+                : $"'{(receiver as IdentifierExpression)?.Name}', an element of a loop over a read reference";
             report(code: SemanticDiagnosticCode.WritableMemberRoutineThroughReadOnlyWrapper,
                 message:
                 $"You are calling '{callee.Name}()' through {through}, but " +
                 (mintsWriteToken
-                    ? $"'{callee.Name}()' hands out a write token on it."
+                    ? $"'{callee.Name}()' hands out a write reference on it."
                     : IsReadToken(type: receiver.ResolvedType)
-                        ? $"'{callee.Name}()' can change what the token points at."
+                        ? $"'{callee.Name}()' can change what the reference points at."
                         : $"'{callee.Name}()' can change it.") +
-                " A read token only lets you read. Take a write token instead ('.modify()', or a 'Modifying[T]' " +
-                "parameter), or mark the routine @readonly if it does not change anything.",
+                " A read reference only lets you read. Take a write reference instead (an `@T` parameter, or the " +
+                "entity itself), or mark the routine @readonly if it does not change anything.",
                 location: call.Location);
             return;
         }
@@ -2378,8 +2385,8 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             {
                 report(code: SemanticDiagnosticCode.WritableMemberRoutineThroughReadOnlyWrapper,
                     message:
-                    $"You are handing a read token ('{arg.ResolvedType!.Name}') to '{param}' of '{callee.Name}', " +
-                    $"which can change it. A read token only lets you read: pass a write token instead.",
+                    $"You are handing a read reference ('{arg.ResolvedType!.Name}') to '{param}' of '{callee.Name}', " +
+                    $"which can change it. A read reference only lets you read: pass a write reference instead.",
                     location: arg.Location);
                 return;
             }

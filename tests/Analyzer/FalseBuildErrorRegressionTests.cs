@@ -59,10 +59,10 @@ public class FalseBuildErrorRegressionTests
                                                       me.values[key] = 1
                                                       return
 
-                                                  routine Outer.part() -> Modifying[Inner]
-                                                      return me.inner.modify()
+                                                  routine Outer.part() -> @Inner
+                                                      return me.inner
 
-                                                  routine fill(o: Modifying[Outer])
+                                                  routine fill(o: @Outer)
                                                       var part = o.part()
                                                       part.put(key: "a")
                                                       part.put(key: "b")
@@ -95,10 +95,10 @@ public class FalseBuildErrorRegressionTests
                                      me.values[key] = 1
                                      return
 
-                                 routine Outer.part() -> Modifying[Inner]
-                                     return me.inner.modify()
+                                 routine Outer.part() -> @Inner
+                                     return me.inner
 
-                                 routine fill(o: Modifying[Outer])
+                                 routine fill(o: @Outer)
                                      var part = o.part()
                                      o.inner = Inner(values: Dict[Text, S64]())
                                      part.put(key: "b")
@@ -109,7 +109,7 @@ public class FalseBuildErrorRegressionTests
                                      fill(o: o)
                                      return
                                  """,
-            expectedErrorSubstring: "You are using the token 'part'");
+            expectedErrorSubstring: "You are using the reference 'part'");
     }
 
     /// <summary>The value handed to a token parameter becomes the token at the call, which is no reason to look for
@@ -120,7 +120,7 @@ public class FalseBuildErrorRegressionTests
         AssertAnalyzesSa(source: """
                                  import IO/Console
 
-                                 routine one(n: S32, xs: Viewing[List[S32]]) -> S32
+                                 routine one(n: S32, xs: %List[S32]) -> S32
                                      return n
 
                                  routine start()

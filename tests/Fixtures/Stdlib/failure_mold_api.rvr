@@ -43,7 +43,7 @@ record Napper
     id: S64
 
 @override
-routine Napper.destruct()
+dangerous routine Napper.destruct()
     waitfor(2ms)
     return
 

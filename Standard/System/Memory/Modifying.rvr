@@ -3,7 +3,7 @@ module System/Memory
 import BuilderQuery
 ### Represents temporary mutable access to a value where it is stored: an entity, or a record in its place
 ### (a container slot). It is the address of that place, the same as `Hijacked[T]`.
-### `Modifying[T]` is the non-Assignable access type used for explicit low-level manipulation outside the scoped-access wrappers.
+### `@T` is the non-Assignable access type used for explicit low-level manipulation outside the scoped-access wrappers.
 ### :typeparam T: The type being accessed.
 ### :see: {Viewing[T]}, {Hijacked[T]}
 @llvm("ptr")
@@ -11,18 +11,18 @@ record Modifying[T]
     nothing
 
 ### Produces a temporary unmanaged mutable view of `me`.
-### :returns: The resulting `Modifying[T]` value.
+### :returns: The resulting `@T` value.
 ### :note: Entity-only. Records are value-typed — `me` would be a by-value copy, so mutating
-###        through the returned `Modifying[T]` would write to a stack temporary rather than the
+###        through the returned `@T` would write to a stack temporary rather than the
 ###        caller's storage. Use `entity` for scoped mutation.
-infallible routine T.modify() -> Modifying[T]
+infallible routine T.modify() -> @T
 needs EntityType T
     danger
         return Modifying[T](me.hijack())
 
 # NOTE: No creators, no manual methods - all operations handled by builder
 # The address member variable is managed internally by the `.modify()` implementation
-# Users should NEVER create Modifying[T] values directly
+# Users should NEVER create @T values directly
 
 # ============================================================================
 # A target of a block that opens several at once
@@ -43,7 +43,7 @@ routine Modifying[T].enlist_identity()
 # ============================================================================
 
 ### Yields the value the token points at, for read-only access: a record read out of its place as a holder
-### of its own (as `getitem` gives one). Inserted implicitly at call sites whose parameter is `Viewing[T]`.
+### of its own (as `getitem` gives one). Inserted implicitly at call sites whose parameter is `%T`.
 ### :returns: The value as `T`.
 @readonly
 @inline
@@ -76,7 +76,7 @@ needs EntityType T
 
 ### Yields the value the token points at, for read/write access: a record read out of its place. A write to a
 ### record's member through the token goes to the place itself, not to this value.
-### Inserted implicitly at call sites whose parameter is `Modifying[T]`.
+### Inserted implicitly at call sites whose parameter is `@T`.
 ### :returns: The value as `T`.
 @inline
 @overridable
@@ -94,10 +94,10 @@ needs EntityType T
     danger
         return Hijacked[T](me).as_entity()
 
-### The same place, for reading only. A call hands this to a `Viewing[T]` parameter given the `Modifying[T]`.
+### The same place, for reading only. A call hands this to a `%T` parameter given the `@T`.
 ### :returns: The token.
 @readonly
-routine Modifying[T].view() -> Viewing[T]
+routine Modifying[T].view() -> %T
     danger
         return Viewing[T](Hijacked[T](me))
 
@@ -122,12 +122,12 @@ routine Modifying[T].diagnose() -> Text
 
 ### Ends a write token. It holds nothing that needs tearing down.
 @override
-routine Modifying[T].destruct()
+dangerous routine Modifying[T].destruct()
     return
 
 ### Whether this Modifying is hollow: the all-zero value `Modifying[T].hollow()` gives, which holds nothing.
-### For the standard library and the runtime, whose zero handle a `lateinit` binding starts as. A program writes `Modifying[T]?` for a link that may be missing.
+### For the standard library and the runtime, whose zero handle a `lateinit` binding starts as. A program writes `@T?` for a link that may be missing.
 ### :returns: `true` when it holds nothing.
 @readonly
 routine Modifying[T].is_hollow() -> Bool
-    return LLVM::reinterpret_bits[Modifying[T], Addr](me).is_hollow()
+    return LLVM::reinterpret_bits[@T, Addr](me).is_hollow()

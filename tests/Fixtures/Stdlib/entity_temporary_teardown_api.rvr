@@ -12,7 +12,7 @@ entity Crate
     n: S64
 
 @override
-routine Crate.destruct()
+dangerous routine Crate.destruct()
     show(f"crate {me.n} ends")
     return
 
@@ -39,7 +39,7 @@ obeys Emittable[S64]
     upto: S64
 
 @override
-routine Counter.destruct()
+dangerous routine Counter.destruct()
     show(f"counter to {me.upto} ends")
     return
 

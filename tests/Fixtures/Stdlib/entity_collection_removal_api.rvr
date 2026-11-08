@@ -8,7 +8,7 @@ import Collections
 entity Box
     n: S64
 
-routine Box.destruct()
+dangerous routine Box.destruct()
     show(f"ends {me.n}")
     return
 
@@ -17,7 +17,7 @@ global quiet_ends: S64 = 0
 entity Quiet
     n: S64
 
-routine Quiet.destruct()
+dangerous routine Quiet.destruct()
     quiet_ends += 1
     return
 

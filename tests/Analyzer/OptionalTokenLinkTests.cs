@@ -7,7 +7,7 @@ namespace Revare.Tests.Analyzer;
 using static TestHelpers;
 
 /// <summary>
-/// A link is an optional token on an entity (<c>Modifying[Node]?</c> / <c>Viewing[Node]?</c>). A member variable, a
+/// A link is an optional token on an entity (<c>@Node?</c> / <c>%Node?</c>). A member variable, a
 /// collection's element, a global or a local may keep one: it never keeps its entity alive, and taking it with
 /// <c>when</c> gives none once the entity ended. A token without <c>?</c> is still never kept (RV-S601, pointing to
 /// <c>?</c>), a link never crosses a routine boundary (a parameter or a result), a place that keeps a link takes the
@@ -25,31 +25,28 @@ public class OptionalTokenLinkTests
                                    """;
 
     [Fact]
-    public void Analyze_TokenWithoutQuestionMarkInMemberVariable_Errors()
+    public void Analyze_LinkWithoutQuestionMarkInMemberVariable_Builds()
     {
-        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
-                                                                   entity Child
-                                                                       parent: Modifying[Node]
-
-                                                                   routine start()
-                                                                       return
-                                                                   """,
-            expectedErrorSubstring: "without `?`");
-        Assert.Contains(collection: result.Errors,
-            filter: e => e.Code == SemanticDiagnosticCode.TokenMemberVariableNotAllowed);
-    }
-
-    [Fact]
-    public void Analyze_TokenWithoutQuestionMarkInList_Errors()
-    {
-        AssertHasErrorSa(source: Prelude + """
-                                           entity Holder
-                                               nodes: List[Viewing[Node]]
+        // `parent: @Node` is a link that always names an entity: a use after it ended fails when it runs.
+        AssertAnalyzesSa(source: Prelude + """
+                                           entity Child
+                                               parent: @Node
 
                                            routine start()
                                                return
-                                           """,
-            expectedErrorSubstring: "without `?`");
+                                           """);
+    }
+
+    [Fact]
+    public void Analyze_LinkWithoutQuestionMarkInList_Builds()
+    {
+        AssertAnalyzesSa(source: Prelude + """
+                                           entity Holder
+                                               nodes: List[%Node]
+
+                                           routine start()
+                                               return
+                                           """);
     }
 
     [Fact]
@@ -57,8 +54,8 @@ public class OptionalTokenLinkTests
     {
         AssertAnalyzes(source: Prelude + """
                                          entity Child
-                                             parent: Modifying[Node]?
-                                             seen: List[Viewing[Node]?]
+                                             parent: @Node?
+                                             seen: List[%Node?]
 
                                          routine start()
                                              var a = Node(id: 1)
@@ -78,13 +75,13 @@ public class OptionalTokenLinkTests
     {
         AssertAnalyzes(source: Prelude + """
                                          entity Child
-                                             parent: Modifying[Node]?
-                                             reader: Viewing[Node]?
+                                             parent: @Node?
+                                             reader: %Node?
 
                                          routine start()
                                              var a = Node(id: 1)
                                              var c = Child(parent: a, reader: none)
-                                             var m = a.modify()
+                                             var m = a
                                              c.parent = m
                                              c.reader = m
                                              c.reader = a
@@ -96,7 +93,7 @@ public class OptionalTokenLinkTests
     public void Analyze_LinkParameter_Errors()
     {
         AssertHasErrorSa(source: Prelude + """
-                                           routine describe(link: Viewing[Node]?) -> S64
+                                           routine describe(link: %Node?) -> S64
                                                when link
                                                    is None => return 0
                                                    else as n => return n.id
@@ -112,9 +109,9 @@ public class OptionalTokenLinkTests
     {
         AssertHasErrorSa(source: Prelude + """
                                            entity Child
-                                               parent: Modifying[Node]?
+                                               parent: @Node?
 
-                                           routine Child.parent_link() -> Modifying[Node]?
+                                           routine Child.parent_link() -> @Node?
                                                return me.parent
 
                                            routine start()
@@ -132,10 +129,10 @@ public class OptionalTokenLinkTests
 
                                          entity Cell
                                              box: Box
-                                             other: Modifying[Cell]?
+                                             other: @Cell?
 
                                          routine Cell.swap_box()
-                                             var b = me.box.modify()
+                                             var b = me.box
                                              when me.other
                                                  is None => nothing
                                                  else as c => c.box = Box(n: 2)
@@ -153,9 +150,9 @@ public class OptionalTokenLinkTests
     {
         AssertHasError(source: Prelude + """
                                          entity Child
-                                             parent: Modifying[Node]?
+                                             parent: @Node?
 
-                                         routine peek(c: Viewing[Child]) -> S64
+                                         routine peek(c: %Child) -> S64
                                              var kept = c.parent
                                              when c.parent
                                                  is None => return 0
@@ -174,9 +171,9 @@ public class OptionalTokenLinkTests
     {
         AssertAnalyzes(source: Prelude + """
                                          entity Child
-                                             parent: Modifying[Node]?
+                                             parent: @Node?
 
-                                         routine parent_id(c: Viewing[Child]) -> S64
+                                         routine parent_id(c: %Child) -> S64
                                              var kept = c.parent
                                              when kept
                                                  is None => return 0
@@ -193,8 +190,8 @@ public class OptionalTokenLinkTests
         AssertHasErrorSa(source: Prelude + """
                                            routine start()
                                                var a = Node(id: 1)
-                                               var x: Modifying[Node]? = a
-                                               var y: Modifying[Node]? = a
+                                               var x: @Node? = a
+                                               var y: @Node? = a
                                                show(x == y)
                                                return
                                            """,
@@ -207,11 +204,11 @@ public class OptionalTokenLinkTests
         AssertAnalyzes(source: Prelude + """
                                          routine start()
                                              var a = Node(id: 1)
-                                             var x: Modifying[Node]? = a
-                                             var y: Modifying[Node]? = a
-                                             var seen = Set[Modifying[Node]?]()
+                                             var x: @Node? = a
+                                             var y: @Node? = a
+                                             var seen = Set[@Node?]()
                                              drop seen.add(x)
-                                             var score = Dict[Viewing[Node]?, S64]()
+                                             var score = Dict[%Node?, S64]()
                                              show(x === y)
                                              show(x !== y)
                                              return
@@ -222,7 +219,7 @@ public class OptionalTokenLinkTests
     public void Analyze_ElementAndLoopLinksThroughViewing_AreReadOnly()
     {
         AssertHasErrorSa(source: Prelude + """
-                                           routine poke(links: Viewing[List[Modifying[Node]?]])
+                                           routine poke(links: %List[@Node?])
                                                for link in links
                                                    when link
                                                        is None => nothing
@@ -234,7 +231,7 @@ public class OptionalTokenLinkTests
                                            """,
             expectedErrorSubstring: "which only reads the value");
         AssertHasErrorSa(source: Prelude + """
-                                           routine poke(links: Viewing[Dict[S64, Modifying[Node]?]])
+                                           routine poke(links: %Dict[S64, @Node?])
                                                for (k, link) in links
                                                    when link
                                                        is None => nothing
@@ -252,7 +249,7 @@ public class OptionalTokenLinkTests
     {
         AssertAnalyzes(source: Prelude + """
                                          entity Child
-                                             parent: Modifying[Node]?
+                                             parent: @Node?
 
                                          routine start()
                                              var a = Node(id: 1)
@@ -270,7 +267,7 @@ public class OptionalTokenLinkTests
     {
         AssertAnalyzes(source: Prelude + """
                                          entity Wrap[T]
-                                             link: Modifying[T]?
+                                             link: @T?
 
                                          routine start()
                                              var a = Node(id: 1)
@@ -296,7 +293,7 @@ public class OptionalTokenLinkTests
                                                                      id: S64
 
                                                                  entity Child
-                                                                     parent: Modifying[Node]?
+                                                                     parent: @Node?
 
                                                                  routine start()
                                                                      var a = Node(id: 1)

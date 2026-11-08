@@ -17,14 +17,14 @@ routine start()
     c.bump(amount: 5)
     show(f"after bump(5): {c.value}")
 
-    # view (read-only borrow)
-    viewing c as v
-        show(f"view type: {v.type_name()}")
-        show(f"view value: {v.value}")
+    # a read reference
+    var v: %Counter = c
+    show(f"view type: {v.type_name()}")
+    show(f"view value: {v.value}")
 
-    # modify (mutable borrow)
-    modifying c as g
-        g.bump(amount: 100)
+    # a write reference
+    var m = c
+    m.bump(amount: 100)
 
     # represent / diagnose
     show(f"c represent: {c}")

@@ -193,7 +193,7 @@ routine RotatableList[T].add_last(value: T)
 ### Adds every element of `you` at the back, in order.
 ### :param you: The elements to add.
 @reshaping
-routine RotatableList[T].add_range(you: Viewing[Emittable[T]])
+routine RotatableList[T].add_range(you: %Emittable[T])
     for value in you
         me.add_last(value: value)
     return
@@ -447,7 +447,7 @@ secret routine RotatableList[T].exchange(index: U64, value: T) -> T
 ### RV-S639). Entity elements only.
 ### :param index: The position of the element.
 ### :returns: A write token on the element.
-routine RotatableList[T].modify_at(index: U64) -> Modifying[T]
+routine RotatableList[T].modify_at(index: U64) -> @T
 needs EntityType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
@@ -464,7 +464,7 @@ needs EntityType T
 ### :param index: The position of the element.
 ### :returns: A read token on the element.
 @readonly
-routine RotatableList[T].view_at(index: U64) -> Viewing[T]
+routine RotatableList[T].view_at(index: U64) -> %T
 needs EntityType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
@@ -649,7 +649,7 @@ routine RotatableList[T].diagnose() -> Text
 ### :param you: The other rotatable list to compare against.
 ### :returns: `true` if both have equal count and all corresponding elements are equal.
 @readonly
-routine RotatableList[T].eq(you: Viewing[RotatableList[T]]) -> Bool
+routine RotatableList[T].eq(you: %RotatableList[T]) -> Bool
 needs T obeys Equatable
     if me.count != you.count
         return false
@@ -662,20 +662,19 @@ needs T obeys Equatable
 
 ### Tears down each element in front-to-back order, then frees the buffer.
 @override
-routine RotatableList[T].destruct()
-    danger
-        # Tear down each live element in logical front-to-back (ring) order before freeing the buffer
-        # (mirrors RotatableListEmitter.emit!). No-op for value types; frees owned entity elements.
-        var i: U64 = 0
-        until i >= me.count
-            var physical = me.start +% i & me.capacity -% 1
-            me.data
-                .offset(T.data_size() * physical)
-                .peek()
-                .destruct()
-            i = i + 1
-        me.data.invalidate()
-        return
+dangerous routine RotatableList[T].destruct()
+    # Tear down each live element in logical front-to-back (ring) order before freeing the buffer
+    # (mirrors RotatableListEmitter.emit!). No-op for value types; frees owned entity elements.
+    var i: U64 = 0
+    until i >= me.count
+        var physical = me.start +% i & me.capacity -% 1
+        me.data
+            .offset(T.data_size() * physical)
+            .peek()
+            .destruct()
+        i = i + 1
+    me.data.invalidate()
+    return
 
 ### Cycle-collector TRACE: report every live element to the collector, walking the ring in logical
 ### order (elements are NOT contiguous, so `cyclic_trace_buffer` cannot be used — this mirrors the

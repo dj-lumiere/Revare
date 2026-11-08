@@ -12,11 +12,11 @@ record Link
     keep: Retained[Counter]
     weight: S64
 
-routine read_it(links: Viewing[List[Link]]) -> S64
-    return links[0].keep.view().n
+routine read_it(links: %List[Link]) -> S64
+    return links[0].keep.n
 
-routine read_var(links: Viewing[List[Link]]) -> S64
-    var seen = links[0].keep.view().n
+routine read_var(links: %List[Link]) -> S64
+    var seen = links[0].keep.n
     return seen
 
 routine start()

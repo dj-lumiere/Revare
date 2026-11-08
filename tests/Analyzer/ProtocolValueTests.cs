@@ -188,7 +188,7 @@ public class ProtocolValueTests
     public void Analyze_TypeParameterValueIntoStoredPlace_IsRejected()
     {
         AnalysisResult result = AssertHasErrorSa(source: Prelude + """
-                                                                   routine keep[T](value: T, into: Modifying[List[Enemy]])
+                                                                   routine keep[T](value: T, into: @List[Enemy])
                                                                    needs T obeys Enemy
                                                                        into.add_last(value: steal value)
                                                                        return
@@ -244,7 +244,7 @@ public class ProtocolValueTests
                                                var h = e.hp()
                                                return
 
-                                           routine look(e: Viewing[Enemy]) -> S64
+                                           routine look(e: %Enemy) -> S64
                                                return e.hp()
 
                                            routine start()

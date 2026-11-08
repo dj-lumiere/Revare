@@ -9,7 +9,7 @@ import EmitterTools
 record Box
     n: S64
 
-routine Box.add_other[TOther](other: Viewing[TOther]) -> S64
+routine Box.add_other[TOther](other: %TOther) -> S64
 needs TOther obeys Emittable[S64]
     return me.n + 1
 

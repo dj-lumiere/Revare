@@ -10,10 +10,10 @@ routine total(cells: List[S64]) -> S64
         sum += c
     return sum
 
-routine copy_out(cells: Viewing[List[S64]]) -> List[S64]
+routine copy_out(cells: %List[S64]) -> List[S64]
     return cells.duplicate()
 
-routine copy_then_grow(cells: Modifying[List[S64]]) -> List[S64]
+routine copy_then_grow(cells: @List[S64]) -> List[S64]
     var copy = cells.duplicate()
     cells.add_last(value: 9)
     return copy
@@ -27,8 +27,8 @@ routine start()
     jobs.add_last(value: total.to[Work](cells: steal second))
     show(f"{jobs.gather()}")
     var kept = [1, 2, 3, 4]
-    var viewed = copy_out(cells: kept.view())
-    var grown = copy_then_grow(cells: kept.modify())
+    var viewed = copy_out(cells: kept)
+    var grown = copy_then_grow(cells: kept)
     show(f"{viewed} {grown} {kept}")
     show("DONE")
     return

@@ -33,7 +33,7 @@ routine Optional[T].diagnose() -> Text
 ### auto-derived) so the per-instantiation body is monomorphized and emitted like the other carrier
 ### routines, and so the `value` field is only touched when actually present.
 @override
-routine Optional[T].destruct()
+dangerous routine Optional[T].destruct()
     if me.is_present()
         me.value.destruct()
     return
@@ -113,7 +113,7 @@ needs RecordType T
 ### `reach` for an entity: the call acts on the original, so it gets a write token on it, not a copy.
 ### :returns: A write token on the held entity.
 ### :throws: {AbsentValueError} if this `Optional` is absent.
-routine Optional[T].reach_in_place() -> Modifying[T]
+routine Optional[T].reach_in_place() -> @T
 needs EntityType T
     if not me.is_present()
         throw AbsentValueError()
@@ -123,7 +123,7 @@ needs EntityType T
 ### place, not a copy.
 ### :returns: A write token on the held variant.
 ### :throws: {AbsentValueError} if this `Optional` is absent.
-routine Optional[T].reach_in_place() -> Modifying[T]
+routine Optional[T].reach_in_place() -> @T
 needs VariantType T
     if not me.is_present()
         throw AbsentValueError()
@@ -134,7 +134,7 @@ needs VariantType T
 ### value where the optional keeps it, so it gets a write token on that place, not a copy.
 ### :returns: A write token on the held value.
 ### :throws: {AbsentValueError} if this `Optional` is absent.
-routine Optional[T].reach_in_place() -> Modifying[T]
+routine Optional[T].reach_in_place() -> @T
 needs OwningValueType T
     if not me.is_present()
         throw AbsentValueError()
@@ -251,7 +251,7 @@ routine Optional[T].is_present() -> Bool
 ### :param you: The other optional to compare against.
 ### :returns: `true` when both are absent or both hold equal values, `false` when only one is absent.
 @readonly
-routine Optional[T].eq(you: Viewing[Optional[T]]) -> Bool
+routine Optional[T].eq(you: %Optional[T]) -> Bool
 needs T obeys Equatable
     if T.is_link_token()
         return link_eq[T](link: me, you: you)

@@ -6,7 +6,7 @@ import IO/Errors
 import IO/File
 
 # Writes one cell through a write token: the routine changes the storage in place.
-routine stamp(storage: Modifying[FileStorage[Byte]], at: U64, value: Byte)
+routine stamp(storage: @FileStorage[Byte], at: U64, value: Byte)
     storage[at] = value
     return
 

@@ -325,8 +325,7 @@ public class ScopeTests
                             value: S32
 
                         routine test(data: Data)
-                            viewing data as d
-                                show(d.value)
+                            show(data.value)
                             return
                         """;
 
@@ -344,8 +343,7 @@ public class ScopeTests
                             value: S32
 
                         routine test(data: Data)
-                            viewing data as d
-                                show(d.value)
+                            show(data.value)
                             show(d.value)
                             return
                         """;

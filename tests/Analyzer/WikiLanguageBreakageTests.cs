@@ -285,14 +285,13 @@ public class WikiLanguageBreakageTests
     {
         string source = """
                         record BadRecord
-                            view: Viewing[S32]
+                            view: %S32
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);
 
         Assert.Contains(collection: result.Errors,
-            filter: e => e.Code is SemanticDiagnosticCode.TokenMemberVariableNotAllowed
-                or SemanticDiagnosticCode.RecordContainsNonValueType);
+            filter: e => e.Code == SemanticDiagnosticCode.RecordReferenceKept);
     }
 
     /// <summary>
@@ -305,8 +304,8 @@ public class WikiLanguageBreakageTests
                         entity Node
                             value: S32
 
-                        routine get_view(node: Node) -> Viewing[Node]
-                            return node.view()
+                        routine get_view(node: Node) -> %Node
+                            return node
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);

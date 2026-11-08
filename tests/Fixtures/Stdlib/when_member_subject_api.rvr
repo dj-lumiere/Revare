@@ -11,7 +11,7 @@ entity Node
 ### The left child's value, 0 when there is none.
 ### :param x: The node.
 ### :returns: The value.
-routine left_value(x: Modifying[Node]) -> S64
+routine left_value(x: @Node) -> S64
     var s: S64 = 0
     when x.left
         is None => nothing
@@ -20,7 +20,7 @@ routine left_value(x: Modifying[Node]) -> S64
 
 ### Adds 10 to the left child's value.
 ### :param x: The node.
-routine bump_left(x: Modifying[Node])
+routine bump_left(x: @Node)
     when x.left
         is None => nothing
         else as c => c.value = c.value + 10
@@ -39,8 +39,8 @@ routine build(d: S64) -> Node
 
 routine start()
     var top = build(d: 3)
-    bump_left(x: top.modify())
-    bump_left(x: top.modify())
-    show(f"after: {left_value(top.modify())}")
+    bump_left(x: top)
+    bump_left(x: top)
+    show(f"after: {left_value(top)}")
     show("DONE")
     return

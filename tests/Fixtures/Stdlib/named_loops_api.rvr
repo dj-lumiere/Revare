@@ -1,7 +1,7 @@
 module Tests/Stdlib/NamedLoopsApi
 import IO/Console
 
-routine find_pair(grid: Viewing[List[List[S64]]], target: S64) -> S64
+routine find_pair(grid: %List[List[S64]], target: S64) -> S64
     var found = -1
     for y in 0 til 3 as rows
         for x in 0 til 3
@@ -39,8 +39,8 @@ routine carried() -> S64
 
 routine start()
     var g = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-    show(find_pair(grid: g.view(), target: 5))
-    show(find_pair(grid: g.view(), target: 99))
+    show(find_pair(grid: g, target: 5))
+    show(find_pair(grid: g, target: 99))
     show(skip_rows())
     show(carried())
     return

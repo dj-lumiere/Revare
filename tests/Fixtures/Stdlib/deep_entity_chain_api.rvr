@@ -11,7 +11,7 @@ global ENDED: S64 = 0
 entity Mark
     id: S64
 
-routine Mark.destruct()
+dangerous routine Mark.destruct()
     ENDED += 1
     return
 

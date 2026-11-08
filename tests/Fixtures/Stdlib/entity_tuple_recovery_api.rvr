@@ -9,7 +9,7 @@ entity Part
     n: S64
 
 @override
-routine Part.destruct()
+dangerous routine Part.destruct()
     show(f"part {me.n} ends")
     return
 
