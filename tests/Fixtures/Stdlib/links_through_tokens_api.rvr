@@ -3,7 +3,7 @@ module Tests/Stdlib/LinksThroughTokensApi
 import IO/Console
 # Links reached through tokens: a list of links read through a read token gives read-only links (its elements, its
 # loop elements, a `Dict` entry's link), a write token gives links that change their entity, and the token a loop
-# element's link gives is kept as a link again.
+# element's link gives is kept as a link again, and so is a loop element given straight to a link member variable.
 
 entity Creature
     x: S64
@@ -50,9 +50,7 @@ routine start()
     show(f"{herd[0].x} {herd[0].y} {herd[1].x}")
     var kids = List[Creature]()
     for at in links
-        when at
-            is None => nothing
-            else as p => kids.add_last(value: Creature(x: 0, y: 0, parent: p))
+        kids.add_last(value: Creature(x: 0, y: 0, parent: at))
     for kid in kids
         show(parent_x(c: kid))
     var by_key = Dict[S64, Modifying[Creature]?]()

@@ -56,6 +56,17 @@ public sealed class LapilaBackendNameTests
         Assert.Equal(expected: "9", actual: BuildAndRun(fixture: "LapilaBackendGatherNone"));
     }
 
+    /// <summary>
+    /// A link of a retroactive entity type on the Lapila backend: 128 bits made from the entity's address and its
+    /// slot's generation, read while the entity lives and none once it ended, and a new entity of the type taking a
+    /// slot from the type's store.
+    /// </summary>
+    [Fact]
+    public void Links_RunOnTheLapilaBackend()
+    {
+        Assert.Equal(expected: "11 ended 3", actual: BuildAndRun(fixture: "LapilaBackendLinks"));
+    }
+
     /// <summary>Builds and runs <c>tests/Fixtures/{fixture}/main.rvr</c> and returns what it printed.</summary>
     private static string BuildAndRun(string fixture)
     {

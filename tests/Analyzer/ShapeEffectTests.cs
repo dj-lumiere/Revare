@@ -119,7 +119,12 @@ public class ShapeEffectTests
                                       return
                                   """;
 
-        AssertHasErrorSa(source: source, expectedErrorSubstring: "so they may be the same one");
+        // The message says why no check at run time covers it, and no longer points at a `modifying` block.
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "so they may be the same one");
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.Message.Contains(value: "cannot check it at run time", comparisonType: StringComparison.Ordinal));
+        Assert.DoesNotContain(collection: result.Errors,
+            filter: e => e.Message.Contains(value: "`modifying", comparisonType: StringComparison.Ordinal));
     }
 
     [Fact]
@@ -360,6 +365,50 @@ public class ShapeEffectTests
                                                              return
                                                          """,
             expectedErrorSubstring: "they are the same container");
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.Code == SemanticDiagnosticCode.SameContainerTwiceInCall);
+    }
+
+    /// <summary>A routine whose `try` adds to a parameter still reshapes it: the check reads the calls under the keyword
+    /// as written, not the one call the keyword became.</summary>
+    [Fact]
+    public void Analyze_ReshapeUnderTryInACalledRoutine_Errors()
+    {
+        string source = Prelude + """
+                                  routine grow_quietly(into: Modifying[List[S64]])
+                                      var added = try into.add_last(value: 1)
+                                      return
+
+                                  routine start()
+                                      var nums: List[S64] = [1, 2]
+                                      for x in nums
+                                          grow_quietly(into: nums)
+                                      return
+                                  """;
+
+        AnalysisResult result = AssertHasErrorSa(source: source,
+            expectedErrorSubstring: "You are trying to pass 'nums' to 'grow_quietly'");
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.Code == SemanticDiagnosticCode.ReshapingDuringIteration);
+    }
+
+    /// <summary>One call handed the same container as a write token and a read token is RV-S623 under `try` too.</summary>
+    [Fact]
+    public void Analyze_SameContainerTwiceUnderTry_Errors()
+    {
+        string source = Prelude + """
+                                  routine copy_into(from: Viewing[List[S64]], into: Modifying[List[S64]])
+                                      for x in from
+                                          into.add_last(value: x)
+                                      return
+
+                                  routine start()
+                                      var nums: List[S64] = [1, 2]
+                                      var copied = try copy_into(from: nums, into: nums)
+                                      return
+                                  """;
+
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "in the same call");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.SameContainerTwiceInCall);
     }

@@ -1,0 +1,7 @@
+[package]
+name = "lapila_backend_links"
+
+[target]
+executable = "main.rvr"
+mode = "debug"
+backend = "lapila"

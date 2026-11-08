@@ -1,0 +1,11 @@
+try over a routine returning nothing: received
+try through a local: received
+try two routines up: received
+check two routines up: received
+try over a growing walk: received
+check over a growing walk: received
+fed another list: 103 4
+try over a key put in a walked Dict: received
+1
+1 3
+-1 3

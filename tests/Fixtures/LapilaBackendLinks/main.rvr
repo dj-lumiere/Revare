@@ -1,0 +1,27 @@
+module LapilaBackendLinks
+
+import IO/Console
+
+# Links on the Lapila backend: a link made from an entity, read while its entity lives, none once it ended, and an
+# entity of a retroactive type taking a slot again after another one ended.
+
+entity Node
+    id: S64
+    parent: Modifying[Node]?
+
+routine start()
+    var a = Node(id: 1, parent: none)
+    var b = Node(id: 2, parent: none)
+    b.parent = a
+    var seen: S64 = b.parent.id
+    when b.parent
+        is None => seen = -1
+        else as p => seen += p.id * 10
+    drop a
+    var after = "kept"
+    when b.parent
+        is None => after = "ended"
+        else => nothing
+    var c = Node(id: 3, parent: none)
+    show(f"{seen} {after} {c.id}")
+    return

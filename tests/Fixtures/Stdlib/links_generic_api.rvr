@@ -3,12 +3,13 @@ module Tests/Stdlib/LinksGenericApi
 import IO/Console
 # Links to library and generic entity types: a link to a `List[S64]` makes it retroactive, a generic entity with a
 # written destruct ends through its slot, and a link a generic routine keeps over its type parameter makes each type it
-# is made for retroactive, even one no other code links.
+# is made for retroactive, even one no other code links. Another module of the harness declares a `Box[T]` of its own,
+# which never takes this one's destruct.
 
-entity Crate[T]
+entity Box[T]
     held: T
 
-routine Crate[T].destruct()
+routine Box[T].destruct()
     show("box end")
     return
 
@@ -35,9 +36,9 @@ routine start()
     show(l.count())
     drop lists.remove_first()
     show(try l.count())
-    var boxes = List[Crate[S64]]()
-    boxes.add_last(value: Crate[S64](held: 7))
-    var w = Wrap[Crate[S64]](link: none)
+    var boxes = List[Box[S64]]()
+    boxes.add_last(value: Box[S64](held: 7))
+    var w = Wrap[Box[S64]](link: none)
     w.link = boxes[0]
     show(w.link.held)
     boxes.clear()

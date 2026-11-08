@@ -1,0 +1,127 @@
+module Tests/Stdlib/LinksFailuresApi
+
+import IO/Console
+# Failures a link brings pass up to the nearest `try` or `check` like any other: a token taken from a link used after
+# its entity ended (in a routine returning nothing, through a local given the token, through routines that only hand
+# it on), and a change to a container a running loop walks, found at run time through a token taken from a link. An
+# entity element of a list given to a creator's link member variable makes the link.
+
+entity Node
+    id: S64
+
+entity Holder
+    nodes: List[Node]
+
+entity Watch
+    target: Modifying[Node]?
+
+routine Node.end_all(holder: Modifying[Holder])
+    holder.nodes.clear()
+    show(me.id)
+    return
+
+routine read_through_local(n: Modifying[Node], holder: Modifying[Holder]) -> S64
+    holder.nodes.clear()
+    var m = n
+    return m.id
+
+routine hand_on(n: Modifying[Node], holder: Modifying[Holder])
+    show(read_through_local(n: n, holder: holder))
+    return
+
+routine through_watch(w: Modifying[Watch], holder: Modifying[Holder])
+    when w.target
+        is None => show("none")
+        else as n => hand_on(n: n, holder: holder)
+    return
+
+routine grow(into: Modifying[List[S64]], value: S64)
+    into.add_last(value: value)
+    return
+
+entity Shelf
+    other: Modifying[List[S64]]?
+    keys: Modifying[Dict[S64, S64]]?
+
+routine feed(shelf: Modifying[Shelf], from: Viewing[List[S64]]) -> S64
+    var fed: S64 = 0
+    for y in from
+        when shelf.other
+            is None => nothing
+            else as o =>
+                grow(into: o, value: y)
+                fed += 1
+    return fed
+
+routine fed_plus(shelf: Modifying[Shelf], from: Viewing[List[S64]]) -> S64
+    return feed(shelf: shelf, from: from) + 100
+
+routine fill(shelf: Modifying[Shelf], from: Viewing[Dict[S64, S64]])
+    for (k, v) in from
+        when shelf.keys
+            is None => nothing
+            else as into => into[k + 10] = v
+    return
+
+entity Creature
+    x: S64
+    parent: Modifying[Creature]?
+
+routine parent_x(c: Viewing[Creature]) -> S64
+    when c.parent
+        is None => return -1
+        else as p => return p.x
+
+routine start()
+    var holder = Holder(nodes: [])
+    var w = Watch(target: none)
+    holder.nodes.add_last(value: Node(id: 1))
+    w.target = holder.nodes[0]
+    if not try w.target.end_all(holder: holder)
+        show("try over a routine returning nothing: received")
+    holder.nodes.add_last(value: Node(id: 2))
+    w.target = holder.nodes[0]
+    when w.target
+        is None => show("none")
+        else as n =>
+            when try read_through_local(n: n, holder: holder)
+                is None => show("try through a local: received")
+                else as v => show(v)
+    holder.nodes.add_last(value: Node(id: 3))
+    w.target = holder.nodes[0]
+    if not try through_watch(w: w, holder: holder)
+        show("try two routines up: received")
+    holder.nodes.add_last(value: Node(id: 4))
+    w.target = holder.nodes[0]
+    when check through_watch(w: w, holder: holder)
+        is EntityEndedError => show("check two routines up: received")
+        else => show("check ok")
+
+    var a: List[S64] = [1, 2, 3]
+    var shelf = Shelf(other: none, keys: none)
+    shelf.other = a
+    when try fed_plus(shelf: shelf, from: a)
+        is None => show("try over a growing walk: received")
+        else as v => show(v)
+    when check fed_plus(shelf: shelf, from: a)
+        is ReshapingWhileInUseError => show("check over a growing walk: received")
+        else => show("check ok")
+    var b: List[S64] = [9]
+    shelf.other = b
+    show(f"fed another list: {fed_plus(shelf: shelf, from: a)} {b.count()}")
+    var d = Dict[S64, S64]()
+    d[1] = 2
+    shelf.keys = d
+    if not try fill(shelf: shelf, from: d)
+        show("try over a key put in a walked Dict: received")
+    show(d.count())
+
+    var herd = List[Creature]()
+    herd.add_last(value: Creature(x: 1, parent: none))
+    herd.add_last(value: Creature(x: 3, parent: none))
+    var kid = Creature(x: 0, parent: herd[0])
+    var kid2 = Creature(0, herd[1])
+    show(f"{parent_x(c: kid)} {parent_x(c: kid2)}")
+    drop herd.remove_first()
+    show(f"{parent_x(c: kid)} {parent_x(c: kid2)}")
+    return
