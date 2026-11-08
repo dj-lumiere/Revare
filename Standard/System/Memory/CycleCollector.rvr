@@ -10,13 +10,21 @@ routine cyclic_collect() -> U64
     danger
         return C::ingrid_cyclic_collect()
 
-### Universal cycle-collector visit hook. Only a `Roamed[T]` handle owns a strong edge the collector
-### must follow — every OTHER type (values, plain records, container buffers of values) participates in
-### no cycle, so the default is a no-op. `Roamed[T].cyclic_visit` (in Roamed.rvr) is the hand-written
-### override that actually reports the controller. This universal default lets a generic container
+### Universal cycle-collector visit hook. Only a `Roamed[T]` handle and a routine value own a strong edge the
+### collector must follow — every OTHER type (values, plain records, container buffers of values) participates in
+### no cycle, so the default is a no-op. `Roamed[T].cyclic_visit` (in Roamed.rvr) and the routine value's override
+### below report the controller. This universal default lets a generic container
 ### buffer-walk call `element.cyclic_visit()` uniformly: a value element compiles to nothing, a
 ### `Roamed` element reports itself — no per-element-type branching in the builder/codegen.
 @overridable
 infallible dangerous routine T.cyclic_visit()
 needs AnyType T
+    return
+
+### Cycle-collector visit hook of a routine value: its lambda's payload is a strong edge, reported to the collector
+### like a `Roamed` handle's controller. A container's buffer walk reaches it through this.
+@override
+infallible dangerous routine T.cyclic_visit()
+needs RoutineType T
+    closure_visit(bound: LLVM::routine_bound[T](me))
     return

@@ -1,24 +1,32 @@
 module System/Memory
 
 import BuilderQuery
-# A capturing lambda's bound payload: one Addr slot per captured value, each pointing at the value's
-# own heap cell. The builder writes the calls (LambdaLiftingPass): the lambda value is built as
-# `closure_put[..](bound: closure_put[..](bound: closure_new(slots: 2), slot: 0, value: a), slot: 1, value: b)`
-# and the lifted routine starts with `var a = closure_get[..](bound: __bound, slot: 0)` per capture.
-# The payload keeps its copies for as long as the program runs: a routine value has no teardown.
+# A capturing lambda's bound payload is a counted entity with the controller a shared entity has (`RoamManager`).
+# The controller's `data` is the slot table: one Addr slot per captured value, each pointing at the value's own heap
+# cell. The builder writes the calls (LambdaLiftingPass): the lambda value is built as
+# `closure_seal(table: closure_put[..](bound: closure_put[..](bound: closure_new(slots: 2), slot: 0, value: a), slot: 1,
+# value: b), drop_hook: ..)` and the lifted routine starts with `var a = closure_get[..](bound: __bound, slot: 0)` per
+# capture.
+# A copy of the routine value is one more holder (its `share`), and the end of a holder is one less (its `destruct`).
+# The last holder gone runs the drop hook the builder writes for the lambda: it ends every captured value
+# (`closure_drop`) and frees the cells and the table (`closure_end`). A token or entity the lambda is bound to is kept
+# where it is, so the payload frees its cell and ends nothing. A lambda whose captures can reach a shared entity or
+# another routine value also gets a trace hook (`closure_trace` per capture), so a cycle through it is collected, and
+# a free hook for the collector (`closure_reap` per capture).
+# The payload counts with atomic operations from the start: a routine value may reach another task without a mark.
 
-### Allocates a closure's bound payload with one slot per captured value.
+### Allocates a closure's slot table with one slot per captured value.
 ### :param slots: The number of captured values.
-### :returns: The payload.
+### :returns: The slot table.
 dangerous routine closure_new(slots: U64) -> Addr
     return rf_allocate_dynamic(size: Addr.data_size() * slots)
 
 ### Copies a captured value into its own heap cell (like `List.add_last` storing an element) and stores
-### the cell in payload slot `slot`.
-### :param bound: The payload.
+### the cell in slot `slot` of the table.
+### :param bound: The slot table.
 ### :param slot: The captured value's slot.
 ### :param value: The captured value.
-### :returns: The payload, so the captures of one lambda chain in a single expression.
+### :returns: The slot table, so the captures of one lambda chain in a single expression.
 dangerous routine closure_put[T](bound: Addr, slot: U64, value: T) -> Addr
     var cell = Hijacked[T](rf_allocate_dynamic(size: T.data_size()))
     cell.poke(value)
@@ -28,13 +36,49 @@ dangerous routine closure_put[T](bound: Addr, slot: U64, value: T) -> Addr
     )
     return bound
 
+### Makes the payload of a lambda whose captures reach no shared entity and no routine value: a controller with one
+### holder whose data is the slot table. The drop hook is also the collector's free hook, since such a payload is
+### only collected as part of a cycle through what keeps it.
+### :param table: The filled slot table.
+### :param drop_hook: The lambda's drop hook, run by the last holder's release.
+### :returns: The payload.
+dangerous routine closure_seal(table: Addr, drop_hook: Addr) -> Addr
+    return closure_seal_traced(table, drop_hook, trace_hook: Addr.hollow(), free_hook: drop_hook)
+
+### Makes the payload of a lambda: a controller with one holder whose data is the slot table. It counts with atomic
+### operations from the start, as a shared entity does once it reaches another task.
+### :param table: The filled slot table.
+### :param drop_hook: The lambda's drop hook, run by the last holder's release.
+### :param trace_hook: The lambda's trace hook (reports the captured handles to the collector), or the hollow address.
+### :param free_hook: The collector's free hook (ends the captures except their handles).
+### :returns: The payload.
+dangerous routine closure_seal_traced(table: Addr, drop_hook: Addr, trace_hook: Addr, free_hook: Addr) -> Addr
+    var manager = RoamManager(data: table, trace_hook: trace_hook, free_hook: free_hook, drop_hook: drop_hook).hijack()
+    var header = manager.get_address()
+    C::ingrid_roam_promote(header)
+    return header
+
+### The slot table of a payload.
+### :param bound: The payload.
+### :returns: The slot table.
+dangerous routine closure_table(bound: Addr) -> Addr
+    var manager = Hijacked[RoamManager](from: bound).as_entity()
+    return manager.data_address()
+
+### The cell of the captured value in slot `slot` of a slot table.
+### :param table: The slot table.
+### :param slot: The captured value's slot.
+### :returns: The cell's address.
+dangerous routine closure_cell(table: Addr, slot: U64) -> Addr
+    return Hijacked[Addr](table).peek_at_offset(offset: Addr.data_size() * slot)
+
 ### A copy of the captured value in payload slot `slot`; the payload keeps its own.
 ### :param bound: The payload.
 ### :param slot: The captured value's slot.
 ### :returns: The captured value.
 dangerous routine closure_get[T](bound: Addr, slot: U64) -> T
 needs RecordType T
-    var cell = Hijacked[Addr](bound).peek_at_offset(offset: Addr.data_size() * slot)
+    var cell = closure_cell(table: closure_table(bound: bound), slot: slot)
     return Hijacked[T](cell).peek().share()
 
 ### The captured token or entity in payload slot `slot`, as the lambda reaches it: the payload holds where it is and
@@ -43,5 +87,59 @@ needs RecordType T
 ### :param slot: The captured value's slot.
 ### :returns: The captured token or entity.
 dangerous routine closure_get_bound[T](bound: Addr, slot: U64) -> T
-    var cell = Hijacked[Addr](bound).peek_at_offset(offset: Addr.data_size() * slot)
+    var cell = closure_cell(table: closure_table(bound: bound), slot: slot)
     return Hijacked[T](cell).peek()
+
+### One more holder of a payload. The hollow payload of a routine value that captured nothing has none.
+### :param bound: The payload, or the hollow address.
+infallible dangerous routine closure_hold(bound: Addr)
+    if bound.is_not_hollow()
+        C::ingrid_roam_hold(header: bound)
+    return
+
+### One holder less of a payload: the last one runs the lambda's drop hook and frees the controller.
+### :param bound: The payload, or the hollow address.
+infallible dangerous routine closure_release(bound: Addr)
+    if bound.is_not_hollow()
+        C::ingrid_roam_unhold(header: bound)
+    return
+
+### Reports a payload to the cycle collector as a child of the value that holds the routine value.
+### :param bound: The payload, or the hollow address.
+infallible dangerous routine closure_visit(bound: Addr)
+    if bound.is_not_hollow()
+        C::ingrid_cyclic_visit_child(child: bound)
+    return
+
+### Ends the captured value in slot `slot` of a slot table. Part of a lambda's drop hook.
+### :param table: The slot table.
+### :param slot: The captured value's slot.
+infallible dangerous routine closure_drop[T](table: Addr, slot: U64)
+    Hijacked[T](closure_cell(table, slot)).peek().destruct()
+    return
+
+### Reports the handles the captured value in slot `slot` holds to the cycle collector. Part of a lambda's trace hook.
+### :param table: The slot table.
+### :param slot: The captured value's slot.
+infallible dangerous routine closure_trace[T](table: Addr, slot: U64)
+    Hijacked[T](closure_cell(table, slot)).peek().roam_trace()
+    return
+
+### Ends the captured value in slot `slot` of a slot table except its handles, which the collector frees with the
+### cycle. Part of a lambda's free hook.
+### :param table: The slot table.
+### :param slot: The captured value's slot.
+infallible dangerous routine closure_reap[T](table: Addr, slot: U64)
+    Hijacked[T](closure_cell(table, slot)).peek().roam_free()
+    return
+
+### Frees the cells of a slot table and the table. The last part of a lambda's drop and free hooks.
+### :param table: The slot table.
+### :param slots: The number of captured values.
+infallible dangerous routine closure_end(table: Addr, slots: U64)
+    var slot: U64 = 0
+    until slot >= slots
+        C::rf_invalidate(ptr: closure_cell(table, slot))
+        slot = slot +% 1
+    C::rf_invalidate(ptr: table)
+    return

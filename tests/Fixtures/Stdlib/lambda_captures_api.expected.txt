@@ -6,4 +6,7 @@ scaled by 3: [3, 6, 9, 12, 15, 18, 21, 24]
 twice +1 from 2: 4
 apply *10 to 4: 40
 twice -1 from 5: 3
+k0-1 z2 k0-3 w4 k0-5!
+k1-1 z2 k1-3 w4 k1-5!
+k2-1 z2 k2-3 w4 k2-5!
 DONE

@@ -345,25 +345,42 @@ needs CrashableType T
         result = result + ", " + nameof(m) + ": " + nested_diagnose(me.$nameof(m))
     return result + ")"
 
-### A routine VALUE (`{ptr fn, ptr bound}`) owns no heap resource that a holding field is responsible for —
-### a captureless function pointer, or a bound word managed elsewhere — so its teardown is a no-op. The
-### record/entity/variant destroy templates are kind-gated and none match a RoutineType, so without this a
-### routine-typed member (`entity Callback { f: Callable[...] }`, an emitter's `transform`/`predicate`) would
-### field-walk into an UNDEFINED `Callable[(…),…].destruct()` at link.
+### A routine value (`{ptr fn, ptr bound}`) holds its lambda's payload, a counted entity (System/Memory/Closure.rvr):
+### its end is one holder less, and the last holder gone ends what the lambda captured. A routine that captured
+### nothing holds the hollow address and ends nothing. The record/entity/variant destroy templates are kind-gated and
+### none match a RoutineType, so a routine-typed member (`entity Callback { f: Callable[...] }`) ends through this.
 @override
 infallible routine T.destruct()
 needs RoutineType T
+    danger
+        closure_release(bound: LLVM::routine_bound[T](me))
     return
 
-### A routine VALUE's copy step is the same value, bit for bit: its bound payload is kept for as long as the program
-### runs, so a copy holds nothing a second teardown would release. A record holding a routine value (an operations
-### table) copies it through this in its member walk.
+### A routine value's copy step: one more holder of its lambda's payload, so the copy and the original each end their
+### own. A record holding a routine value (an operations table) copies it through this in its member walk.
 ### :returns: The copy.
 @readonly
 @override
 secret infallible routine T.share() -> Me
 needs RoutineType T
+    danger
+        closure_hold(bound: LLVM::routine_bound[T](me))
     return me
+
+### Cycle-collector TRACE hook of a routine value: reports its lambda's payload, as its `cyclic_visit`
+### (CycleCollector.rvr) does.
+@override
+infallible dangerous routine T.roam_trace()
+needs RoutineType T
+    me.cyclic_visit()
+    return
+
+### Cycle-collector FREE hook of a routine value: a no-op. The payload is a node of the collector's graph of its own,
+### freed with the cycle when it is garbage, so ending it here would free it twice.
+@override
+infallible dangerous routine T.roam_free()
+needs RoutineType T
+    return
 
 ### The auto-derived default `diagnose()` for any record: `Module.TypeName(field: value, …)`. Uses the
 ### fully-qualified name and shows ALL fields (secret ones prefixed `[secret] ` via `visibilityof`); each

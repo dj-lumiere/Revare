@@ -16,6 +16,30 @@ routine twice(f: Callable[(S64,), S64], x: S64) -> S64
 routine apply(x: S64, f: Callable[(S64,), S64]) -> S64
     return f(x)
 
+# A capturing lambda kept in a list, a record and an entity, copied, replaced and returned: each copy holds what it
+# captured, and the captured values are let go when the last copy goes.
+record Ops
+    apply: Callable[(S64,), Text]
+
+entity Keeper
+    f: Callable[(S64,), Text]
+
+routine make_labeler(tag: Text) -> Callable[(S64,), Text]
+    return x given tag => f"{tag}{x}"
+
+routine keep_round(i: S64) -> Text
+    var f = make_labeler(tag: f"k{i}-")
+    var g = f
+    var fs: List[Callable[(S64,), Text]] = [g, make_labeler(tag: "z")]
+    var ops = Ops(apply: fs[0])
+    var copied = ops
+    var keeper = Keeper(f: copied.apply)
+    keeper.f = make_labeler(tag: "w")
+    var h: Callable[(S64,), Text] = x given f => f"{f(x)}!"
+    g = h
+    var second = fs[1]
+    return f"{f(1)} {second(2)} {copied.apply(3)} {keeper.f(4)} {g(5)}"
+
 routine start()
     # Simple capture
     var add5 = make_adder(n: 5)
@@ -43,6 +67,9 @@ routine start()
     show(f"twice +1 from 2: {twice(f: y => y + 1, x: 2)}")
     show(f"apply *10 to 4: {apply(f: y => y * 10, x: 4)}")
     show(f"twice -1 from 5: {twice(x: 5, f: y => y - 1)}")
+
+    for i in 0 til 3
+        show(keep_round(i: i))
 
     show("DONE")
     return

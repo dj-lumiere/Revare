@@ -69,6 +69,12 @@ routine LLVM::int_truncate[TFrom, TTo](value: TFrom) -> TTo
 @llvm_ir("{result} = bitcast {TFrom} {value} to {TTo}")
 routine LLVM::reinterpret_bits[TFrom, TTo](value: TFrom) -> TTo
 
+### The payload a routine value holds (its second word), the hollow address for one that captured nothing.
+### :param value: The routine value.
+### :returns: Its payload.
+@llvm_ir("{result} = extractvalue {T} {value}, 1")
+dangerous routine LLVM::routine_bound[T](value: T) -> Addr
+
 ### Converts a pointer value to an integer value.
 ### :param value: The pointer to convert.
 ### :returns: The resulting `TTo` value.
