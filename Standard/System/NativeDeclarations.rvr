@@ -2118,6 +2118,15 @@ dangerous routine C::rf_pool_fetch(slot: U32, generation: U32) -> Addr
 # An entity of a retroactive type (a type with a link, a kept `Modifying[T]?` / `Viewing[T]?`, somewhere in the program) lives in a slot whose header
 # holds a generation, how many tokens taken from links are in use, and the number of the type's store.
 
+### Opens one more use of the shape of a container (Ingrid/lapila/shapes.lpa). :param at: the container's address.
+dangerous routine C::rf_shape_use_begin(at: Addr)
+
+### Ends one use opened by `rf_shape_use_begin`. :param at: the container's address.
+dangerous routine C::rf_shape_use_end(at: Addr)
+
+### Whether a use of the shape of a container is open. :param at: the container's address. :returns: 1 while one is.
+dangerous routine C::rf_shape_in_use(at: Addr) -> U8
+
 ### A slot for a new entity of a retroactive type: a free one of the type's store, else a new one. :param store: the
 ### type's store. :param size: the entity's bytes. :returns: the address the entity's bytes go to.
 dangerous routine C::rf_slot_take(store: Addr, size: U64) -> Addr

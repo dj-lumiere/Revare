@@ -1,0 +1,40 @@
+module System/Memory
+
+import BuilderQuery
+
+### One open use of a container's shape: a `for` loop over a container that a change inside the loop may reach through
+### another name the builder cannot prove different (two token parameters of the same type, a token taken from a link).
+### The builder keeps one for as long as the loop runs. While it is kept, a change that adds to or removes from the
+### container fails with `ReshapingWhileInUseError`, since the loop could no longer trust that its next element is
+### really the next one.
+record ShapeUse
+    ### The container's address.
+    secret at: Addr
+
+### Opens a use of this container's shape, until the result ends. Only the builder calls this.
+### :returns: What ends the use.
+@readonly
+infallible routine T.begin_shape_use() -> ShapeUse
+needs EntityType T
+    danger
+        var at = me.get_address()
+        C::rf_shape_use_begin(at: at)
+        return ShapeUse(at: at)
+
+### Ends the use of the container's shape.
+@override
+infallible routine ShapeUse.destruct()
+    danger
+        C::rf_shape_use_end(at: me.at)
+    return
+
+### Checks that no use of this container's shape is open, before a change that adds to or removes from it. Only the
+### builder calls this, in a program with a loop that opens such uses.
+### :throws: {ReshapingWhileInUseError} while a `for` loop over this container is still running.
+@readonly
+routine T.require_shape_free()
+needs EntityType T
+    danger
+        if C::rf_shape_in_use(at: me.get_address()) != 0
+            throw ReshapingWhileInUseError(container: T.type_name())
+    return
