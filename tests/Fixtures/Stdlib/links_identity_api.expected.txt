@@ -1,0 +1,5 @@
+true false true false true
+set: 2
+ended vs next in its slot: false
+still keyed: true false 10 2
+found in a list: 1

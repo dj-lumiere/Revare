@@ -1,0 +1,28 @@
+module Tests/Stdlib/LinksInDestructApi
+
+import IO/Console
+# A destruct that reads a link: the entity the link names may have ended first, which a `try` there tells. Friends end
+# in the order their list gives them up, each destruct right where it is given up.
+
+entity Friend
+    name: S64
+    friend: Modifying[Friend]?
+
+routine Friend.destruct()
+    when try me.friend.name
+        is None => show(f"{me.name}: friend already ended")
+        else as other => show(f"{me.name}: friend {other} still there")
+    return
+
+routine start()
+    var friends = List[Friend]()
+    for i in 1 to 3
+        friends.add_last(value: Friend(name: i, friend: none))
+    friends[0].friend = friends[2]
+    friends[1].friend = friends[0]
+    friends[2].friend = friends[1]
+    drop friends.remove_at(index: 1)
+    show("one given up")
+    friends.clear()
+    show("DONE")
+    return

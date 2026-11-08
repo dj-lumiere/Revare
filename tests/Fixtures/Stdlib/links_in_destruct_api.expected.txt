@@ -1,0 +1,5 @@
+2: friend 1 still there
+one given up
+1: friend 3 still there
+3: friend already ended
+DONE

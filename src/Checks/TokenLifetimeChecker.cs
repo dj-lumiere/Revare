@@ -292,9 +292,9 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             return null;
         }
 
-        // A stamp's fetch takes its token from the stamp table, not from the stamp: nothing the routine does to a
-        // local ends it, and the fetch itself fails once the entity has ended.
-        if (IsStampFetch(callee: callee))
+        // A link's token is taken from the link's slot, not from a local: nothing the routine does to a local ends it,
+        // and the take itself fails once the entity has ended.
+        if (IsLinkTake(callee: callee))
         {
             return [];
         }
@@ -314,20 +314,12 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
         };
     }
 
-    /// <summary>Whether <paramref name="callee"/> is <c>Stamped[T].fetch</c>, called on the stamp or through a token on
-    /// it (<c>at.fetch()</c> with <c>at</c> a <c>for</c> element over a <c>List[Stamped[T]]</c> runs the token's forwarder
-    /// of it).</summary>
-    private static bool IsStampFetch(RoutineInfo callee)
+    /// <summary>Whether <paramref name="callee"/> takes the token a link holds (<c>take_modifying_link</c>, the call
+    /// the builder writes for a link used without <c>when</c>).</summary>
+    private static bool IsLinkTake(RoutineInfo callee)
     {
-        for (RoutineInfo? r = callee; r != null; r = r.WrapperForwarderInnerMemberRoutine)
-        {
-            if (r is { Name: "fetch", OwnerType.BareName: RuntimeContract.StampedTypeName })
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return (callee.GenericDefinition ?? callee).Name is RuntimeContract.TakeModifyingLink or
+            RuntimeContract.TakeViewingLink;
     }
 
     /// <summary>The argument of <paramref name="call"/> bound to each parameter of <paramref name="callee"/>.</summary>

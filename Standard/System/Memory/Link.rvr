@@ -96,26 +96,50 @@ infallible routine Viewing[T].begin_link_use() -> LinkUse[T]
         else
             return LinkUse[T](at: Addr.hollow())
 
-### Ends the use of a token taken from a link. When the entity ended while the token was in use, its destruct runs now.
+### Ends the use of a token taken from a link. When the entity ended while the token was in use, its slot goes back to
+### its store now.
 @override
 infallible routine LinkUse[T].destruct()
     if T.is_retroactive()
         danger
-            if C::rf_slot_use_end(box: me.at) == 1
-                LLVM::reinterpret_bits[Addr, T](me.at).destruct()
+            C::rf_slot_use_end(box: me.at)
     return
 
 ### The start of an entity's end, which the builder puts first in a written `destruct`. For an entity of a retroactive
-### type its slot's generation goes up, so every link to it reads as none from now on, and the rest of the destruct waits
-### while a token taken from a link is in use (the last one's end runs it). For any other type it is `true`.
-### :returns: `true` when the destruct goes on now.
+### type its slot's generation goes up and the slot is marked ended, so every link to it reads as none from now on and
+### a token taken from a link that is still in use fails when it is used. For any other type it does nothing.
 @inline
-infallible routine T.begin_entity_end() -> Bool
+infallible routine T.note_entity_end()
 needs EntityType T
     if T.is_retroactive()
         danger
-            return C::rf_slot_end(box: me.get_address()) == 1
-    return true
+            C::rf_slot_end(box: me.get_address())
+    return
+
+### Raised when a token taken from a link (or handed on from one) is used after the entity it reaches has ended, there
+### or in a routine it was handed to.
+crashable EntityEndedError
+    ### The name of the entity's type.
+    type_name: Text
+
+### Returns the message saying which entity ended.
+### :returns: The resulting `Text` value.
+@override
+routine EntityEndedError.crash_message() -> Text
+    return f"The {me.type_name} this reference points at has ended. A token taken from a link stops working when its entity ends: take the link again with `try` after what may end it."
+
+### Fails when the entity this token reaches has ended. The builder puts this before a statement that uses a token taken
+### from a link, or a token parameter a link may have given, of a retroactive entity type.
+### :throws: {EntityEndedError} The entity has ended.
+@readonly
+@inline
+routine T.require_live()
+needs EntityType T
+    if T.is_retroactive()
+        danger
+            if C::rf_slot_ended(box: me.get_address()) != 0
+                throw EntityEndedError(type_name: T.type_name())
+    return
 
 ### Gives back an entity's box, which the builder puts before each return of a written `destruct`: the heap block, or for
 ### an entity of a retroactive type its slot, which goes back to its type's free list.

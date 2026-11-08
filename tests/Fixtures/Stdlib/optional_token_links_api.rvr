@@ -3,8 +3,8 @@ module Tests/Stdlib/OptionalTokenLinksApi
 import IO/Console
 # A link is an optional token on an entity kept in a place: `parent: Modifying[Node]?` in a member variable, a list's
 # element, a record in a list, a generic container or a local. It never keeps its entity alive: once the entity ends,
-# taking the link with `when` gives none. While a token taken from a link is in use, the entity's destruct waits and
-# runs once, when the use ends.
+# taking the link with `when` gives none. An entity ends where its original ends, even while a token taken from a link
+# is in use: that token's next use fails with EntityEndedError, which `check` receives.
 
 entity Node
     id: S64
@@ -38,6 +38,10 @@ routine removed_from_list()
         else as p => show(f"parent {p.id}")
     return
 
+routine id_after_clear(n: Modifying[Node], nodes: Modifying[List[Node]]) -> S64
+    nodes.clear()
+    return n.id
+
 routine in_use_while_ended()
     var nodes = List[Node]()
     nodes.add_last(value: Node(id: 3, parent: none))
@@ -46,8 +50,10 @@ routine in_use_while_ended()
     when watch
         is None => show("none")
         else as n =>
-            nodes.clear()
-            show(f"still in use {n.id}")
+            when check id_after_clear(n: n, nodes: nodes)
+                is S64 as id => show(f"still in use {id}")
+                is EntityEndedError => show("used after its end")
+                else => show("other")
     show("after the use")
     when watch
         is None => show("watch none")

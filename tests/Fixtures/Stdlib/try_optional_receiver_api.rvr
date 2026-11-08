@@ -2,8 +2,9 @@ module Tests/Stdlib/TryOptionalReceiverApi
 
 import IO/Console
 # try and check reach through a T? receiver: a none receiver is an AbsentValueError the same keyword receives,
-# otherwise the call runs on the value. Nothing changes without the keyword. A link that may be missing is a
-# Stamped[E]?, and check tells a missing link (AbsentValueError) from an ended entity (StaleStampError).
+# otherwise the call runs on the value. Nothing changes without the keyword. A link (`Modifying[E]?` kept in a member
+# variable) used without `when` takes its token first, and check tells a missing link (AbsentValueError) from an ended
+# entity (StaleLinkError).
 
 record Pt
     x: S64
@@ -19,7 +20,11 @@ routine Pt.deep(k: S64) -> S64
 
 entity Node
     value: S64
-    parent: Stamped[Node]?
+    parent: Modifying[Node]?
+
+@readonly
+routine Node.get() -> S64
+    return me.value
 
 entity Counter
     n: S64
@@ -37,16 +42,16 @@ routine Shape.size() -> S64
         is S64 as n => return n
         is Text as t => return 7
 
-routine value_of(link: Stamped[Node]?) -> S64
-    when try link.fetch()
+routine value_of(node: Viewing[Node]) -> S64
+    when try node.parent.value
         is None => return -1
-        else as n => return n.value
+        else as v => return v
 
-routine what_happened(link: Stamped[Node]?) -> Text
-    when check link.fetch()
-        is Modifying[Node] as n => return f"node {n.value}"
+routine what_happened(node: Viewing[Node]) -> Text
+    when check node.parent.get()
+        is S64 as v => return f"node {v}"
         is AbsentValueError => return "no link"
-        is StaleStampError => return "ended"
+        is StaleLinkError => return "ended"
         else => return "other"
 
 routine start()
@@ -62,16 +67,14 @@ routine start()
         is S64 as v => show(f"check on a value: {v}")
         else as e => show(f"check on a value failed: {e.crash_message()}")
 
-    var pool = PoolManager.set_up()
-    var a = PoolManager.add(value: Node(value: 7, parent: none))
-    var b = PoolManager.add(value: Node(value: 8, parent: a))
-    var link: Stamped[Node]? = a
-    var missing: Stamped[Node]? = none
-    show(f"link: {value_of(link: link)}, missing: {value_of(link: missing)}")
-    show(f"parent of b: {value_of(link: b.fetch().parent)}, of a: {value_of(link: a.fetch().parent)}")
-    show(f"split: {what_happened(link: link)}, {what_happened(link: missing)}")
-    PoolManager.remove(a)
-    show(f"after a ended: {value_of(link: link)}, {what_happened(link: link)}, {what_happened(link: b.fetch().parent)}")
+    var nodes = List[Node]()
+    nodes.add_last(value: Node(value: 7, parent: none))
+    nodes.add_last(value: Node(value: 8, parent: none))
+    nodes[1].parent = nodes[0]
+    show(f"parent of b: {value_of(node: nodes[1])}, of a: {value_of(node: nodes[0])}")
+    show(f"split: {what_happened(node: nodes[1])}, {what_happened(node: nodes[0])}")
+    drop nodes.remove_first()
+    show(f"after a ended: {value_of(node: nodes[0])}, {what_happened(node: nodes[0])}")
 
     var xs: List[S64]? = [1, 2]
     drop try xs.add_last(value: 3)

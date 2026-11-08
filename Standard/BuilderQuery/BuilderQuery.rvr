@@ -249,7 +249,7 @@ infallible common routine T.is_link_token() -> Bool
 infallible common routine T.shares_entity_across_tasks() -> Bool
 
 ### The bytes of this entity type's block, its member variables laid out and aligned, `-1` for a type that is no
-### entity. `PoolManager.add` copies that many bytes into a slot.
+### entity. A retroactive entity's slot holds that many bytes after its header.
 ### :returns: The size in bytes, or `-1`.
 @readonly
 @innate

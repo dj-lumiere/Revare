@@ -20,7 +20,8 @@ public class ReadonlyMeViewingTests
                                        x: S64
 
                                    record Link
-                                       target: Stamped[Creature]
+                                       target: Modifying[Creature]?
+                                       keep: Retained[Creature]
                                        weight: S64
 
                                    entity Holder
@@ -29,24 +30,24 @@ public class ReadonlyMeViewingTests
                                    """;
 
     [Fact]
-    public void Analyze_ReadonlyReadsStampInPlace_NoError()
+    public void Analyze_ReadonlyReadsLinkInPlace_NoError()
     {
         string source = Prelude + """
                                   @readonly
                                   routine Holder.peek() -> S64
-                                      return me.link.target.fetch().x + me.link.weight
+                                      return me.link.target.x + me.link.weight
                                   """;
 
         AssertAnalyzesSa(source: source);
     }
 
     [Fact]
-    public void Analyze_ReadonlyFetchThroughMe_GivesReadToken()
+    public void Analyze_ReadonlyLinkThroughMe_GivesReadToken()
     {
         string source = Prelude + """
                                   @readonly
                                   routine Holder.poke()
-                                      me.link.target.fetch().x = 3
+                                      me.link.target.x = 3
                                       return
                                   """;
 
@@ -56,7 +57,7 @@ public class ReadonlyMeViewingTests
     }
 
     [Fact]
-    public void Analyze_ReadonlyCopiesStampOutOfMe_Errors()
+    public void Analyze_ReadonlyCopiesHandleOutOfMe_Errors()
     {
         string source = Prelude + """
                                   @readonly
@@ -72,7 +73,7 @@ public class ReadonlyMeViewingTests
     }
 
     [Fact]
-    public void Analyze_ChangingRoutineCopiesStampOutOfMe_NoError()
+    public void Analyze_ChangingRoutineCopiesHandleOutOfMe_NoError()
     {
         string source = Prelude + """
                                   routine Holder.copy_out() -> S64

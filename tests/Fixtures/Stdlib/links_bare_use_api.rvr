@@ -1,0 +1,67 @@
+module Tests/Stdlib/LinksBareUseApi
+
+import IO/Console
+# A link used without `when` (`w.target.id`, `w.target.kill()`) takes its token first: once the entity ended it fails
+# with StaleLinkError, and under `try` it gives none. An entity ends where its original ends, its destruct right there,
+# even while a token taken from a link is in use: using that token afterwards fails with EntityEndedError, in the
+# routine the token was handed to too, and a `try` above receives it.
+
+entity Node
+    id: S64
+    value: S64
+
+routine Node.destruct()
+    show(f"end {me.id}")
+    return
+
+entity Holder
+    nodes: List[Node]
+
+routine Node.kill(holder: Modifying[Holder]) -> S64
+    holder.nodes.clear()
+    show(f"after kill {me.id}")
+    return me.id
+
+entity Watch
+    target: Modifying[Node]?
+
+entity Wrap[T]
+    link: Modifying[T]?
+
+routine peek[T](w: Modifying[Wrap[T]], holder: Modifying[Holder]) -> S64
+    when w.link
+        is None => return -1
+        else as n =>
+            holder.nodes.clear()
+            return 1
+
+routine what_happened(w: Viewing[Watch]) -> Text
+    when check w.target.value
+        is S64 as v => return f"value {v}"
+        is AbsentValueError => return "no link"
+        is StaleLinkError as e => return e.crash_message()
+        else => return "other"
+
+routine start()
+    var holder = Holder(nodes: [])
+    holder.nodes.add_last(value: Node(id: 1, value: 10))
+    var w = Watch(target: none)
+    show(what_happened(w: w))
+    w.target = holder.nodes[0]
+    show(f"{w.target.id} {w.target.value} {what_happened(w: w)}")
+    w.target.value = 11
+    show(holder.nodes[0].value)
+    when check w.target.kill(holder: holder)
+        is EntityEndedError as e => show(e.crash_message())
+        is S64 as v => show(f"kill finished with {v}")
+        else => show("other")
+    show(f"try: {try w.target.id}, check: {what_happened(w: w)}")
+    holder.nodes.add_last(value: Node(id: 2, value: 20))
+    var wrap = Wrap[Node](link: none)
+    wrap.link = holder.nodes[0]
+    show(peek[Node](w: wrap, holder: holder))
+    holder.nodes.add_last(value: Node(id: 3, value: 30))
+    w.target = holder.nodes[0]
+    show(f"killed under try: {try w.target.kill(holder: holder)}")
+    show(try w.target.id)
+    return

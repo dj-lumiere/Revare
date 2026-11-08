@@ -1,0 +1,42 @@
+module Tests/Stdlib/LinksIdentityApi
+
+import IO/Console
+# Two links compare with `===` / `!==`: the same entity and the same slot generation. A link has no `==`. A link to an
+# entity that ended is not the same as a link to the next entity in its slot. A link is a `Set` element and a `Dict`
+# key by that identity, which stays the same after its entity ends.
+
+entity Node
+    id: S64
+
+routine start()
+    var nodes = List[Node]()
+    for i in 0 til 4
+        nodes.add_last(value: Node(id: i))
+    var a: Modifying[Node]? = nodes[0]
+    var b: Modifying[Node]? = nodes[0]
+    var c: Modifying[Node]? = nodes[1]
+    var empty: Modifying[Node]? = none
+    var other_empty: Modifying[Node]? = none
+    show(f"{a === b} {a === c} {a !== c} {a === empty} {empty === other_empty}")
+    var seen = Set[Modifying[Node]?]()
+    drop seen.add(a)
+    drop seen.add(b)
+    drop seen.add(c)
+    show(f"set: {seen.count()}")
+    var score = Dict[Modifying[Node]?, S64]()
+    score[a] = 10
+    score[c] = 20
+    drop nodes.remove_first()
+    nodes.add_last(value: Node(id: 9))
+    var d: Modifying[Node]? = nodes[3]
+    show(f"ended vs next in its slot: {a === d}")
+    show(f"still keyed: {seen.has(a)} {seen.has(d)} {score[a]} {score.count()}")
+    var links = List[Modifying[Node]?]()
+    links.add_last(value: c)
+    links.add_last(value: d)
+    var found: S64 = 0
+    for link in links
+        if link === d
+            found += 1
+    show(f"found in a list: {found}")
+    return

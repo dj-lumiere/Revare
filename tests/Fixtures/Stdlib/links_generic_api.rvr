@@ -1,0 +1,60 @@
+module Tests/Stdlib/LinksGenericApi
+
+import IO/Console
+# Links to library and generic entity types: a link to a `List[S64]` makes it retroactive, a generic entity with a
+# written destruct ends through its slot, and a link a generic routine keeps over its type parameter makes each type it
+# is made for retroactive, even one no other code links.
+
+entity Box[T]
+    held: T
+
+routine Box[T].destruct()
+    show("box end")
+    return
+
+entity Wrap[T]
+    link: Modifying[T]?
+
+entity Lone
+    id: S64
+
+routine watch_first[T](items: Modifying[List[T]]) -> Bool
+needs EntityType T
+    var w = Wrap[T](link: none)
+    w.link = items[0]
+    drop items.remove_first()
+    when w.link
+        is None => return false
+        else => return true
+
+routine start()
+    var lists = List[List[S64]]()
+    lists.add_last(value: [1, 2, 3])
+    lists.add_last(value: [4])
+    var l: Modifying[List[S64]]? = lists[0]
+    show(l.count())
+    drop lists.remove_first()
+    show(try l.count())
+    var boxes = List[Box[S64]]()
+    boxes.add_last(value: Box[S64](held: 7))
+    var w = Wrap[Box[S64]](link: none)
+    w.link = boxes[0]
+    show(w.link.held)
+    boxes.clear()
+    show(try w.link.held)
+    var lones = List[Lone]()
+    lones.add_last(value: Lone(id: 1))
+    lones.add_last(value: Lone(id: 2))
+    show(watch_first[Lone](items: lones))
+    show(lones.count())
+    var churn = List[List[S64]]()
+    var stale: S64 = 0
+    for i in 0 til 20000
+        churn.add_last(value: [i])
+        var k: Modifying[List[S64]]? = churn[0]
+        drop churn.remove_first()
+        when k
+            is None => stale += 1
+            else => nothing
+    show(stale)
+    return

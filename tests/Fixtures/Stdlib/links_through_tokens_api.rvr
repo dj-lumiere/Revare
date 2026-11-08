@@ -1,0 +1,64 @@
+module Tests/Stdlib/LinksThroughTokensApi
+
+import IO/Console
+# Links reached through tokens: a list of links read through a read token gives read-only links (its elements, its
+# loop elements, a `Dict` entry's link), a write token gives links that change their entity, and the token a loop
+# element's link gives is kept as a link again.
+
+entity Creature
+    x: S64
+    y: S64
+    parent: Modifying[Creature]?
+
+routine total(links: Viewing[List[Modifying[Creature]?]]) -> S64
+    var sum: S64 = links[0].x
+    for at in links
+        sum += at.x
+    return sum
+
+routine nudge(links: Modifying[List[Modifying[Creature]?]])
+    for at in links
+        when at
+            is None => nothing
+            else as c =>
+                c.y = 5
+                c.x = c.y + 2
+    return
+
+routine parent_x(c: Viewing[Creature]) -> S64
+    when c.parent
+        is None => return -1
+        else as p => return p.x
+
+routine keyed(links: Viewing[Dict[S64, Modifying[Creature]?]]) -> S64
+    var sum: S64 = 0
+    for (k, link) in links
+        when link
+            is None => nothing
+            else as c => sum += k * c.x
+    return sum
+
+routine start()
+    var herd = List[Creature]()
+    herd.add_last(value: Creature(x: 1, y: 1, parent: none))
+    herd.add_last(value: Creature(x: 3, y: 1, parent: none))
+    var links = List[Modifying[Creature]?]()
+    links.add_last(value: herd[0])
+    links.add_last(value: herd[1])
+    show(total(links: links))
+    nudge(links: links)
+    show(f"{herd[0].x} {herd[0].y} {herd[1].x}")
+    var kids = List[Creature]()
+    for at in links
+        when at
+            is None => nothing
+            else as p => kids.add_last(value: Creature(x: 0, y: 0, parent: p))
+    for kid in kids
+        show(parent_x(c: kid))
+    var by_key = Dict[S64, Modifying[Creature]?]()
+    by_key[2] = herd[1]
+    by_key[3] = herd[0]
+    show(keyed(links: by_key))
+    drop herd.remove_last()
+    show(f"after the end: {parent_x(c: kids[1])} {keyed(links: by_key)}")
+    return

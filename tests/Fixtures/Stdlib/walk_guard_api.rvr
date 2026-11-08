@@ -1,0 +1,39 @@
+module Tests/Stdlib/WalkGuardApi
+
+import IO/Console
+# A `for` loop over a container while a change inside it reaches a container the builder cannot prove different (two
+# token parameters of the same type, a token taken from a link) opens a use of the walked container at run time: the
+# change works on another container, and on the walked one it stops the program with ReshapingWhileInUseError.
+
+routine copy_into(from: Viewing[List[S64]], into: Modifying[List[S64]])
+    for x in from
+        into.add_last(value: x)
+    return
+
+routine grow(into: Modifying[List[S64]], value: S64)
+    into.add_last(value: value)
+    return
+
+entity Shelf
+    other: Modifying[List[S64]]?
+
+routine feed(shelf: Modifying[Shelf], from: Viewing[List[S64]]) -> S64
+    var fed: S64 = 0
+    for y in from
+        when shelf.other
+            is None => nothing
+            else as o =>
+                grow(into: o, value: y)
+                fed += 1
+    return fed
+
+routine start()
+    var a: List[S64] = [1, 2, 3]
+    var b: List[S64] = [9]
+    copy_into(from: a, into: b)
+    show(b.count())
+    var shelf = Shelf(other: none)
+    shelf.other = b
+    show(feed(shelf: shelf, from: a))
+    show(b.count())
+    return
