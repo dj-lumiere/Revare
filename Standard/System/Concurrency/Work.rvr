@@ -37,8 +37,8 @@ choice WorkPlace
 ### scope that started it. Work nothing started never runs.
 ###
 ### The verb that takes the value (`retrieve!`/`race!`/`gather!`) reaps what ran (fiber deleted or abandoned,
-### result block freed) and marks the Work DONE. A recipe no verb ever runs leaks its recipe, and the routine body
-### never runs.
+### result block freed) and marks the Work DONE. A recipe no verb ever runs is freed with its arguments, and the routine
+### body never runs.
 entity Work[T]
     ### The work: where it runs, its fiber or thread, and its result.
     secret state: WorkState[T]
@@ -275,6 +275,26 @@ dangerous routine WorkState[T].release()
     LLVM::atomic_store[U64](ptr: Hijacked[U64](me.recipe), value: me.cell_word(slot: 2))
     return
 
+### Whether the routine that runs a recipe was called to discard it: a Work let go before any verb started it. Slot 0
+### then holds 1, which no task address is. Builder plumbing for the routine that runs a recipe.
+### :param recipe: The recipe to read.
+### :returns: `true` when the recipe is only to be freed.
+dangerous routine work_discarded(recipe: Addr) -> Bool
+    return LLVM::atomic_load[U64](ptr: Hijacked[U64](recipe)) == 1
+
+### Frees a recipe whose arguments were taken out. Builder plumbing for the routine that runs a recipe.
+### :param recipe: The recipe to free.
+dangerous routine recipe_free(recipe: Addr)
+    C::rf_invalidate(ptr: recipe)
+    return
+
+### Lets go of a Work no verb started: runs the recipe's routine once with the discard mark, which frees the arguments
+### and the recipe without running the work.
+dangerous routine WorkState[T].discard_recipe()
+    LLVM::atomic_store[U64](ptr: Hijacked[U64](me.recipe), value: 1)
+    C::rf_blocking_call(entry: me.entry, arg: me.recipe)
+    return
+
 ### Waits, at the start of the routine that runs a Work, until the verb that started it lets it go: a list's
 ### `start_now()` / `start_here()` / `start_apart()` makes every Work ready first and then lets them all go, so none runs
 ### before the others are ready. A Work started on its own is let go at once. Builder plumbing for the routine that
@@ -401,6 +421,7 @@ dangerous routine WorkState[T].wind_down(reports_failure: Bool)
     if me.place() == WorkPlace.DONE
         return
     if me.place() == WorkPlace.WAITING
+        me.discard_recipe()
         me.set_place(place: WorkPlace.DONE)
         return
     if me.place() != WorkPlace.APART
