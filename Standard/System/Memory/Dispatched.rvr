@@ -101,6 +101,20 @@ needs RecordType T
         cell.poke(Hijacked[T](from: at).peek())
         return cell.get_address()
 
+### Puts a changed copy of a record back where the protocol value keeps it: the record there ends, and a copy of
+### `value` takes its place. A routine that changes a record kept in a protocol place runs on a copy that comes back
+### here.
+### :param at: The value's own memory.
+### :param value: The changed record.
+secret routine dispatched_put_back[T](at: Addr, value: T)
+needs RecordType T
+    danger
+        var cell = Hijacked[T](from: at)
+        cell.peek().destruct()
+        # `poke` stores a copy of its own.
+        cell.poke(value)
+    return
+
 ### Ends the Revare entity at `at`.
 ### :param at: The entity.
 secret routine dispatched_end_inline[T](at: Addr)

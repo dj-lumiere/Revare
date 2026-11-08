@@ -199,6 +199,55 @@ routine party()
             show("other")
     return
 
+# A routine that changes a record kept in a protocol place changes the kept record, in a variable and in a list
+# element. A plain record element changes the same way.
+protocol Counting
+    routine Me.bump(by: S64)
+    @readonly
+    routine Me.total() -> S64
+
+record Tally
+obeys Counting
+    label: Text
+    n: S64
+
+routine Tally.bump(by: S64)
+    me.n += by
+    me.label = f"tally {me.n}"
+    return
+
+@readonly
+routine Tally.total() -> S64
+    return me.n
+
+record Score
+obeys Counting
+    n: S64
+
+routine Score.bump(by: S64)
+    me.n += by * 10
+    return
+
+@readonly
+routine Score.total() -> S64
+    return me.n
+
+routine changing()
+    var c: Counting = Tally(label: "tally 0", n: 0)
+    c.bump(by: 2)
+    c.bump(by: 3)
+    show(f"kept {c.total()}")
+    var cs = List[Counting]()
+    cs.add_last(value: Tally(label: "tally 1", n: 1))
+    cs.add_last(value: Score(n: 1))
+    cs[0].bump(by: 1)
+    cs[1].bump(by: 1)
+    show(f"elements {cs[0].total()} {cs[1].total()}")
+    var plain = [Tally(label: "tally 0", n: 0)]
+    plain[0].bump(by: 4)
+    show(f"plain {plain[0].label}")
+    return
+
 routine start()
     entities()
     show(f"ended {ENDED}")
@@ -208,5 +257,6 @@ routine start()
     show(f"ended {ENDED}")
     records()
     party()
+    changing()
     show(f"ended {ENDED}")
     return

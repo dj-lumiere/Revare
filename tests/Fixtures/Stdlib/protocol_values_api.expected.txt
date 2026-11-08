@@ -38,4 +38,7 @@ damage 32
 boss at 70
 slime ends at 4
 boss ends at 70
+kept 5
+elements 2 11
+plain tally 4
 ended 11
