@@ -24,7 +24,7 @@ public class RoutineValueTokenTests
 
                                    """;
 
-    private static void AssertEndedBy(string body, string ended)
+    private static void AssertHasErrorEndedBy(string body, string ended)
     {
         AnalysisResult result = AssertHasErrorSa(source: Prelude + body,
             expectedErrorSubstring: $"'{ended}', where it was taken from");
@@ -35,7 +35,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_NamedRoutineValueResultAfterAnArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             routine start()
                                 var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
                                 var a = Box(n: 1)
@@ -50,7 +50,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_RoutineValueResultAfterTheOtherArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             routine start()
                                 var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
                                 var a = Box(n: 1)
@@ -81,7 +81,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_LambdaResultAfterAnArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             routine start()
                                 var f = (x: Modifying[Box], y: Modifying[Box]) given () => y
                                 var a = Box(n: 1)
@@ -96,7 +96,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_MemberVariableRoutineValueResultAfterAnArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             entity Holder
                                 f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]]
 
@@ -114,7 +114,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_ListElementRoutineValueResultAfterAnArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             routine start()
                                 var fs = List[Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]]]()
                                 fs.add_last(value: pick_second)
@@ -130,7 +130,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_GlobalRoutineValueResultAfterAnArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             global chooser: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
 
                             routine start()
@@ -146,7 +146,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_GenericRoutineGivenTokensAfterAnArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             routine pick[T](a: T, b: T) -> T
                                 return b
 
@@ -179,7 +179,7 @@ public class RoutineValueTokenTests
     [Fact]
     public void Analyze_GenericRoutineOverTokensAfterAnArgumentEnds_Errors()
     {
-        AssertEndedBy(body: """
+        AssertHasErrorEndedBy(body: """
                             routine pick_v[T](a: Modifying[T], b: Modifying[T]) -> Modifying[T]
                                 return b
 
