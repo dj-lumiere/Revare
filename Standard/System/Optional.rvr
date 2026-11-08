@@ -260,14 +260,18 @@ needs T obeys Equatable
     return me.value == you.value
 
 ### Returns a keyed hash of this optional: a fixed value when absent, the value's own hash when present, so equal
-### optionals hash the same.
+### optionals hash the same. A link hashes its identity, the entity it names and its slot generation, which stays the
+### same after the entity ends.
 ### :param k0: The first 64-bit key word.
 ### :param k1: The second 64-bit key word.
 ### :returns: The resulting `U64` value.
 @readonly
 routine Optional[T].hash(k0: U64, k1: U64) -> U64
 needs T obeys Hashable
-    if not me.present
-        var absent_tag: U64 = 0x6E6F6E65
-        return absent_tag.hash(k0: k0, k1: k1)
-    return me.value.hash(k0: k0, k1: k1)
+    if T.is_link_token()
+        return link_hash[T](link: me, k0: k0, k1: k1)
+    else
+        if not me.present
+            var absent_tag: U64 = 0x6E6F6E65
+            return absent_tag.hash(k0: k0, k1: k1)
+        return me.value.hash(k0: k0, k1: k1)

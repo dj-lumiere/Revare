@@ -13,6 +13,63 @@ needs EntityType T
     ### The entity's address.
     secret at: Addr
 
+### Raised when a link is used without taking it by `when` (`node.parent.id`) and the entity it names has ended. Under
+### `try` the use gives none instead.
+crashable StaleLinkError
+    ### The name of the entity's type.
+    type_name: Text
+
+### Returns the message saying which entity ended and how to read a link to one that may have.
+### :returns: The resulting `Text` value.
+@override
+routine StaleLinkError.crash_message() -> Text
+    return f"The {me.type_name} this link names has ended. Take the link with `try` where it may have ended."
+
+### The token a write link holds, for a use of the link that does not take it by `when` (`node.parent.id`, `try
+### node.parent.rename()`). The builder calls this first and keeps the token in use while the use runs.
+### :param link: The link.
+### :returns: A write token on the entity.
+### :throws: {StaleLinkError} The entity the link names has ended.
+### :throws: {AbsentValueError} The link is empty.
+routine take_modifying_link[E](link: Modifying[E]?) -> Modifying[E]
+needs EntityType E
+    when link
+        is None =>
+            if link_address[E](link: link).is_hollow()
+                throw AbsentValueError()
+            throw StaleLinkError(type_name: E.type_name())
+        else as m => return m
+
+### The token a read-only link holds, for a use of the link that does not take it by `when`.
+### :param link: The link.
+### :returns: A read token on the entity.
+### :throws: {StaleLinkError} The entity the link names has ended.
+### :throws: {AbsentValueError} The link is empty.
+routine take_viewing_link[E](link: Viewing[E]?) -> Viewing[E]
+needs EntityType E
+    when link
+        is None =>
+            if link_address[E](link: link).is_hollow()
+                throw AbsentValueError()
+            throw StaleLinkError(type_name: E.type_name())
+        else as v => return v
+
+### The address a write link holds, whether or not its entity has ended: 0 for an empty link.
+### :param link: The link.
+### :returns: The address.
+secret routine link_address[E](link: Modifying[E]?) -> Addr
+needs EntityType E
+    danger
+        return LLVM::link_token[E](link: LLVM::reinterpret_bits[Modifying[E]?, U128](link))
+
+### The address a read-only link holds, whether or not its entity has ended: 0 for an empty link.
+### :param link: The link.
+### :returns: The address.
+secret routine link_address[E](link: Viewing[E]?) -> Addr
+needs EntityType E
+    danger
+        return LLVM::link_token[E](link: LLVM::reinterpret_bits[Viewing[E]?, U128](link))
+
 ### Marks a token taken from a link as in use, until the result ends.
 ### :returns: What ends the use.
 @readonly
@@ -109,3 +166,41 @@ dangerous routine LLVM::link_token[T](link: U128) -> Addr
 ### :returns: `true` for the same entity.
 @llvm_ir("{result} = icmp eq i128 {a}, {b}")
 dangerous routine LLVM::link_same[T](a: U128, b: U128) -> Bool
+
+### Whether two links are the same, the identity `Set` and `Dict` key a link by: the same entity and the same slot
+### generation, or both empty. A link keeps its identity after its entity ends.
+### :param you: The other link.
+### :returns: `true` for the same link.
+@readonly
+routine Optional[Modifying[T]].eq(you: Viewing[Optional[Modifying[T]]]) -> Bool
+needs EntityType T
+    danger
+        var other = Hijacked[Modifying[T]?](you).peek()
+        return LLVM::reinterpret_bits[Modifying[T]?, U128](me) == LLVM::reinterpret_bits[Modifying[T]?, U128](other)
+
+### Whether two read-only links are the same: the same entity and the same slot generation, or both empty.
+### :param you: The other link.
+### :returns: `true` for the same link.
+@readonly
+routine Optional[Viewing[T]].eq(you: Viewing[Optional[Viewing[T]]]) -> Bool
+needs EntityType T
+    danger
+        var other = Hijacked[Viewing[T]?](you).peek()
+        return LLVM::reinterpret_bits[Viewing[T]?, U128](me) == LLVM::reinterpret_bits[Viewing[T]?, U128](other)
+
+### The hash of a link's identity (what `Optional[T].hash` runs for a link): its entity's address and its slot
+### generation, the same after its entity ends.
+### :param link: The link.
+### :param k0: The first 64-bit key word.
+### :param k1: The second 64-bit key word.
+### :returns: The resulting `U64` value.
+secret routine link_hash[T](link: T?, k0: U64, k1: U64) -> U64
+    danger
+        return LLVM::reinterpret_bits[T?, U128](link).hash(k0: k0, k1: k1)
+
+### Whether two links name different entities: the address or the slot generation differs. What `a !== b` runs.
+### :param a: One link's 128 bits.
+### :param b: The other link's 128 bits.
+### :returns: `true` for different entities.
+@llvm_ir("{result} = icmp ne i128 {a}, {b}")
+dangerous routine LLVM::link_other[T](a: U128, b: U128) -> Bool
