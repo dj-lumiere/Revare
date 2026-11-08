@@ -146,4 +146,43 @@ public class OptionalTokenLinkTests
                                          """,
             expectedErrorSubstring: "which may be the same Cell as 'me'");
     }
+
+    [Fact]
+    public void Analyze_LinkReadThroughViewing_IsReadOnlyAndCopiesOut()
+    {
+        AssertHasError(source: Prelude + """
+                                         entity Child
+                                             parent: Modifying[Node]?
+
+                                         routine peek(c: Viewing[Child]) -> S64
+                                             var kept = c.parent
+                                             when c.parent
+                                                 is None => return 0
+                                                 else as p =>
+                                                     p.id = 5
+                                                     return p.id
+
+                                         routine start()
+                                             return
+                                         """,
+            expectedErrorSubstring: "which only reads the value");
+    }
+
+    [Fact]
+    public void Analyze_LinkCopiedOutOfViewing_Analyzes()
+    {
+        AssertAnalyzes(source: Prelude + """
+                                         entity Child
+                                             parent: Modifying[Node]?
+
+                                         routine parent_id(c: Viewing[Child]) -> S64
+                                             var kept = c.parent
+                                             when kept
+                                                 is None => return 0
+                                                 else as p => return p.id
+
+                                         routine start()
+                                             return
+                                         """);
+    }
 }
