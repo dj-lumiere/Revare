@@ -701,4 +701,226 @@ public sealed class LspServerTests
         Assert.NotNull(@object: LspTestHarness.ReplyWithId(replies: replies, id: 20));
     }
 
+    // ----- Refactors that cut indentation (code actions of kind refactor.rewrite) -----
+
+    /// <summary>A document from its lines, with the module header and the import every case needs.</summary>
+    private static string Doc(params string[] lines)
+    {
+        return "import IO/Console\n\n" + string.Join(separator: "\n", values: lines) + "\n";
+    }
+
+    /// <summary>The refactor actions offered on the line holding <paramref name="needle"/>: each title with the
+    /// document as it reads once the action's edit is applied.</summary>
+    private static List<(string Title, string Result)> RefactorsAt(string source, string needle)
+    {
+        // The document is a real file: the types the refactors read come from analyzing its project.
+        string dir = Directory.CreateTempSubdirectory(prefix: "lsp_refactor_").FullName;
+        string path = Path.Combine(path1: dir, path2: "main.rvr");
+        File.WriteAllText(path: path, contents: source);
+        string refactorUri = new System.Uri(uriString: path).AbsoluteUri;
+        (int line, int character) = LspTestHarness.PositionOf(text: source, needle: needle);
+        string action = JsonSerializer.Serialize(value: new
+        {
+            jsonrpc = "2.0",
+            id = 77,
+            method = "textDocument/codeAction",
+            @params = new
+            {
+                textDocument = new { uri = refactorUri },
+                range = new { start = new { line, character }, end = new { line, character } },
+                context = new { diagnostics = Array.Empty<object>() }
+            }
+        });
+        IReadOnlyList<JsonDocument> replies = LspTestHarness.Run(
+            LspTestHarness.DidOpen(uri: refactorUri, text: source), action, Exit);
+        JsonElement result = LspTestHarness.ReplyWithId(replies: replies, id: 77)!.Value.GetProperty(propertyName: "result");
+        var found = new List<(string, string)>();
+        foreach (JsonElement item in result.EnumerateArray())
+        {
+            if (item.GetProperty(propertyName: "kind").GetString() != "refactor.rewrite")
+            {
+                continue;
+            }
+
+            JsonElement edit = item.GetProperty(propertyName: "edit")
+                                   .GetProperty(propertyName: "changes")
+                                   .GetProperty(propertyName: refactorUri)[index: 0];
+            JsonElement range = edit.GetProperty(propertyName: "range");
+            int startLine = range.GetProperty(propertyName: "start").GetProperty(propertyName: "line").GetInt32();
+            int endLine = range.GetProperty(propertyName: "end").GetProperty(propertyName: "line").GetInt32();
+            string[] lines = source.Split(separator: '\n');
+            string applied = string.Join(separator: "\n",
+                values: lines.Take(count: startLine)
+                             .Append(element: edit.GetProperty(propertyName: "newText").GetString()!)
+                             .Concat(second: lines.Skip(count: endLine + 1)));
+            found.Add(item: (item.GetProperty(propertyName: "title").GetString()!, applied));
+        }
+
+        return found;
+    }
+
+    private static void AssertOffers(string source, string needle, string title, string expected)
+    {
+        List<(string Title, string Result)> offered = RefactorsAt(source: source, needle: needle);
+        Assert.Contains(expected: title, collection: offered.Select(selector: o => o.Title));
+        Assert.Equal(expected: expected, actual: offered.First(predicate: o => o.Title == title).Result);
+    }
+
+    private static void AssertNotOffered(string source, string needle, string title)
+    {
+        Assert.DoesNotContain(expected: title,
+            collection: RefactorsAt(source: source, needle: needle).Select(selector: o => o.Title));
+    }
+
+    [Fact]
+    public void Invert_Integer_FlipsAndKeepsCommentsAndBlankLines()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var n: S32 = 5", "    if n < 3", "        show(\"small\")", "",
+                "        show(\"still small\")", "    else", "        # the big case", "        show(\"big\")", "    return"),
+            needle: "if n < 3", title: "Invert 'if'",
+            expected: Doc("routine start()", "    var n: S32 = 5", "    if n >= 3", "        # the big case",
+                "        show(\"big\")", "    else", "        show(\"small\")", "", "        show(\"still small\")", "    return"));
+    }
+
+    [Fact]
+    public void Invert_Float_IsWrappedInNot()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var x: B64 = 0.5", "    if x < 1.0", "        show(\"low\")", "    else",
+                "        show(\"high\")", "    return"),
+            needle: "if x < 1.0", title: "Invert 'if'",
+            expected: Doc("routine start()", "    var x: B64 = 0.5", "    if not (x < 1.0)", "        show(\"high\")",
+                "    else", "        show(\"low\")", "    return"));
+    }
+
+    [Fact]
+    public void Invert_EqualityAndLogic_SwapAndGoThroughDeMorgan()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var a: S32 = 1", "    var b: S32 = 2", "    if a == 1 and b != 2",
+                "        show(\"yes\")", "    else", "        show(\"no\")", "    return"),
+            needle: "if a == 1", title: "Invert 'if'",
+            expected: Doc("routine start()", "    var a: S32 = 1", "    var b: S32 = 2", "    if a != 1 or b == 2",
+                "        show(\"no\")", "    else", "        show(\"yes\")", "    return"));
+    }
+
+    [Fact]
+    public void Invert_ChainedComparison_IsWrappedInNot()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var x: S32 = 5", "    if 0 <= x <= 10", "        show(\"in\")", "    else",
+                "        show(\"out\")", "    return"),
+            needle: "if 0 <= x", title: "Invert 'if'",
+            expected: Doc("routine start()", "    var x: S32 = 5", "    if not (0 <= x <= 10)", "        show(\"out\")",
+                "    else", "        show(\"in\")", "    return"));
+    }
+
+    [Fact]
+    public void Invert_HasBecomesLacks()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var xs: List[S32] = [1, 2]", "    if xs.has(1)", "        show(\"in\")",
+                "    else", "        show(\"out\")", "    return"),
+            needle: "if xs.has", title: "Invert 'if'",
+            expected: Doc("routine start()", "    var xs: List[S32] = [1, 2]", "    if xs.lacks(1)", "        show(\"out\")",
+                "    else", "        show(\"in\")", "    return"));
+    }
+
+    [Fact]
+    public void Invert_NotOffered_WithoutElseOrWithElseif()
+    {
+        AssertNotOffered(
+            source: Doc("routine start()", "    var n: S32 = 5", "    if n < 3", "        show(\"small\")", "    return"),
+            needle: "if n < 3", title: "Invert 'if'");
+        AssertNotOffered(
+            source: Doc("routine start()", "    var n: S32 = 5", "    if n < 3", "        show(\"small\")",
+                "    elseif n < 6", "        show(\"mid\")", "    else", "        show(\"big\")", "    return"),
+            needle: "if n < 3", title: "Invert 'if'");
+    }
+
+    [Fact]
+    public void Guard_Return_MovesTheBodyOutOneLevel()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var n: S32 = 5", "    if n > 2", "        show(\"big\")", "        # note",
+                "        show(\"really\")", "    return"),
+            needle: "if n > 2", title: "Exit early with 'return'",
+            expected: Doc("routine start()", "    var n: S32 = 5", "    if n <= 2", "        return", "    show(\"big\")",
+                "    # note", "    show(\"really\")", "    return"));
+    }
+
+    [Fact]
+    public void Guard_WithResult_MovesTheFinalReturnIntoTheGuard()
+    {
+        AssertOffers(
+            source: Doc("routine pick(n: S32) -> S32", "    if n > 2", "        show(\"big\")", "        return 1",
+                "    return 0", "", "routine start()", "    show(f\"{pick(n: 3)}\")", "    return"),
+            needle: "if n > 2", title: "Exit early with 'return'",
+            expected: Doc("routine pick(n: S32) -> S32", "    if n <= 2", "        return 0", "    show(\"big\")",
+                "    return 1", "", "routine start()", "    show(f\"{pick(n: 3)}\")", "    return"));
+    }
+
+    [Fact]
+    public void Guard_Float_IsWrappedInNot()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var x: B64 = 0.5", "    if x > 0.25", "        show(\"big\")", "    return"),
+            needle: "if x > 0.25", title: "Exit early with 'return'",
+            expected: Doc("routine start()", "    var x: B64 = 0.5", "    if not (x > 0.25)", "        return",
+                "    show(\"big\")", "    return"));
+    }
+
+    [Fact]
+    public void Guard_InLoop_UsesContinue()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    for i: S32 in 0 til 3", "        if i > 0", "            show(\"positive\")",
+                "            show(f\"{i}\")", "    return"),
+            needle: "if i > 0", title: "Exit early with 'continue'",
+            expected: Doc("routine start()", "    for i: S32 in 0 til 3", "        if i <= 0", "            continue",
+                "        show(\"positive\")", "        show(f\"{i}\")", "    return"));
+    }
+
+    [Fact]
+    public void Guard_NotOffered_WhereCodeFollowsTheIf()
+    {
+        AssertNotOffered(
+            source: Doc("routine start()", "    var n: S32 = 5", "    if n > 2", "        show(\"big\")",
+                "    show(\"after\")", "    return"),
+            needle: "if n > 2", title: "Exit early with 'return'");
+        AssertNotOffered(
+            source: Doc("routine start()", "    for i: S32 in 0 til 3", "        if i > 0", "            show(\"positive\")",
+                "        show(\"every round\")", "    return"),
+            needle: "if i > 0", title: "Exit early with 'continue'");
+        // A comment between the if and the final return would be dropped.
+        AssertNotOffered(
+            source: Doc("routine pick(n: S32) -> S32", "    if n > 2", "        return 1", "    # otherwise",
+                "    return 0", "", "routine start()", "    show(f\"{pick(n: 3)}\")", "    return"),
+            needle: "if n > 2", title: "Exit early with 'return'");
+    }
+
+    [Fact]
+    public void Merge_NestedIf_JoinsWithAnd()
+    {
+        AssertOffers(
+            source: Doc("routine start()", "    var a: S32 = 1", "    var b: S32 = 2", "    if a > 0", "        if b > 1",
+                "            show(\"both\")", "            # kept", "            show(\"still\")", "    return"),
+            needle: "if a > 0", title: "Merge nested 'if'",
+            expected: Doc("routine start()", "    var a: S32 = 1", "    var b: S32 = 2", "    if a > 0 and b > 1",
+                "        show(\"both\")", "        # kept", "        show(\"still\")", "    return"));
+    }
+
+    [Fact]
+    public void Merge_NotOffered_WithElseOrMoreStatements()
+    {
+        AssertNotOffered(
+            source: Doc("routine start()", "    var a: S32 = 1", "    var b: S32 = 2", "    if a > 0", "        if b > 1",
+                "            show(\"both\")", "    else", "        show(\"neither\")", "    return"),
+            needle: "if a > 0", title: "Merge nested 'if'");
+        AssertNotOffered(
+            source: Doc("routine start()", "    var a: S32 = 1", "    var b: S32 = 2", "    if a > 0", "        if b > 1",
+                "            show(\"both\")", "        show(\"outer\")", "    return"),
+            needle: "if a > 0", title: "Merge nested 'if'");
+    }
 }

@@ -208,6 +208,11 @@ When unsure, consult ground truth in the repo/package:
    `line`, `column`, `severity`, `code`, `message`, `endLine?`, `fix?`). Fixes so far: RV-G211 removes the call-site
    `!`, RV-G212 writes `xs.has(x)`, RV-W007 prepends `drop`, RV-S767 converts two named operands to the type holding
    both. Named Bool conditions get no loop note.
+   Besides quick fixes the language server offers three `refactor.rewrite` actions on an `if` line: invert it
+   (`if not c` with the branches swapped, needs an `else`), exit early (`if not c` with `return`, or `continue` in a loop,
+   and the body one level out, only when nothing but the final `return` or the end of the loop round follows), and merge
+   a nested `if` into `if a and b`. `==`/`!=`, `is`/`isnot`, `has`/`lacks` swap, `<` and its siblings flip only between
+   integers and `Decimal`, any other comparison is wrapped in `not (...)`.
 10. **Indentation is 4 spaces and blocks are indentation-delimited.** No braces.
 11. **Chained comparisons are one expression**: `0 <= x <= 10` works. A chain goes one way: `<`, `<=`, `==`
     together or `>`, `>=`, `==` together (`a < b > c`, `!=` and `<=>` in a chain are errors). Every
