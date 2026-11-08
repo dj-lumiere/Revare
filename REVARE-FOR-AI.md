@@ -1239,7 +1239,7 @@ A member routine written outside a generic type names its parameters on the rece
   per type it is called with (buildtime dispatch). A place that stores a value written with a protocol type is
   runtime dispatch: a local `var x: Enemy`, a member variable `boss: Enemy`, an element type (`List[Enemy]`,
   `Dict[Text, Enemy]`), `Enemy?`, a result `-> Enemy`. No keyword marks it.
-  - The stored value is a type hash and an address. The type hash is FNV-1a (32 bits, never 0) of the type's name with
+  - The stored value is a type hash and an address. The type hash is FNV-1a (64 bits, never 0) of the type's name with
     its module (`Game.Slime`). Two types a protocol place is given with the same hash are RV-S714.
   - An entity is kept where it is: it goes in with `steal` like into any place that keeps it (`enemies.add_last(value:
     steal s)`, `var x: Enemy = steal s`, a fresh `Slime(...)` needs none), RV-S413 otherwise. When an entity type of the

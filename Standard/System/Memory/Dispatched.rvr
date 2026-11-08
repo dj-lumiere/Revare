@@ -9,11 +9,11 @@ import BuilderQuery
 ### it. A Mielia entity's handle is kept in memory of its own the same way, and a copy of the place is one more
 ### holder of it. A routine of `P` called on the value is a routine the builder writes for this type, which switches
 ### on the type hash over the types the program stores there and calls that type's routine. The type hash is the
-### FNV-1a hash (32 bits, never 0) of the type's name with its module.
+### FNV-1a hash (64 bits, never 0) of the type's name with its module.
 ### :typeparam P: The protocol.
 record Dispatched[P]
     ### The type hash of the value's type.
-    secret type_hash: U32
+    secret type_hash: U64
     ### Where the value is: the entity itself, or the value's own memory.
     secret address: Addr
 
@@ -25,7 +25,7 @@ record Dispatched[P]
 ### :param value: The entity, handed over.
 ### :param type_hash: The type hash of the entity's type.
 ### :returns: The protocol value.
-secret routine dispatched_keep_inline[P, T](value: T, type_hash: U32) -> Dispatched[P]
+secret routine dispatched_keep_inline[P, T](value: T, type_hash: U64) -> Dispatched[P]
 needs AnyType P
 needs EntityType T
     var bits = Addr.hollow()
@@ -42,7 +42,7 @@ needs EntityType T
 ### :param value: The record or handle.
 ### :param type_hash: The type hash of its type.
 ### :returns: The protocol value.
-secret routine dispatched_keep_record[P, T](value: T, type_hash: U32) -> Dispatched[P]
+secret routine dispatched_keep_record[P, T](value: T, type_hash: U64) -> Dispatched[P]
 needs AnyType P
 needs RecordType T
     danger
