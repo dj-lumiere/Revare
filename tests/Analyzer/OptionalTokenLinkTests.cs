@@ -185,4 +185,97 @@ public class OptionalTokenLinkTests
                                              return
                                          """);
     }
+
+    [Fact]
+    public void Analyze_LinkEquality_PointsToIdentity()
+    {
+        AssertHasErrorSa(source: Prelude + """
+                                           routine start()
+                                               var a = Node(id: 1)
+                                               var x: Modifying[Node]? = a
+                                               var y: Modifying[Node]? = a
+                                               show(x == y)
+                                               return
+                                           """,
+            expectedErrorSubstring: "'==='");
+    }
+
+    [Fact]
+    public void Analyze_LinkIdentityAndSetKey_Analyze()
+    {
+        AssertAnalyzes(source: Prelude + """
+                                         routine start()
+                                             var a = Node(id: 1)
+                                             var x: Modifying[Node]? = a
+                                             var y: Modifying[Node]? = a
+                                             var seen = Set[Modifying[Node]?]()
+                                             drop seen.add(x)
+                                             var score = Dict[Viewing[Node]?, S64]()
+                                             show(x === y)
+                                             show(x !== y)
+                                             return
+                                         """);
+    }
+
+    [Fact]
+    public void Analyze_ElementAndLoopLinksThroughViewing_AreReadOnly()
+    {
+        AssertHasErrorSa(source: Prelude + """
+                                           routine poke(links: Viewing[List[Modifying[Node]?]])
+                                               for link in links
+                                                   when link
+                                                       is None => nothing
+                                                       else as n => n.id = 98
+                                               return
+
+                                           routine start()
+                                               return
+                                           """,
+            expectedErrorSubstring: "which only reads the value");
+        AssertHasErrorSa(source: Prelude + """
+                                           routine poke(links: Viewing[Dict[S64, Modifying[Node]?]])
+                                               for (k, link) in links
+                                                   when link
+                                                       is None => nothing
+                                                       else as n => n.id = 97
+                                               return
+
+                                           routine start()
+                                               return
+                                           """,
+            expectedErrorSubstring: "which only reads the value");
+    }
+
+    [Fact]
+    public void Analyze_BareLinkUse_ReadsTheEntity()
+    {
+        AssertAnalyzes(source: Prelude + """
+                                         entity Child
+                                             parent: Modifying[Node]?
+
+                                         routine start()
+                                             var a = Node(id: 1)
+                                             var c = Child(parent: none)
+                                             c.parent = a
+                                             c.parent.id = 2
+                                             show(c.parent.id)
+                                             show(try c.parent.id)
+                                             return
+                                         """);
+    }
+
+    [Fact]
+    public void Analyze_GenericLinkMemberVariable_Analyzes()
+    {
+        AssertAnalyzes(source: Prelude + """
+                                         entity Wrap[T]
+                                             link: Modifying[T]?
+
+                                         routine start()
+                                             var a = Node(id: 1)
+                                             var w = Wrap[Node](link: none)
+                                             w.link = a
+                                             return
+                                         """);
+    }
 }
