@@ -857,6 +857,15 @@ needs EntityType T
         # A hollow entity (all zero, the member variable of a hollow value) has nothing to tear down.
         if me.get_address().is_hollow()
             return
+        # A retroactive entity (one with links to it) ends in two steps: its slot's generation goes up at once, and the
+        # destruct waits while a token taken from a link is in use. Its slot then goes back to the type's free list.
+        if T.is_retroactive()
+            if C::rf_slot_end(box: me.get_address()) == 0
+                return
+            expand m in allmemvarof(T)
+                me.$nameof(m).destruct()
+            C::rf_slot_give_back(box: me.get_address())
+            return
         var chain = me.lift_own_child()
         expand m in allmemvarof(T)
             me.$nameof(m).destruct()

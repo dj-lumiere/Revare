@@ -1,0 +1,114 @@
+module Tests/Stdlib/OptionalTokenLinksApi
+
+import IO/Console
+# A link is an optional token on an entity kept in a place: `parent: Modifying[Node]?` in a member variable, a list's
+# element, a record in a list, a generic container or a local. It never keeps its entity alive: once the entity ends,
+# taking the link with `when` gives none. While a token taken from a link is in use, the entity's destruct waits and
+# runs once, when the use ends.
+
+entity Node
+    id: S64
+    parent: Modifying[Node]?
+
+routine Node.destruct()
+    show(f"end {me.id}")
+    return
+
+record Edge
+    weight: S64
+    to: Viewing[Node]?
+
+entity Shelf[T]
+    held: T
+
+entity Plain
+    n: S64
+
+routine removed_from_list()
+    var nodes = List[Node]()
+    nodes.add_last(value: Node(id: 1, parent: none))
+    nodes.add_last(value: Node(id: 2, parent: none))
+    nodes[1].parent = nodes[0]
+    when nodes[1].parent
+        is None => show("parent none")
+        else as p => show(f"parent {p.id}")
+    drop nodes.remove_first()
+    when nodes[0].parent
+        is None => show("parent none after remove")
+        else as p => show(f"parent {p.id}")
+    return
+
+routine in_use_while_ended()
+    var nodes = List[Node]()
+    nodes.add_last(value: Node(id: 3, parent: none))
+    var watch: Modifying[Node]? = none
+    watch = nodes[0]
+    when watch
+        is None => show("none")
+        else as n =>
+            nodes.clear()
+            show(f"still in use {n.id}")
+    show("after the use")
+    when watch
+        is None => show("watch none")
+        else as n => show(f"watch {n.id}")
+    return
+
+routine list_of_links()
+    var nodes = List[Node]()
+    var links = List[Modifying[Node]?]()
+    for i in 10 til 13
+        nodes.add_last(value: Node(id: i, parent: none))
+    for i in 0 til 3
+        links.add_last(value: nodes[i])
+    links.add_last(value: none)
+    drop nodes.remove_at(index: 1)
+    for link in links
+        when link
+            is None => show("link none")
+            else as n => show(f"link {n.id}")
+    return
+
+routine record_in_list()
+    var a = Node(id: 20, parent: none)
+    var edges = List[Edge]()
+    edges.add_last(value: Edge(weight: 5, to: a.view()))
+    var copy = edges[0]
+    when copy.to
+        is None => show("edge none")
+        else as n => show(f"edge {copy.weight} {n.id}")
+    drop a
+    when edges[0].to
+        is None => show("edge none after drop")
+        else as n => show(f"edge {n.id}")
+    return
+
+routine generic_shelf()
+    var a = Node(id: 30, parent: none)
+    var shelf = Shelf[Modifying[Node]?](held: none)
+    shelf.held = a
+    var copied = shelf.held
+    when copied
+        is None => show("shelf none")
+        else as n => show(f"shelf {n.id}")
+    drop a
+    when shelf.held
+        is None => show("shelf none after drop")
+        else as n => show(f"shelf {n.id}")
+    return
+
+routine plain_tokens()
+    var p = Plain(n: 7)
+    var m = p.modify()
+    m.n += 1
+    show(p.n)
+    return
+
+routine start()
+    removed_from_list()
+    in_use_while_ended()
+    list_of_links()
+    record_in_list()
+    generic_shelf()
+    plain_tokens()
+    return

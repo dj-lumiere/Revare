@@ -1,0 +1,71 @@
+module System/Memory
+
+import BuilderQuery
+
+### A token taken from a link is in use. A link is an optional token on an entity kept in a place (`parent:
+### Modifying[Node]?` in a member variable, a collection's element, a global, a local): it never keeps its entity alive,
+### and it reads as none once the entity ended. The builder keeps one of these in each arm of a `when` that takes a link
+### and binds its token, for as long as the arm runs. The entity's destruct waits while one is kept, and its end lets
+### the destruct run when the entity ended meanwhile. For a type no link is kept to, it does nothing.
+### :typeparam T: The entity's type.
+record LinkUse[T]
+needs EntityType T
+    ### The entity's address.
+    secret at: Addr
+
+### Marks a token taken from a link as in use, until the result ends.
+### :returns: What ends the use.
+@readonly
+@inline
+routine Modifying[T].begin_link_use() -> LinkUse[T]
+needs EntityType T
+    danger
+        var at = Hijacked[T](me).get_address()
+        if T.is_retroactive()
+            C::rf_slot_use_begin(box: at)
+        return LinkUse[T](at: at)
+
+### Marks a token taken from a link as in use, until the result ends.
+### :returns: What ends the use.
+@readonly
+@inline
+routine Viewing[T].begin_link_use() -> LinkUse[T]
+needs EntityType T
+    danger
+        var at = Hijacked[T](me).get_address()
+        if T.is_retroactive()
+            C::rf_slot_use_begin(box: at)
+        return LinkUse[T](at: at)
+
+### Ends the use of a token taken from a link. When the entity ended while the token was in use, its destruct runs now.
+@override
+routine LinkUse[T].destruct()
+    if T.is_retroactive()
+        danger
+            if C::rf_slot_use_end(box: me.at) == 1
+                LLVM::reinterpret_bits[Addr, T](me.at).destruct()
+    return
+
+### The start of an entity's end, which the builder puts first in a written `destruct`. For an entity of a retroactive
+### type its slot's generation goes up, so every link to it reads as none from now on, and the rest of the destruct waits
+### while a token taken from a link is in use (the last one's end runs it). For any other type it is `true`.
+### :returns: `true` when the destruct goes on now.
+@inline
+infallible routine T.begin_entity_end() -> Bool
+needs EntityType T
+    if T.is_retroactive()
+        danger
+            return C::rf_slot_end(box: me.get_address()) == 1
+    return true
+
+### Gives back an entity's box, which the builder puts before each return of a written `destruct`: the heap block, or for
+### an entity of a retroactive type its slot, which goes back to its type's free list.
+@inline
+infallible routine T.give_back_entity_box()
+needs EntityType T
+    danger
+        if T.is_retroactive()
+            C::rf_slot_give_back(box: me.get_address())
+        else
+            C::rf_invalidate(ptr: me.get_address())
+    return

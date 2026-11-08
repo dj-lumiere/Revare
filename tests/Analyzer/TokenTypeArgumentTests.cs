@@ -69,9 +69,10 @@ public class TokenTypeArgumentTests
     }
 
     [Fact]
-    public void Analyze_MaybeOfTokenInVariable_Errors()
+    public void Analyze_MaybeOfTokenInVariable_IsALinkThatReadsNone()
     {
-        AssertHasErrorS601(source: """
+        // An optional token on an entity kept in a name is a link: once `l` ends, `when m` gives none.
+        AssertAnalyzes(source: Prelude + """
                                         routine start()
                                             var m: Optional[Viewing[Cell]] = none
                                             if true
@@ -83,8 +84,7 @@ public class TokenTypeArgumentTests
                                                 else as v =>
                                                     show(f"{v.n}")
                                             return
-                                        """,
-            expected: "Unpack it with `when` where you get it");
+                                        """);
     }
 
     [Fact]
@@ -194,14 +194,14 @@ public class TokenTypeArgumentTests
     }
 
     [Fact]
-    public void Analyze_TryOfTokenBoundToName_Errors()
+    public void Analyze_TryOfTokenBoundToName_IsALink()
     {
-        AssertHasErrorS601(source: """
-                                        routine start()
-                                            var cells = [Cell(n: 1)]
-                                            var m = try cells.view_at(index: 0)
-                                            return
-                                        """,
-            expected: "You keep `Optional[Viewing[Cell]]` in 'm'");
+        // What `try` gives on a routine returning a token on an entity, kept in a name, is a link to the element.
+        AssertAnalyzes(source: Prelude + """
+                                         routine start()
+                                             var cells = [Cell(n: 1)]
+                                             var m = try cells.view_at(index: 0)
+                                             return
+                                         """);
     }
 }

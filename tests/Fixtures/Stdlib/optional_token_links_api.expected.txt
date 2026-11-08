@@ -1,0 +1,22 @@
+parent 1
+end 1
+parent none after remove
+end 2
+still in use 3
+end 3
+after the use
+watch none
+end 11
+link 10
+link none
+link 12
+link none
+end 10
+end 12
+edge 5 20
+end 20
+edge none after drop
+shelf 30
+end 30
+shelf none after drop
+8

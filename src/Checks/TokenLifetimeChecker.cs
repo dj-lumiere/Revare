@@ -1045,6 +1045,17 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             }
         }
 
+        /// <summary>The entity type a link (an optional token on an entity, <c>Modifying[Node]?</c>) names, or null for any
+        /// other type.</summary>
+        private static string? LinkedEntityName(TypeSymbol? type)
+        {
+            return type is { BareName: RuntimeContract.OptionalCarrier, TypeArguments: [{ } token] } &&
+                   token.BareName is RuntimeContract.Viewing or RuntimeContract.Modifying &&
+                   token.TypeArguments is [EntityTypeSymbol entity]
+                ? entity.Name
+                : null;
+        }
+
         /// <summary>The entity type a value of <paramref name="type"/> may share with another name: the inner type of a
         /// token or a <c>Retained</c> handle. Null for anything else.</summary>
         private static string? AliasKey(TypeSymbol? type)
@@ -1393,10 +1404,13 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                         : null;
                     // What the arms' names reach in place: an element of what a `for` loop walks, or the place
                     // being matched (`when slot.item`, `when v`).
+                    // A link's token names the linked entity, not the place the link is kept in.
                     HashSet<string>? matched = stepSources != null
                         ? stepSources.Select(selector: w => Join(path: w, suffix: "[]"))
                                      .ToHashSet()
-                        : owner.PathsOf(expr: whenStmt.Expression, tokenOrigins: Held);
+                        : LinkedEntityName(type: whenStmt.Expression.ResolvedType) != null
+                            ? null
+                            : owner.PathsOf(expr: whenStmt.Expression, tokenOrigins: Held);
                     string? subject = whenStmt.Expression is IdentifierExpression { Name: var subjectName }
                         ? subjectName
                         : null;
@@ -1408,6 +1422,13 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                             : [];
                         string? bound = clause.Pattern is ElsePattern { VariableName: { } boundName }
                             ? boundName
+                            : null;
+                        // The token a link gives (`when node.parent`, `else as p`) may be the same entity as any other
+                        // name of its type, as two token parameters may.
+                        string? linkToken = stepIter == null && LinkedEntityName(type: whenStmt.Expression.ResolvedType) is { } linked &&
+                                            (bound ?? (clause.Pattern as TypePattern)?.VariableName) is { } tokenName &&
+                                            _aliasRoots.TryAdd(key: tokenName, value: linked)
+                            ? tokenName
                             : null;
                         string? element = readStep ? bound : null;
                         bool added = element != null && _readElements.Add(item: element);
@@ -1422,6 +1443,11 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                         if (stepAdded)
                         {
                             _stepElements.Remove(key: bound!);
+                        }
+
+                        if (linkToken != null)
+                        {
+                            _aliasRoots.Remove(key: linkToken);
                         }
 
                         UnbindPattern(bound: patternBound, entry: entry);

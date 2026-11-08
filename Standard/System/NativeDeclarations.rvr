@@ -2112,6 +2112,26 @@ dangerous routine C::rf_pool_end()
 ### generation: its generation. :returns: the address of the entity's bytes, or 0.
 dangerous routine C::rf_pool_fetch(slot: U32, generation: U32) -> Addr
 
+# ============================================================================
+# The slot store of links (Ingrid/lapila/slots.lpa)
+# ============================================================================
+# An entity of a retroactive type (a type with a link, a kept `Modifying[T]?` / `Viewing[T]?`, somewhere in the program) lives in a slot whose header
+# holds a generation, how many tokens taken from links are in use, and the number of the type's store.
+
+### The start of an entity's end: the generation goes up. :param box: the entity's address. :returns: 1 when the destruct
+### runs now, 0 when it waits for the tokens taken from links that are in use.
+dangerous routine C::rf_slot_end(box: Addr) -> U8
+
+### Puts an ended entity's slot on its store's free list. :param box: the entity's address.
+dangerous routine C::rf_slot_give_back(box: Addr)
+
+### A token taken from a link is in use. :param box: the entity's address.
+dangerous routine C::rf_slot_use_begin(box: Addr)
+
+### A token taken from a link is no longer in use. :param box: the entity's address. :returns: 1 when the entity's
+### destruct waited for it and runs now.
+dangerous routine C::rf_slot_use_end(box: Addr) -> U8
+
 ### Gives up the access this job holds. :param access: the policy's state. :param kind: 1 or 2. :param mode: 1 or 2.
 dangerous routine C::rf_access_unlock(access: Addr, kind: U32, mode: U32)
 
