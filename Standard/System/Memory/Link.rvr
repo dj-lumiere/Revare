@@ -193,26 +193,15 @@ dangerous routine LLVM::link_token[T](link: U128) -> Addr
 @llvm_ir("{result} = icmp eq i128 {a}, {b}")
 dangerous routine LLVM::link_same[T](a: U128, b: U128) -> Bool
 
-### Whether two links are the same, the identity `Set` and `Dict` key a link by: the same entity and the same slot
-### generation, or both empty. A link keeps its identity after its entity ends.
+### Whether two links are the same (what `Optional[T].eq` runs for a link), the identity `Set` and `Dict` key a link by:
+### the same entity and the same slot generation, or both empty. A link keeps its identity after its entity ends.
+### :param link: One link.
 ### :param you: The other link.
 ### :returns: `true` for the same link.
-@readonly
-routine Optional[Modifying[T]].eq(you: Viewing[Optional[Modifying[T]]]) -> Bool
-needs EntityType T
+secret routine link_eq[T](link: T?, you: Viewing[T?]) -> Bool
     danger
-        var other = Hijacked[Modifying[T]?](you).peek()
-        return LLVM::reinterpret_bits[Modifying[T]?, U128](me) == LLVM::reinterpret_bits[Modifying[T]?, U128](other)
-
-### Whether two read-only links are the same: the same entity and the same slot generation, or both empty.
-### :param you: The other link.
-### :returns: `true` for the same link.
-@readonly
-routine Optional[Viewing[T]].eq(you: Viewing[Optional[Viewing[T]]]) -> Bool
-needs EntityType T
-    danger
-        var other = Hijacked[Viewing[T]?](you).peek()
-        return LLVM::reinterpret_bits[Viewing[T]?, U128](me) == LLVM::reinterpret_bits[Viewing[T]?, U128](other)
+        var other = Hijacked[T?](you).peek()
+        return LLVM::reinterpret_bits[T?, U128](link) == LLVM::reinterpret_bits[T?, U128](other)
 
 ### The hash of a link's identity (what `Optional[T].hash` runs for a link): its entity's address and its slot
 ### generation, the same after its entity ends.

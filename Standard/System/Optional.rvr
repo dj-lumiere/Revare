@@ -253,11 +253,14 @@ routine Optional[T].is_present() -> Bool
 @readonly
 routine Optional[T].eq(you: Viewing[Optional[T]]) -> Bool
 needs T obeys Equatable
-    if not me.present
-        return not you.present
-    if not you.present
-        return false
-    return me.value == you.value
+    if T.is_link_token()
+        return link_eq[T](link: me, you: you)
+    else
+        if not me.present
+            return not you.present
+        if not you.present
+            return false
+        return me.value == you.value
 
 ### Returns a keyed hash of this optional: a fixed value when absent, the value's own hash when present, so equal
 ### optionals hash the same. A link hashes its identity, the entity it names and its slot generation, which stays the

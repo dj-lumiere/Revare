@@ -51,7 +51,7 @@ public class ReadonlyMeViewingTests
                                       return
                                   """;
 
-        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "only reads the value");
+        AnalysisResult result = AssertHasErrorSa(source: source, expectedErrorSubstring: "only reads that value");
         Assert.Contains(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.WriteThroughReadOnlyWrapper);
     }

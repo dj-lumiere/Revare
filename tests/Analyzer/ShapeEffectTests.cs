@@ -317,9 +317,11 @@ public class ShapeEffectTests
     }
 
     [Fact]
-    public void Analyze_LoopOverReadTokenWhileWriteTokenGrows_Errors()
+    public void Analyze_LoopOverReadTokenWhileWriteTokenGrows_ChecksAtRunTime()
     {
-        AssertHasErrorSa(source: """
+        // Two token parameters of one type may be the same container: the loop opens a use of its container at run
+        // time, and a change to the same one fails with ReshapingWhileInUseError.
+        AssertAnalyzesSa(source: """
                                  routine merge_set(into: Modifying[Set[S64]], from: Viewing[Set[S64]])
                                      for v in from
                                          into.add(value: v + 1)
@@ -327,8 +329,7 @@ public class ShapeEffectTests
 
                                  routine start()
                                      return
-                                 """,
-            expectedErrorSubstring: "while a `for` loop is going through 'from'");
+                                 """);
     }
 
     [Fact]
