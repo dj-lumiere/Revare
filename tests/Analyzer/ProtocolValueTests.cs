@@ -316,4 +316,95 @@ public class ProtocolValueTests
                                      return
                                  """);
     }
+
+    private const string FighterProtocols = """
+                                            protocol Moving
+                                                routine Me.step()
+
+                                            protocol Hitting
+                                                @readonly
+                                                routine Me.hit() -> S64
+
+                                            protocol Fighter
+                                            obeys Moving, Hitting
+
+                                            """;
+
+    [Fact]
+    public void Analyze_TypeObeyingEveryParentOfComposition_Passes()
+    {
+        AssertAnalyzesSa(source: FighterProtocols + """
+                                                    entity Archer
+                                                    obeys Moving, Hitting
+                                                        x: S64
+
+                                                    routine Archer.step()
+                                                        me.x += 1
+                                                        return
+
+                                                    @readonly
+                                                    routine Archer.hit() -> S64
+                                                        return 2
+
+                                                    record Rock
+                                                        weight: S64
+
+                                                    routine Rock.step()
+                                                        return
+
+                                                    @readonly
+                                                    routine Rock.hit() -> S64
+                                                        return me.weight
+
+                                                    routine start()
+                                                        var fighters = List[Fighter]()
+                                                        fighters.add_last(value: Archer(x: 0))
+                                                        var rock: Fighter = Rock(weight: 4)
+                                                        for f in fighters
+                                                            f.step()
+                                                        var h = rock.hit()
+                                                        return
+                                                    """);
+    }
+
+    [Fact]
+    public void Analyze_TypeMissingParentRoutineOfComposition_IsRejected()
+    {
+        AssertHasErrorSa(source: FighterProtocols + """
+                                                    record Post
+                                                        height: S64
+
+                                                    @readonly
+                                                    routine Post.hit() -> S64
+                                                        return me.height
+
+                                                    routine start()
+                                                        var f: Fighter = Post(height: 1)
+                                                        return
+                                                    """,
+            expectedErrorSubstring: "Fighter");
+    }
+
+    [Fact]
+    public void Analyze_TypeWithChildRoutinesButNotParents_IsRejected()
+    {
+        AssertHasErrorSa(source: FighterProtocols + """
+                                                    protocol Duelist
+                                                    obeys Moving
+                                                        @readonly
+                                                        routine Me.parry() -> Bool
+
+                                                    record Statue
+                                                        x: S64
+
+                                                    @readonly
+                                                    routine Statue.parry() -> Bool
+                                                        return true
+
+                                                    routine start()
+                                                        var d: Duelist = Statue(x: 1)
+                                                        return
+                                                    """,
+            expectedErrorSubstring: "Duelist");
+    }
 }

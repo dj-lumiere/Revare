@@ -1258,8 +1258,10 @@ A member routine written outside a generic type names its parameters on the rece
     `Viewing`), a copy of a record. `x is Boss` tests it. Such a `when` needs `else` (RV-S356): any type with the
     routines may be there. An `is T` arm whose `T` doesn't obey the protocol is RV-S357.
   - A place needing the routines of several protocols uses a protocol that obeys them all (`protocol Combatant` with
-    `obeys Enemy, Attackable`, then `List[Combatant]`). Its routines are those of every protocol it obeys. Such a
-    protocol has no routines of its own, so a type obeys it only by writing `obeys Combatant`.
+    `obeys Enemy, Attackable`, then `List[Combatant]`). Its routines are those of every protocol it obeys. A type
+    obeys it by obeying every parent (`obeys`, or having their routines), or by writing `obeys Combatant`. A type that
+    has a protocol's own routines obeys it only if it also obeys that protocol's parents. A protocol with no routines
+    and no parents (a marker) needs `obeys`.
   - A value of a type parameter (`T`, or the hidden one of `e: Enemy`) going into a stored place is RV-S716: put it in
     where its type is known.
 - A protocol member declared `@readonly` (`eq`, `compare`, `hash`, the arithmetic operators, `count`, `iter`,
