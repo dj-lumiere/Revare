@@ -200,7 +200,7 @@ routine party()
     return
 
 # A routine that changes a record kept in a protocol place changes the kept record, in a variable and in a list
-# element. A plain record element changes the same way.
+# element. A plain record element changes the same way, and so does a loop's element.
 protocol Counting
     routine Me.bump(by: S64)
     @readonly
@@ -246,6 +246,11 @@ routine changing()
     var plain = [Tally(label: "tally 0", n: 0)]
     plain[0].bump(by: 4)
     show(f"plain {plain[0].label}")
+    for t in plain
+        t.bump(by: 1)
+    for x in cs
+        x.bump(by: 1)
+    show(f"loops {plain[0].label} {cs[0].total()} {cs[1].total()}")
     return
 
 routine start()
