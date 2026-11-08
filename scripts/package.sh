@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Revare packaging script (Unix host -> host-RID package).
 #
-# Produces: dist/revare-v<version>-<rid>.tar.gz (+ sha256 in checksums.txt)
+# Produces: dist/<prefix>-v<version>-<rid>.tar.gz (+ sha256 in checksums.txt), where <prefix> is
+# $PKG_PREFIX (revare by default, mielia for a Mielia release).
 # where <rid> is the host's RID: linux-x64, osx-arm64, or osx-x64.
 #
 # IMPORTANT: packages the HOST platform only. The native runtime (revare_runtime)
@@ -23,7 +24,7 @@ case "$(uname -s)" in
         ;;
 esac
 VERSION="${VERSION:-$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Revare/Revare.csproj | head -1)}"
-NAME="revare-v${VERSION}-${RID}"
+NAME="${PKG_PREFIX:-revare}-v${VERSION}-${RID}"
 OUT="dist/${NAME}"
 
 echo "=== Revare ${VERSION} -> ${NAME} ==="

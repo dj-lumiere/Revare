@@ -3,7 +3,8 @@
 # Run with PowerShell 7+:  pwsh -File scripts\package.ps1
 # (Windows PowerShell 5.1 lacks utf8NoBOM and other features this script uses.)
 #
-# Produces: dist\revare-v<version>-win-x64.zip (+ sha256 in checksums.txt)
+# Produces: dist\<prefix>-v<version>-win-x64.zip (+ sha256 in checksums.txt), where <prefix> is
+# $env:PKG_PREFIX (revare by default, mielia for a Mielia release).
 #
 # IMPORTANT: packages the HOST platform only — the native runtime is built by the
 # host toolchain, so cross-RID publishing would bundle the wrong native binaries.
@@ -17,7 +18,8 @@ $Rid = 'win-x64'
 $Version = if ($env:VERSION) { $env:VERSION } else {
     (Select-String -Path 'Revare\Revare.csproj' -Pattern '<Version>(.*)</Version>').Matches[0].Groups[1].Value
 }
-$Name = "revare-v$Version-$Rid"
+$Prefix = if ($env:PKG_PREFIX) { $env:PKG_PREFIX } else { 'revare' }
+$Name = "$Prefix-v$Version-$Rid"
 $Out = "dist\$Name"
 
 Write-Host "=== Revare $Version -> $Name ==="
