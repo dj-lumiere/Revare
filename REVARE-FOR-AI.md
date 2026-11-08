@@ -51,9 +51,9 @@ When unsure, consult ground truth in the repo/package:
 6. **Data exists to be shared, and record and entity are the two ways.** The question that picks one: may each
    place that shares the value hold its own copy? Yes: a `record`, shared by handing out copies (`=` copies).
    No, copies would be a problem: an `entity`, whose one legitimate version is the single source of truth: an
-   entity has one original. Others reach it by permission for a while (`view()`/`modify()` tokens, the builder
-   checks them) or through a manager for longer (`Retained`, `Guarded`, ...). Holding the original under a second
-   name with neither is RV-S413 ("An entity has one original, and this would hold it here too with no manager",
+   entity has one original. Others reach it through references (`@T` / `%T`: a second name, an argument; the builder
+   checks them), links in storage, or a manager for longer (`Retained`, `Guarded`, ...). Holding the original in a
+   second place (a member variable, an element, a hand-over parameter) without `steal` is RV-S413 ("An entity has one original, and this would hold it here too with no manager",
    `var s = obj.field_entity`). `steal` hands it to what keeps it from now on: `consume(r: steal b)`.
    A manager type (`FileManager`, `PartitionManager`, `StorageManager`, `CpuEventManager`) is always an `entity`
    (a copy would keep its own record and diverge), a stateless service (`Clock`, `CpuClock`, `Environment`, `Entropy`) a
@@ -87,12 +87,12 @@ When unsure, consult ground truth in the repo/package:
    variant calls the recovery variants of the calls inside it, so a failure comes back only on the path under a
    keyword. A call with no keyword above it runs the plain routine, which stops where the failure happens and costs
    nothing more. `try`/`check` over an expression that cannot fail gives the value (`try 5` is present 5).
-   **A call on a `T?` under the keyword.** `try link.fetch()` with `link: Stamped[E]?` (or `try maybe_pt.twice(k: 2)`
+   **A call on a `T?` under the keyword.** `try link.rename()` with `link: @Node?` (or `try maybe_pt.twice(k: 2)`
    with `maybe_pt: Pt?`) is allowed, for every `T?` and every routine the optional has none of itself: a none
    receiver counts as an `AbsentValueError` failure that the same keyword receives (`try`: absent, `check`: the
    `AbsentValueError`), otherwise the call runs on the value, and a failure below the call is received as usual.
    `?` asks whether there is a link, the call asks whether what it points at still lives. A record is copied out. An
-   entity or a variant is reached where the optional keeps it (a write token on the original), so a call that changes
+   entity or a variant is reached where the optional keeps it (a write reference on the original), so a call that changes
    it (`try xs.add_last(value: 3)` with `xs: List[S64]?`) acts on the original. Without a keyword a call on a `T?` is
    still an error. A chain that ends in a `T?` (`try optionals.first()` over a `List[S64?]`, or `try pass(x: steal maybe_node)`) gives
    `T?`, not `T??`, for a record, an entity or a variant: a none end is the one absence, `None` under `try`, an
@@ -192,8 +192,8 @@ When unsure, consult ground truth in the repo/package:
    `@discardable` returns a by-product (`Set.add`/`Set.remove`/`Dict.remove`'s Bool, `Unbroken.fetch_*`'s old value,
    `File.write_text`'s count): its result may be dropped silently, `seen.add(value: v)`. `drop x` on a local
    binding the routine owns (a local, an entity parameter handed over with `steal`) tears it down there and ends
-   the name like `steal x` (RV-S615 after, RV-S616 on some paths only, tokens from it end, RV-S643); a member
-   variable, a token, `me` or a global is RV-S421.
+   the name like `steal x` (RV-S615 after, RV-S616 on some paths only, references from it end, RV-S643); a member
+   variable, a reference, `me` or a global is RV-S421.
    **Notes and fixes (RV and ME).** A NOTE is a likely slip that builds as written: `check` and
    the language server show it (`note[RV-W###]`), a build never does. `until false` gets RV-W304 with the fix
    "Write 'loop'". Doc comment notes (shown by `check`, the language server and `validate-stdlib`): RV-W305 a routine
@@ -281,7 +281,7 @@ Revare has its own idiom — do not import Rust/serde/C# vocabulary.
   NAME, before the colon); it binds to a `List[Type]`.
 - **Revare has NO "borrow" concept** (that is Rust). Do not use the word
   "borrow" in prose or API names, nor "owner"/"ownership" for entities. Sharing is expressed with records
-  (copies) and entities: permission (**access tokens**, below), managers (RC wrappers) and `steal`.
+  (copies) and entities: permission (**references**, below), managers (RC wrappers) and `steal`.
 - builder-synthesized per-type routines are **wired routines** (`represent`,
   `diagnose`, `serialize`, the constructor, `eq`, `compare`, `hash`, …) — named with **NO
   sigil**; wired-ness is INFERRED from protocol conformance. Not
@@ -374,7 +374,7 @@ calls too) uses a plain global that is changed anywhere in the program. The erro
 line the Work starts at. Shared changing state is an `Unbroken` (`hits.fetch_add(delta: 1)`) or a
 `Guarded` (`modifying cache as c`), and a global nothing changes is read from anywhere. A Work started with
 `start_here()` crosses nothing. `steal G` in any routine is
-RV-S421. A global never holds a token (RV-S601) or a single-thread handle (`Retained`, `Tracked`, at any depth:
+RV-S421. A global never holds a reference (RV-S601) or a single-thread handle (`Retained`, `Tracked`, at any depth:
 RV-S632). A module-level `var` is an error (RV-S435). Constants the build knows are `preset`.
 
 ## 3. Types
@@ -425,7 +425,7 @@ RV-S632). A module-level `var` is an error (RV-S435). Constants the build knows 
 - Build errors where the emitter used to fail: a construction leaving out a member with no default (RV-S455, names
   it) or giving unnamed values that are not one per member (`Size(3)` for two members, RV-S455), `Int(x)` of a variable (RV-S646:
   write `x.to[Int]()`), a slice of a `List` of entities, a member write
-  through an element read from a `Viewing` token, a variant built from a non-member type. `Check[T]` has
+  through an element read from a read reference, a variant built from a non-member type. `Check[T]` has
   `unwrap!()` (`check f() !!`), `strip_out()` works for entities, `br"..."` builds, a value assigned to a `T?`
   variable becomes present (`port ??= 8080`), and `()` works as a type argument in an expression
   (`List[Callable[(), S64]]()`).
@@ -433,7 +433,7 @@ RV-S632). A module-level `var` is an error (RV-S435). Constants the build knows 
   is a script. The overflow message is "Integer overflow error: The value does not fit in the target type."
 - A field-by-field construction infers type arguments (`Pair(first: 1, second: "one")` is `Pair[S64, Text]`). A type
   obeying `Emittable[T]` gets its `Emitter` from what its `emitter()` returns (no `relates` needed), so EmitterTools adapters
-  walk it. An entity holding an entity moves with `steal` (no copy step). An element token from `for` converts like
+  walk it. An entity holding an entity moves with `steal` (no copy step). An element reference from `for` converts like
   its value (`w.to[S64]()`). `CpuEventManager.when_interrupted`/`when_terminated` link and run.
 - A bare number that fits two members of a variant (`S32` and `S64`) is RV-S201: state its type in a declaration.
   An empty flags value shows as `none`, a one-item tuple as `(1,)`. A global record's member can't be assigned
@@ -471,7 +471,7 @@ RV-S632). A module-level `var` is an error (RV-S435). Constants the build knows 
 - Carriers: `Optional[T]` (written `T?`), `Check[T]` (builder-synthesized only: a routine cannot declare
   it as its return type, RV-S806, and you obtain one by wrapping a call with the `check` keyword). A routine
   may return `T?`, and it should only when having nothing is a normal result: a routine that has "a link or
-  nothing" to give (`Node.parent_of() -> Stamped[Node]?`) returns `none` where there is none, and the caller
+  nothing" to give (a routine returning `%Node?` from a link) returns `none` where there is none, and the caller
   takes it apart with `when`. Something gone wrong is a `throw`, received with `try` or `check`.
 - A number never names its type (no `7s32`, `0_u64`, `10n`: RV-G010). Unit suffixes stay: durations
   (`50ms 5s 2m 1h 1d 1w us ns`), sizes (`4kb 4kib 2mb ...`), and the imaginary `i`.
@@ -518,7 +518,7 @@ a text runs once during the build and becomes the value it came to (number, Bool
 choice of those; RV-S258 if it fails or has no such value, RV-S436 if its value names itself, directly or through
 other presets). A preset made by a construction is one read-only value
 everywhere (an entity preset has one identity). (`lateinit var x: T` defers initialization: storage is allocated at
-the declaration — entities get a real zeroed block, the constructor not run. Assign before reading: a read (a token
+the declaration — entities get a real zeroed block, the constructor not run. Assign before reading: a read (a reference
 from it included) where some path hasn't assigned it is RV-S202, a `return` path doesn't count and a loop is left with
 what its `break`s assigned. Writing a member (`r.x = 1`) counts as giving it its value.)
 
@@ -557,8 +557,8 @@ declare their own `i`.
 - `abs()` on signed ints is failable (`abs!()` throws on MIN); the force-unwrap
   idiom is `try x.abs()!!`
 - Equality `==`/`!=` compares VALUES (lowers to `.eq()`); identity `===`/`!==`
-  compares whether two references are the SAME object (entities, handles, `Addr`, and a `Stamped[E]`, which names an
-  entity — RV-S440 on value types and access tokens). See §7.
+  compares whether two references are the SAME object (entities, handles, `Addr`, and links, which name an
+  entity; RV-S440 on value types and references). See §7.
 - **`==` and hashing are automatic, `Comparable` is opt-in.** Every record and every entity has `==`/`!=`
   with no `obeys` line when each member variable has `==` (the builder writes `eq` comparing them in
   order, a hand-written `eq` takes its place), so two distinct `Player(name: "Ada")` entities are `==` and
@@ -855,10 +855,13 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
 - A `return` ends the routine's own variables: a local handed over inside the returned value moves without
   `steal` (`return Shelf(book: book)`, `return (a, b)`, `return xs`). `steal` on such a local there is RV-W259 (quick
   fix and `migrate --step return-steal` remove it). A parameter handed over in a `return` still takes `steal`.
-- A written `destruct` (a plain `routine T.destruct()`, never `dangerous`: RV-S807, a wall without `infallible`) tears down what the entity
-  owns (its member variables, buffers it holds) and nothing else: the builder gives back the entity's own box
-  before each of its returns, so one `destruct` call still ends the entity. Do not write
-  `me.hijack().invalidate()` in it. A step that handles raw memory sits in a `danger` block inside the body.
+- A written `destruct` is `dangerous routine T.destruct()` (without `dangerous`: RV-S807; `migrate --step references`
+  adds it and removes a `danger` head inside), a wall without `infallible`. Only the builder calls it, so the call
+  (`drop x`, the scope's end, a container ending an element) needs no `danger` block, and its body is a danger context
+  (a `danger` block inside is a nested-danger error). It tears down what the entity holds (its member variables,
+  buffers) and nothing else: the builder gives back the entity's own box before each of its returns. Do not write
+  `me.hijack().invalidate()` in it. The builder's field-walk teardown ends the original member variables and leaves
+  links alone. A link read inside a destruct may name an entity that ended first: read it with `try`.
 - `destruct` is the builder's to call: at the scope's end, or where you write `drop x`. A program's own
   `x.destruct()` is RV-S812 (write `drop x`). Only a type's `destruct` body calls its member variables'
   `destruct` by name.
@@ -873,208 +876,127 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
   (RV-S648 otherwise).
 - Writing over a place (`slot.item = Item(name: "b")`, `items[0] = item`,
   `d[k] = v` on a key that is there) tears the old value down first, an entity
-  included, so a token on it ends. To keep the old one, take it out with
+  included, so a reference on it ends. To keep the old one, take it out with
   `steal … as old inject …`. A collection routine that lets elements go without handing them back ends them the same
   way: `d.remove(key: k)` (the key and the value), every `clear()`, `xs.truncate(new_count: n)`, so an entity
   element's destruct runs.
   Returning a bare entity hands it to the caller (`var a = make()` keeps it, torn down at scope exit). A routine
-  handing back an entity that stays where it is (a container's element) returns an access token, never the bare
+  handing back an entity that stays where it is (a container's element) returns a reference, never the bare
   entity: the one original would otherwise be held twice, and torn down twice.
-- **Access tokens** (RV's answer to "borrow" — never call them borrows). A token
-  remembers the object it was taken from (its SOURCE), and every rule below is
-  checked at build time:
-  - Use one inline, keep it in a variable (`var v = a.view()`,
-    `var m = a.modify()`, re-pointable to another object of the same type), or
-    open it for a block with `viewing a as v` / `modifying a as m`. A token is never part of another value: a field,
-    a variant branch, or a type argument (`List[Viewing[T]]`, `Optional[Viewing[T]]`, a tuple holding one, a generic type
-    given one, `var xs = [a.view()]`, a variant written in place `Viewing[Cell] | S64`, a global) is RV-S601, written
-    or inferred. A generic routine whose type parameter a call makes a token (`same(x: l.view())` with
-    `routine same[T](x: T)`) is RV-S601 too: pass what you need from the token, or give the routine a
-    `Viewing[T]` parameter and pass the entity. The one value that carries a token for a moment
-    is what `try` gives on a routine returning a token (`try xs.view_at(index: i)`, a `for` step, `enumerate`'s
-    `(index, token)` pair): unpack it with `when` right there. Binding that `Optional` to a name is RV-S601. A lambda
-    that captures a token (or `me`, a local collection, a `for` element) is a token itself, bound to it: a local may
-    hold it and a routine may be handed it and call it, but keeping it in a member variable or returning it is
-    RV-S606 (RV-S607 for an entity). The error names what it is bound to and where that was made, `check --json`
-    gives it as `boundTo`, and the editor marks such a name `bound`. To keep a callback, capture a `Retained`. A lambda keeps
-    its own copy of each value it captured (what it is bound to stays where it is), shared by every copy of the
-    routine value and let go when the last copy goes.
-  - The source is free to change. Replacing it (`a = …`, `h.inner = …`), moving
-    it out (`steal a`), leaving its scope, or calling a routine that replaces it
-    (`h.reset()` whose body assigns `me.inner`, followed through its calls) ENDS
-    the token. Using an ended token is RV-S643, reported at the use. A change that
-    cannot reach the source (`h.count = 1`, `h.bump()` touching only `count`)
-    does not end it.
-  - A call that can replace the source of a token handed to that same call is
-    RV-S639 (`h.replace_with(t: h.inner.view())`).
-  - A name a pattern binds to an entity in place is a token on the matched place: `else as c` of `when s.item`,
-    `is Cell as c`, a member name in a record pattern (`if ch is Chest(item: as c)` reads `ch.item`), and the element
-    a `for` loop over entities hands out (from the walked container). Replacing that place (`s.item = none`,
-    `ch.item = ...`, `xs[0] = ...`), moving it out (`steal ch.item as old`) or dropping it ends the name, and a later
-    use is RV-S643. A value element or member is a copy and is not affected.
-  - Two names that may be the same entity without the builder knowing it are treated as maybe the same: two token
-    parameters (and `me`) on the same entity type, and two `Retained` handles on one (a copy of a handle, a handle
-    that came from a call, a field or a parameter: one made right there with `Retained(from: ...)` and only reached
-    through is its own). A change through one ends the tokens taken from the same part of the other (RV-S643), unless
-    a `modifying a, b` block over both checked that they differ. Handing one call two tokens taken from the same
-    entity through differently named token variables (`var m2 = m`, then `both(a: m, b: m2)`) with one of them
-    written is RV-S623, like handing it the same container twice.
-  - A token parameter takes the entity itself: `total(items: xs)` passes
-    `xs.view()` for `Viewing[T]` (a temporary works too), `grow(items: xs)` passes
-    `xs.modify()` for `Modifying[T]`. A record value or a value of a type parameter
-    is handed over as the address of the place it is in, and a handle or a wider
-    token over a `T` is narrowed the same way: `Retained[T]`, `Roamed[T]` or `Modifying[T]`
-    to `Viewing[T]`, and `Retained[T]` or `Roamed[T]` to `Modifying[T]`. Pass the handle as it is: writing `.view()`/`.modify()`
-    on it adds nothing.
-  - A routine may return a token taken from `me` or from a parameter the caller
-    keeps owning (a token parameter):
-    `return me.inner.view()`, or `peek(h: Viewing[Holder])` returning
-    `h.inner.view()`. Different returns may use different token parameters, and an
-    `if`/`when` expression may choose between them:
-    `shorter(x: Viewing[List[S64]], y: Viewing[List[S64]]) -> Viewing[List[S64]]`
-    returning `x` or `y` builds. Never from a local, a temporary, or an entity
-    parameter the routine owns (RV-S600). The builder works out, per routine, the
-    parameters (and `me`) the token may come from, through calls too
-    (`return shorter(x: p, y: q)` may come from `p` or `q`). The caller's token
-    has every argument handed to one of them as a source: replacing, stealing or
-    ending any of them ends it (RV-S643 at a later use), and for an element token
-    a change that can add to or remove from any of them does too.
-  - An entity element read into a variable is a token on the element with the
-    container's permission: `var b = boxes[0]` holds `boxes.modify_at(index: 0)`
-    when `boxes` can be changed there (`b.n += 1` changes the element in the
-    list), and `boxes.view_at(index: 0)` when `boxes` is reached read-only (a
-    `Viewing` parameter, a `@readonly` routine's `me`). Anything that can add to
-    or remove from `boxes` ends it.
-  - **`Modifying[T]` / `Viewing[T]`** — the only two tokens: write / read permission, wherever
-    they come from. `a.modify()` / `a.view()` on an entity give them directly. `Modifying[T]` is the usual way a
-    routine takes an entity: it reads it and changes it in place. `Viewing[T]` is the narrow promise that nothing
-    reachable from it is changed (printing, comparing, counting), and "reachable" includes the entities a stamp or a
-    manager handle inside it points at. So nothing that changes comes out of a `Viewing`:
-    - A routine called through a `Viewing` that hands out a `Modifying[X]` hands out a `Viewing[X]`:
-      `links[0].target.fetch()` with `links: Viewing[List[Link]]` gives a `Viewing[Creature]`, and `c.y = 5` on it is
-      RV-S631.
-    - A value that holds a way to change an entity is read in place from a `Viewing`, never copied out of it
-      (RV-S657): a `Stamped`, a manager handle (`Retained`, `Tracked`, `Guarded`, `Witnessed`, except a
-      `ReadOnly` one), a `Modifying`, and a record, tuple, `Optional` or variant with such a member variable, decided by
-      the type. `var l = links[0]` (a `Link` with a `target: Stamped[Creature]`), `take(l: links[0])`,
-      `return links[0]`, `kept.add_last(value: links[0])`, a `when` over `links[0]` binding its stamp and keeping it
-      are RV-S657. `links[0].target.fetch().x` reads it where it is. Take the list as `Modifying`, or read in place.
-    - The `me` of a `@readonly` member routine promises the same: `me.link.target.fetch()` gives a `Viewing`, and a value
-      that holds a way to change an entity is read in place from `me`, never copied out of it (RV-S657). Drop `@readonly`
-      from a routine that has to hand such a value out. The routines of the handle types themselves (`Retained.share`,
-      `Stamped.fetch`) are the verbs that give a handle out, so their `me` is the handle and not a place one is reached through.
-      Not recommended: a routine that takes `Viewing` only to copy stamps or handles out of it (take `Modifying`).
-  - **Access blocks: `viewing` / `modifying`** (keywords, RV only). `viewing x as v` calls `x.view_enter()` before
-    the block, binds the `Viewing[...]` it returns to `v`, and calls `x.view_exit()` on every way out (its end,
-    `return` (whose value is computed first), `throw`, `break`, `continue`); `modifying` is `modify_enter()` /
-    `modify_exit()` and a `Modifying[...]`. Any type with the pair is a target: `Guarded` (takes the access: waits
-    while another job holds it), `FileStorage` (maps the file), a type of your own. `view_enter()` must return a
-    `Viewing[...]` and `modify_enter()` a `Modifying[...]`, with the matching exit (RV-S654 otherwise). An access
-    token (`modifying into, viewing from`: only checked to differ from the other tokens and entities, `viewing`
-    narrows a write token) or an entity variable of the routine without the pair is a target the builder handles
-    itself (its token, `AliasedTokensError` when two names are one entity). `Retained` / `Roamed` have no pair: as a
-    target they are RV-S651 (use them directly, they go where a token goes). A weak handle (`Tracked`, `Witnessed`,
-    `Watched`) is RV-S651 too: take a strong one with `hold()` first (failable, `AbsentValueError` when the entity is
-    gone): `Tracked.hold()` → `Retained`, `Witnessed.hold()` → `Guarded` (then open it), `Watched.hold()` → `Roamed`.
-    Several targets: `viewing rates, modifying payer, payee` (a verb carries over to the targets after it until
-    another verb comes, each target takes its own `as`, a target without `as` keeps its own name inside the block,
-    where that name is the token; a target with no name of its own, `xs[0]`, or a call, needs `as`). `modifying a, b`
-    is `modifying a` with `modifying b` inside: entered in the order written, exited in the opposite order. Two
-    blocks naming the same Guardeds in opposite orders can wait on each other: `[debug] deadlock-check` reports it.
-    A target made in the head (a call, `viewing FileManager.storage[Byte](at: f) as v`) is made once for the block.
-    Naming one target twice in a block is RV-S650, a target the block can't open that way RV-S651 (`viewing` an
-    `Exclusive`, `modifying` a `ReadOnly` or a `Viewing`, an entity inside another, a type without the pair). Inside
-    a block the targets' tokens are known to be different entities, so holding an element of one while another
-    grows, or walking one while another grows, is allowed (RV-S640 / RV-S625 otherwise point here).
-  - **`try viewing` / `try modifying`**: `try viewing x as v` is `try x.view_enter()`: inside the block `v` is a
-    `Optional` of the token, present when the block entered `x`, and the body branches with `when v` (`is None => ...`,
-    `else as t => ...`). Only an entered target is exited. A block has no `else` (RV-G226). With several targets each
-    name is its own `Optional`. A Guarded's enter fails with `ReenterDuringAccessError` when this job has the access
-    open already (a routine called from inside the block that opened it), so `try` gives none there and a plain
-    block crashes. `try` on a target the block doesn't enter (a token, an entity without the pair) is RV-S611.
-    `using ... fallback` is gone (a grammar error that names this form).
-  - **A Guarded's access for one call**: `g.view()` / `g.modify()` written as a call argument (or the receiver of a
-    member call, `g.view().count()`, or a member variable read through it, `g.view().total`) enters `g` for that
-    statement (`view_enter()` / `modify_enter()` before, the exit after): `record_into(entries: log.modify())`.
-    Several in one statement are entered in the order written. Anywhere else (kept in a variable, inside a condition
-    or a loop head) is RV-S652. `view()` is for `MultiRead`/`ReadOnly`, `modify()` for `Exclusive`/`MultiRead`
-    (RV-S160 otherwise). `g.view()` on a `Guarded[T, ReadOnly]` takes nothing and is an ordinary `Viewing[T]`
-    anywhere.
-  - **Opening it again.** Opening a `Guarded` (or an alias of it) inside a block of the same routine that has it
-    open is RV-S630, for reading and for writing alike (waiting would never end, going in would see the block's work
-    half done): pass the token instead. Opened again from a called routine, the enter fails with
-    `ReenterDuringAccessError` (the runtime knows which job holds which access): a crash, or none under `try`. The token a block opens on a
-    `Guarded` never goes to a job (RV-S632): hand the job the `Guarded`. Passing the same write token twice in
-    one call is RV-S603.
-  - **`using` is for resources only** (types obeying `Enterable`). `using x.view() as v` is RV-S612, and
-    `migrate --step access` rewrites the old forms: `using g.modify() as m` into `modifying g as m`,
-    `using a.view() as x, b.modify() as y` into one block, `using g.try_modify() as m` + `fallback` (and
-    `try modifying g as m` + `else`) into `try modifying g as m_entered` with `when m_entered` / `is None =>` (the old
-    `else`) / `else as m =>` (the old body), `using multimodify(first: a, second: b) as (x, y)` into
-    `modifying a as x, b as y` (listed for a look: a second argument that is read only is written `viewing`), a
-    Guarded's old `consult()` / `amend()` and `Consulting` / `Amending` into `view()` / `modify()` and `Viewing` /
-    `Modifying`, and `LockPolicy` / `ReentrantLockError` into `AccessPolicy` / `ReenterDuringAccessError`. A `try`
-    block with several targets is listed to rewrite by hand.
-  - **The AccessManager** (the runtime's, shared with Mielia and Lapila) knows which job holds which access and
-    which one waits for what. A `Guarded`'s `GuardManager` keeps its own entity's readers and writer and turns to
-    the AccessManager only when a job has to wait. `[debug] deadlock-check` (on in a `debug` build, off in the
-    release modes, `= false` / `= true` in config.toml overrides): before a job waits, the chain of holders is
-    followed, and a cycle crashes with `DeadlockError` naming the jobs and where each took its access.
-    `[debug] access-order = true` (off by default, costs time on every access): two accesses taken in opposite
-    orders crash with `AccessOrderError` before they ever wait on each other.
-  - **Finding a race.** `[debug] sanitize = "thread"` (config.toml, Linux and macOS) builds the program with
-    ThreadSanitizer: two accesses from different threads that no lock or atomic orders are reported when they happen,
-    with both places (`WARNING: ThreadSanitizer: data race`). The program runs several times slower, is built by the
-    local build (not the daemon or the JIT), and the exit status is 66 when something was reported.
-  - **Two tokens that may be the same entity.** Two token parameters (or shared handles) on the same kind of
-    container may be the same container, so holding an element of one (`var p = x.modify_at(index: 0)`,
-    `var b = xs[0]` on an entity element, to the end of its block) while the other changes shape is RV-S640.
-    `modifying x as a, y as b` (or `modifying into, viewing from`) checks that they are different entities, and
-    inside it holding an element of `a` while `b` grows is allowed.
-    Handing one container to two parameters of one call when one of them is written
-    (`extend(into: xs, from: xs)`) is RV-S623.
+- **References: `@T` (write) and `%T` (read).** A reference reaches an entity (or a record in its place) without
+  holding it. `@T` reads and changes, `%T` promises nothing reachable from it is changed. Neither promises that no
+  other name changes the entity at the same time: exclusivity comes from a `Guarded` block. The builder's internal
+  names are `Modifying[T]` / `Viewing[T]`: writing those in a program is RV-S658 (`migrate --step references`), and every
+  diagnostic, hover and `type_name()` shows the signs (`%Node`, `@List[S64]`, `@Node?`, `%(Node?)` for a reference to
+  an optional). The sign binds to the type right after it (`%Node?` is an optional read reference).
+  - **Where a reference is expected, an entity becomes one by itself**: an argument (`total(items: xs)`), a typed local
+    (`var m: %Node = node`), a name assigned (`m = other` for `m: @Node`), a result (`return me.inner` for `-> %Inner`),
+    a lambda's body for a `Callable[..., @T]`, and a link (`child.parent = node`). A `Retained` / `Roamed` / `@T` goes
+    where a reference is expected as it is (narrowed to `%T` where a read one is expected). A record or a type
+    parameter value gives the address of its place.
+  - **A second local name is a write reference**: `var b = a` (an entity another name holds: a local, `h.inner`) makes
+    `b: @T` (`%T` when the place is reached read-only: a `%T` parameter, a `@readonly` `me`, a preset). Nothing is
+    copied, and a local second name is never RV-S413. Handing the original over still needs `steal`; putting it in a member
+    variable, an element or a parameter that takes the entity without `steal` is RV-S413.
+  - **`.view()` / `.modify()` are not written** (RV-S659): the place says what the entity becomes. They remain as the
+    builder's own calls. A `var v = x.view()` that `migrate` rewrites becomes `var v = x`, a write reference: type it
+    `var v: %T = x` where it only reads.
+  - A reference holds no original: `steal` of a reference or a link is RV-S662 ("point steal at where the original is
+    held"), a reference given to a parameter that takes the entity itself (`x: T`) is RV-S663. `drop v` on a reference
+    or a link lets go of only that (the entity stays); on a `Retained` it gives up one hold.
+  - A reference remembers its SOURCE and is checked at build time: replacing the source (`a = …`, `h.inner = …`),
+    moving it out (`steal a`), leaving its scope, or calling a routine that replaces it (followed through calls) ENDS
+    the reference, and a later use is RV-S643. A change that can't reach the source doesn't end it. A call that can
+    replace the source of a reference handed to the same call is RV-S639. Copying a reference into another local
+    (`var c = b`, `w = b`) is fine (the copy has the same sources), except one a block opened on a Guarded (RV-S420).
+  - A name a pattern binds to an entity in place (`else as c` of `when s.item`, `is Cell as c`, a `for` element, a record
+    pattern member) is a reference to the matched place, ended by replacing, moving or dropping that place (RV-S643).
+  - **Two names that may be the same entity** are treated as maybe the same: two reference parameters (and `me`) of
+    the same entity type, two `Retained` handles to one, a reference taken from a link. A change through one ends
+    references taken from the same part of the other (RV-S643). Holding an element of one while the other changes shape
+    is RV-S640. Handing one call the same entity twice with one written is RV-S623 (also through two names, `var m2 =
+    m`). Walking one while the other grows, where the builder can't prove them different (two reference parameters, a
+    reference from a link), is checked at run time: the loop opens a shape use, and an `@reshaping` call on that
+    container while it runs fails with `ReshapingWhileInUseError` (`try`/`check` receive it). Proven different (two
+    originals, an original and a parameter, a value just made) costs nothing.
+  - **Returning a reference**: from `me` or a reference parameter, each `return` may differ and an `if` expression may
+    choose (`shorter(x: %List[S64], y: %List[S64]) -> %List[S64]`). The builder works out the parameters it may come
+    from, through calls, and the caller's reference has every argument handed to them as a source. From a local, a
+    temporary or an entity parameter is RV-S600.
+  - **A lambda giving a reference**: from its parameters, a call of the routine value gives a reference on its
+    arguments. From what it captured (the builder can't follow that entity to the call), it is allowed: the entity's
+    type becomes retroactive, and every reference a routine-value call gives is checked where it is used
+    (`EntityEndedError`, receivable with `try`/`check`). From a temporary is RV-S600. A lambda that captures a reference
+    (or `me`, a local collection, a `for` element) is bound to it: a local may hold it and a routine may call it, but
+    keeping it in a member variable or returning it is RV-S606 (RV-S607 for an entity); `check --json` gives `boundTo`.
+  - An entity element read into a variable (`var b = boxes[0]`) is a reference to the element with the container's
+    permission (`modify_at` where the container can change there, `view_at` when reached read-only). Anything that can
+    add to or remove from `boxes` ends it.
+  - **What a `%T` promises**: nothing that changes comes out of it, including the entities a link or a manager handle
+    inside it points at. A write link read through a `%T` reads as a read link (a write there is RV-S631). A value that
+    holds a way to change an entity (a write link, a manager handle except a `ReadOnly` Guarded, a record/tuple/
+    `Optional`/variant with one) is read in place from a `%T` or from a `@readonly` `me`, never copied out (RV-S657).
+- **Links: references kept in storage.** In a member variable, a collection element (`List[@Node]`, `Dict[K, @Node?]`)
+  or a global, `@T` / `%T` / `@T?` / `%T?` is a **link**: it points without keeping the entity alive and knows when it
+  ends. A record may hold links too.
+
+  | Type | Means | Entity ended |
+  |---|---|---|
+  | `@T`, `%T` | names an entity (never `none`: `none` into it is a build error) | a use fails with `StaleLinkError`, `try` gives `none` |
+  | `@T?`, `%T?` | may also be empty | a use fails (`AbsentValueError` when empty), `try` gives `none` |
+
+  Assigning an entity (or a wider reference) makes the link: `child.parent = node`, `Hunter(target: e)`,
+  `xs.add_last(value: e)`. Use a link as a reference (`enemy.target.hp`, `hit(e: h.target)` for `e: @Enemy`): the builder
+  takes its reference first, which fails once the entity ended, so the routine can fail and a `try`/`check` above
+  receives it. Take it with `when` (`is None` / `else as v`) or `try` where the entity may have ended. A `for` over a
+  list of links hands out references on the links. A link is copied with `=` (copying a record copies its links),
+  compares with `===` / `!==` (same entity), and is `Hashable` by identity (`Set[@Node]`, a `Dict` key); a record's
+  derived `==` compares link member variables with `===` and its hash uses identity. A reference to a record (`@Point`,
+  `%Point?`) in storage is RV-S661: a record has no identity and moves with its place (make it an entity). A member
+  variable without a sign holds its original (`left: Node?`: the outer entity holds it and ends it), and its `?` only
+  says whether one is there.
+  - **Retroactivity.** A type gets slots with a U64 generation when the program keeps a link to it anywhere: decided per
+    type at build time, shown by hover on the type and by `check --json`, whose output is an object `{ "diagnostics": [...],
+    "retroactive": [{ "type": ..., "site": { "file", "line", "column" } }] }` (each retroactive type with the place of the first link
+    that made it so). Such an entity's `destruct` runs where its original ends (no deferral), the slot's generation goes
+    up, and the slot is reused only by that type. A link is 16 bytes (address + generation, address 0 is `none`); a
+    reference is 8 bytes. Other types cost nothing extra.
+  - **The walk guard / live checks.** A reference whose origin the build can't prove (taken from a link, given by a
+    routine value, handed to a routine that may get one) is checked at the statement that uses it: `require_live()`
+    fails with `EntityEndedError` once its entity ended. Only retroactive types are checked.
+  - A written `destruct` that reads a link may find its entity ended first (teardown order): read it with `try` there.
+- **Access blocks: `viewing` / `modifying` only open a `Guarded`** (and any type with the `view_enter`/`view_exit` or
+  `modify_enter`/`modify_exit` pair: `FileStorage`, a type of your own). `viewing g as v` calls `g.view_enter()` (a
+  `%T`), and `g.view_exit()` on every way out (end, `return`, `throw`, `break`, `continue`); `modifying` is the write
+  pair. A block over an entity, a reference, a `Retained`/`Roamed` is RV-S660 ("use it directly"). A weak handle
+  (`Tracked`, `Witnessed`, `Watched`) is RV-S651: `hold()` first. `view_enter()` must return a `%T` and `modify_enter()`
+  a `@T`, with the matching exit (RV-S654). Several targets: `viewing rates, modifying payer, payee` (a verb carries
+  over, each target takes its own `as`, a target without `as` keeps its name inside the block), entered in the order
+  written, exited in reverse. Naming a target twice is RV-S650, a verb the policy lacks RV-S651 (`viewing` an
+  `Exclusive`, `modifying` a `ReadOnly`). A Guarded's `g.view()` / `g.modify()` passed for one call is gone (RV-S659
+  points to the block). `try viewing` / `try modifying`: `v` is an `Optional` of the reference, none when the enter
+  failed (`ReenterDuringAccessError`); a block has no `else` (RV-G226). Opening a `Guarded` again inside a block of the
+  same routine that has it open is RV-S630; opened again from a called routine it fails with `ReenterDuringAccessError`.
+  The reference a block opens never goes to a job (RV-S632) or out of the block. Passing the block's write reference
+  twice in one call is RV-S603. `using` is for `Enterable` resources only (RV-S612).
+  - **The AccessManager** (the runtime's, shared with Mielia and Lapila) knows which job holds which access.
+    `[debug] deadlock-check` (on in `debug`) crashes a wait cycle with `DeadlockError`; `[debug] access-order = true`
+    crashes two accesses taken in opposite orders with `AccessOrderError`. `[debug] sanitize = "thread"` builds with
+    ThreadSanitizer (Linux/macOS, exit 66 when it reported).
 - **RC wrappers** (managers for sharing an entity for longer, reference-counted):
-  - **`Retained[T]`** — single-thread strong handle (`Retained(from: steal e)`, `=` makes one more holder);
-    forwards direct access to the retained entity.
-  - **`Guarded[T, TPolicy]`** — multi-thread strong handle (atomic, `=` makes one more holder); `TPolicy` is an
-    `AccessPolicy`: `MultiRead` (several readers or one writer), `Exclusive` (one user at a time, `modifying` only),
-    `ReadOnly` (no writer). Reaching its inner value goes through a `viewing` / `modifying` block or a `g.view()` /
-    `g.modify()` argument (RV-S649 on the handle), except `Guarded[T, ReadOnly]`, which nothing may change and is
-    read directly (`g.name`, `g.label()`, reads only).
+  - **`Retained[T]`** — single-thread strong handle (`Retained(from: steal e)`, `=` makes one more holder); forwards
+    direct access to the entity and goes where a reference is expected.
+  - **`Guarded[T, TPolicy]`** — multi-thread strong handle (atomic); `TPolicy` is `MultiRead` (several readers or one
+    writer), `Exclusive` (`modifying` only) or `ReadOnly` (no writer, read directly: `g.name`). Reached only through a
+    block (RV-S649 on the handle), except `ReadOnly`.
   - A binding from outside an `if`/`when`/loop is taken with `steal` on every path going on past it or on none
-    (RV-S616); a loop turn may not take it and go on (only where the loop ends).
-  - `steal` on a `Retained`/`Guarded` gives the entity inside (`var t: Table = steal table`) when it is the last
-    strong handle, crashing with `SharedHandleStealError` otherwise; weak handles can't be stolen.
-    Every `Unbroken` routine is `@readonly` (each change synchronizes itself): `stats.open.fetch_add(delta: 1)`
-    works through a read token or a `ReadOnly` Guarded.
-  - **`Tracked[T]`** (single-thread) / **`Witnessed[T, TPolicy]`** (multi-thread) — weak handles.
-- **`PoolManager` and `Stamped[E]`** (System/Memory, `Stamped.rvr`) — the way to link entities that must see when one ends (a
-  tree node's `parent: Stamped[Node]?`), where a token can't be (RV-S601 points to it first). The entities a link
-  needs live in the pool: `var pool = PoolManager.set_up()` in `start` makes it (one pool at a time: a second `set_up`
-  is `PoolAlreadySetUpError`, and `PoolGenerationsUsedUpError` when the slots of earlier pools used up the
-  generations), and `PoolManager.add(value: steal e)` hands any entity over and gives its `Stamped[E]`. The entity's
-  bytes move into a slot of the pool (a type's slots side by side, in address space the pool reserves and commits as it grows)
-  and its block is given back, so an entity in the pool never moves again. `s.fetch()` gives a `Modifying[E]` (a
-  `Viewing[E]` through a `Viewing`, so the entity can't be changed there) and throws `StaleStampError` once the
-  entity was removed or the pool ended: a bare `fetch()` crashes, `try s.fetch()` gives `none`. A `Stamped[E]` is 8 bytes (a slot and
-  its generation), copied with `=`, with `===` / `!==` for the same entity. It has no `==` (RV-S061 points to `===`, also on a
-  `Stamped[E]?`) and is not `Hashable`: a set that groups by "same entity" keys on a number the program assigns. It doesn't keep
-  the entity alive. There is no empty stamp (it has no member variables to build one from): a link that may be missing is
-  `Stamped[E]?`, the 8-byte stamp itself with the all-zero stamp as `none` (`@none_is_zero` on the record), taken with one
-  `try link.fetch()` (`none` for no link and for a removed entity), and `check link.fetch()` tells `AbsentValueError` (no link)
-  from `StaleStampError` (removed). A stamp can't be copied out of a `Viewing` (RV-S657).
-  `PoolManager.remove(s)` takes effect at once (every `fetch()` of the stamp fails, a second `remove` is
-  `StaleStampError`) and runs no `destruct` or reuse of the slot, so a token fetched earlier still reads.
-  `PoolManager.sweep()` runs the `destruct` of the removed entities and frees their slots, a freed slot coming back with
-  a higher generation, so an old stamp of it still fails. Call it where no earlier token is in use. The pool ends at the end of
-  the scope that holds it (normally `start`) through the scope teardown: every stamp becomes stale first, then each entity left is
-  destructed, and each `destruct` cleans up only its own entity (a `fetch()` of another pooled entity there is stale). Generations
-  only go up across pools, so a stamp of an ended pool never matches a later pool's slot. The pool belongs to one thread, like a
-  global the program changes: a routine that a Work runs on another thread, or one it calls, that sets it up, `add`s, `fetch`es,
-  `remove`s or `sweep`s is RV-S448 ("... uses the PoolManager ..."); a graph that threads share goes behind a `Guarded`. `add`
-  moves the entity, so handing it over while a Work of the routine that the build sees was handed it or part of it (a token,
-  an `Unbroken` member) and isn't collected yet is RV-S632 ("'c' goes into the pool here, which moves it, while the Work 'w'
-  ..."): collect the Work first. Not in Mielia.
+    (RV-S616).
+  - `steal` on a `Retained`/`Guarded` gives the entity inside when it is the last strong handle
+    (`SharedHandleStealError` otherwise). A weak handle, a link or a reference can't be stolen (RV-S662 /
+    StealSharedOwnership). Every `Unbroken` routine is `@readonly`.
+  - **`Tracked[T]`** (single-thread) / **`Witnessed[T, TPolicy]`** (multi-thread) — weak handles (`hold()` gives the
+    strong one or fails with `AbsentValueError`).
+- `Stamped` / `PoolManager` don't exist in Revare (links replace them; `migrate --step references` lists their uses).
 - **`Hijacked[T]`** — a raw handle that manages nothing (no-op destruct); the stdlib's
   internal buffer/pointer mechanism, used inside `danger`.
 - **`Addr`** — an address with no pointee type, LLVM `ptr` (C's `void*`): what the allocator and native code
@@ -1093,12 +1015,12 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
   member, an empty handle; for an entity a new entity whose member variables are all zero, a collection with no
   memory). It is `dangerous` (only inside `danger`): the zero value can break the type's promise. `Addr.hollow()` is
   its own routine and is NOT dangerous. `is_hollow()` exists only on the nine handle types (`Retained`, `Tracked`,
-  `Guarded`, `Witnessed`, `Roamed`, `Watched`, `Hijacked`, `Viewing`, `Modifying`) and `Addr`, never dangerous.
+  `Guarded`, `Witnessed`, `Roamed`, `Watched`, `Hijacked`, and the references `%T` / `@T`) and `Addr`, never dangerous.
   Every `destruct` leaves a hollow value alone (an entity's `destruct` returns at once on a zero reference). The old
   free `hollow[T]()` is `T.hollow()`. Not in Mielia (ME-S447). A program says "no link" with `?`
-  (`Tracked[Node]?`, `Stamped[Node]?`) and takes it with `when` or `try`, never with a hollow handle: `is_hollow()` and
+  (`Tracked[Node]?`, `@Node?`) and takes it with `when` or `try`, never with a hollow handle: `is_hollow()` and
   `T.hollow()` belong to the stdlib's and the runtime's own zero handles (a `lateinit` binding starts as one).
-- Records never use tokens or `as_entity` — those are entity concepts.
+- A record holds links but never an entity or a reference (copied values); `as_entity` is an entity concept.
 - `danger` blocks / `dangerous` routines mark **only** operations that can
   ACTUALLY cause memory-unsafety — UB, a memory race, use-after-free,
   double-free, or a memory leak. Ordinary code (arithmetic, collection ops,
@@ -1115,42 +1037,29 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
   routine. Putting one in a plain `Callable` place (a plain routine's argument, a member variable, a collection, a
   result, a lambda's value) is RV-S609.
 - No lifetime syntax. Safety comes from the one-legitimate-version rule (an entity has one original), marked
-  hand-overs (`steal`), scope-bound access tokens and managers.
+  hand-overs (`steal`), references checked at build time, links checked when used, and managers.
 
 ```revare
-viewing c as v               # Viewing[Counter], read-only, dead at block end
-    show(f"count = {v.value}")
-modifying c as m             # Modifying[Counter], write intent
-    m.increment()
-modifying payer, payee       # payer entered first, then payee: the names are the tokens
-    payer.balance -= amount
-    payee.balance += amount
-try modifying seats as s_entered     # an Optional: none when this job has seats open already
-    when s_entered
-        is None =>
-            show("busy")
-        else as s =>
-            s.take(seat: n)
+entity Node
+    id: S64
+    parent: @Node?               # a link: points without holding, none once that node ended
+routine rename(n: @Node)         # a write reference parameter: the caller passes the entity
+var a = Node(id: 1, parent: none)
+var b = a                        # @Node: a second name is a write reference, a still holds the original
+var c = Node(id: 2, parent: a)   # the link is made from a
+when try c.parent.id             # a link used where its entity may have ended
+    is None => show("gone")
+    else as id => show(id)
+var g = Guarded[Node, MultiRead](from: Node(id: 3, parent: none))
+modifying g as m                 # only a Guarded is opened with a block
+    m.id += 1
 ```
 
-- **Identity comparison `===` / `!==`** — "are these two the SAME object?", distinct
-  from value equality `==`. Valid only on reference-carrying operands: an `entity`, a
-  handle (`Retained`/`Guarded`/`Tracked`/`Witnessed`/`Watched`/`Hijacked`), an `Addr`, or a `Stamped[E]` (the same
-  slot and generation, the same entity).
-  A value type (record/scalar) is a build error (**RV-S440**) — values have no identity;
-  use `==`. An access token (`Viewing`/`Modifying`) is RV-S440 too: compare the entities
-  it came from. It is a primitive pointer compare (a stamp compares its slot and generation), never a `.eq()` call, so it is not
-  overloadable.
-  For bare entities (each the one original) `a === b` is trivially `false` between distinct
-  bindings; it earns its keep where aliasing exists — two `Retained[T]` handles that may
-  point at the same entity.
-
-```revare
-var r1 = Retained(from: steal a)   # Retained[Node]
-var r2 = r1                        # second handle to the SAME node (one more holder)
-show(r1 === r2)              # true  — same object
-show(a === make_other())    # false — different objects
-```
+- **Identity comparison `===` / `!==`** — "are these two the SAME entity?", distinct from value equality `==`. Valid on
+  an `entity`, a handle (`Retained`/`Guarded`/`Tracked`/`Witnessed`/`Watched`/`Hijacked`), an `Addr`, and a link (the
+  same entity). A value type (record/scalar) is RV-S440 (use `==`), and so is a reference: compare the entities. It is a
+  primitive compare, never a `.eq()` call, so it is not overloadable. Between two bare entities it is trivially `false`;
+  it earns its keep with handles and links that may reach one entity.
 
 > **Decided direction (2026-09-22, NOT yet built — do not assume the builder does this today).**
 > Full rationale in `internal-wiki/record-entity-finite-representation.md`.
@@ -1212,7 +1121,7 @@ Mielia has no `Slots` (an ME entity is shared, so a record holding one copies th
 ## 8. Generics and protocols
 
 ```revare
-routine largest[T obeys Comparable](items: Viewing[List[T]]) -> T
+routine largest[T obeys Comparable](items: %List[T]) -> T
     ...
 
 record Pair[TFirst, TSecond]
@@ -1251,7 +1160,7 @@ A member routine written outside a generic type names its parameters on the rece
   - An entity is kept where it is: it goes in with `steal` like into any place that keeps it (`enemies.add_last(value:
     steal s)`, `var x: Enemy = steal s`, a fresh `Slime(...)` needs none), RV-S413 otherwise. When an entity type of the
     program obeys the protocol, the place has one original: `var y = x` is RV-S413, `steal x` moves it, and reading an
-    element (`var b = enemies[0]`) is a token on the element, like an entity element. A `for` over it hands out tokens.
+    element (`var b = enemies[0]`) is a reference on the element, like an entity element. A `for` over it hands out references.
   - A record is copied into memory of its own when it goes in. A place whose protocol no entity obeys copies with `=`
     (the copy copies the record).
   - `x.update()` calls a routine the builder writes for the protocol: it switches on the type hash over exactly the
@@ -1260,9 +1169,9 @@ A member routine written outside a generic type names its parameters on the rece
   - The place ends its value once: the entity's `destruct`, or the record copy torn down. Writing a new value over the
     place (`x = Boss(...)`, `arena.boss = ...`, `xs[0] = ...`) ends the old one first.
   - Passing a stored value to an `e: Enemy` parameter makes that routine's copy for the stored value (its calls
-    dispatch): `finish(e: steal x)`, `look(e: enemies[0])` for `e: Viewing[Enemy]`.
-  - `when x` with `is Boss as b =>` takes it apart: `b` is a write token on the entity (a Viewing through a
-    `Viewing`), a copy of a record. `x is Boss` tests it. Such a `when` needs `else` (RV-S356): any type with the
+    dispatch): `finish(e: steal x)`, `look(e: enemies[0])` for `e: %Enemy`.
+  - `when x` with `is Boss as b =>` takes it apart: `b` is a write reference on the entity (a read reference through a
+    `%T`), a copy of a record. `x is Boss` tests it. Such a `when` needs `else` (RV-S356): any type with the
     routines may be there. An `is T` arm whose `T` doesn't obey the protocol is RV-S357.
   - A place needing the routines of several protocols uses a protocol that obeys them all (`protocol Combatant` with
     `obeys Enemy, Attackable`, then `List[Combatant]`). Its routines are those of every protocol it obeys. A type
@@ -1387,8 +1296,8 @@ that differ from other languages:
   `xs.skip(a).take(n)` instead — copy-vs-view is spelled by which you call.
 - `List[T]`, `Dict[TKey, TValue]`, `Set[T]`, `RotatableList[T]`, and sorted collections are
   entities. Do not pass a container as a bare parameter when read-only access is
-  enough; declare the parameter `Viewing[List[T]]` and pass the container
-  (`largest(items: xs)`). Bind `var v = items.view()` when the token needs a name.
+  enough; declare the parameter `%List[T]` and pass the container
+  (`largest(items: xs)`). Bind `var v: %List[T] = items` when the reference needs a name.
 - `SortedList`/`SortedSet` have **no positional indexing** — rank access is
   `get_by_rank!(...)`.
 - **Emitters.** An emitter reads a source (a collection, a range, the step before it) and gives the next value each
@@ -1398,21 +1307,21 @@ that differ from other languages:
   emittable (`Emittable[T]`, it has `emitter()`). `for x in xs` takes `xs.emitter()` for you, and you may call it
   yourself: `var it = xs.emitter()`, then `it.emit()` (failable, `AbsentValueError` at the end) or `for x in it`,
   which goes on from where `it` is. An emitter made from a local container (directly, or from its `view()` /
-  `modify()`) is itself a token on the container's elements: a local variable may hold it, and it ends when the
+  `modify()`) is itself a reference on the container's elements: a local variable may hold it, and it ends when the
   container may change shape or ends (a later use is RV-S643, `xs.add_last(...)` ends it). It hands out what the
-  container's walk hands out (`Viewing` from a read-only head, `Modifying` otherwise). A routine may return one made
-  from `me` or from a token parameter (`routine big(xs: Viewing[List[S64]]) -> WhereEmittable[S64, List[S64]]` returning
-  `xs.where(...)`), and the caller's result is a token on what it passed there. Keeping it in a field, or returning one
+  container's walk hands out (read references from a read-only head, write references otherwise). A routine may return one made
+  from `me` or from a reference parameter (`routine big(xs: %List[S64]) -> WhereEmittable[S64, List[S64]]` returning
+  `xs.where(...)`), and the caller's result is a reference on what it passed there. Keeping it in a field, or returning one
   made from anything else, is RV-S644. `(steal xs).emitter()` takes the list's elements into the emitter (each one
   comes out as the value itself, like `for x in steal xs`), so it holds what it walks and can go anywhere, returned
   from a routine too. A range (`var r = 0 til 10`) points at nothing and can be kept. `r.emitter()` on a
   `Retained[T]` gives a `RetainedEmitter[TElement, T/Emitter, T]` (the element type comes from `T`'s `Emittable`
-  conformance) that holds one more reference to the entity, so it is no token: it can be returned, kept in an
+  conformance) that holds one more reference to the entity, so it is no reference: it can be returned, kept in an
   entity's member variable, or used after `r` is given another entity. `for x in r` walks the same way. An emitter
-  made from the entity itself (`r.view().emitter()`) is a token like one made from a local container.
-- `for x in xs` over a list of values gives `x: Modifying[S64]`, a token on the element. A token reads as the value
+  made from a read reference to the entity (`var v: %List[S64] = r`, `v.emitter()`) points at it like one made from a local container.
+- `for x in xs` over a list of values gives `x: @S64`, a reference on the element. A reference reads as the value
   wherever a value is wanted: an index (`seen[x]`), arithmetic, a comparison, a declared-type variable
-  (`var z: S64 = x` copies it). `var y = x` keeps the token, and assigning a value to `y` is RV-S252.
+  (`var z: S64 = x` copies it). `var y = x` keeps the reference, and assigning a value to `y` is RV-S252.
 - An emitter hands out each element once: a `for` over a named emitter after one that ended by itself (no `break`),
   or a `for` inside a loop over an emitter made outside it, is RV-S517 (it would run zero times). Make a new
   `xs.emitter()` just before the loop, or write `for x in xs` / `for x in xs.emitter()`.
@@ -1421,7 +1330,7 @@ that differ from other languages:
   `it.where(...)`).
 - Emitter adapters (from `EmitterTools`): `select`, `where`, `zip`, `enumerate`, `chain`, `distinct`, `select_chained`,
   `min_by`, … — lazily evaluated, chainable, lambdas like `x => x % 2 == 0`. An adapter points at the container it
-  was made from, so it follows the same rule: `var big = xs.where(...)` is a token on `xs`'s elements.
+  was made from, so it follows the same rule: `var big = xs.where(...)` is a reference on `xs`'s elements.
 - **Collecting.** An emittable is collected with a conversion that names the collection without its element type:
   `xs.where(...).to[List]()`, `to[Set]()`, `to[Dict]()` (the values are `(key, value)` tuples), and in `Collections`
   `to[SortedList]()`, `to[SortedSet]()`, `to[SortedDict]()` (pairs), `to[RotatableList]()`, `to[BitList]()` (Bools),
@@ -1475,27 +1384,27 @@ next element. Finish the loop, then mutate. A map's `d[k] = v` (and `d[k] += 1`)
 so it is banned inside `for` over `d` even when the key is already there. A list's `xs[i] = v` only replaces
 an element and stays allowed.
 The ban also covers a mutation hidden behind a call
-(`for x in xs { grow(xs: xs.modify()) }`) and a loop over an adapter of the collection
+(`for x in xs { grow(xs: xs) }`) and a loop over an adapter of the collection
 (`for x in xs.where(...)` walks `xs` itself): the builder works out which
 parameters each routine can add to or remove from, following its calls, and
-rejects handing `xs` to one. Handing `xs` to a routine value, or changing another
-token, `Retained` or `Tracked` handle to the same kind of container
-(`for v in from { into.add(value: v) }`), is rejected too, because the builder
-cannot tell whether it is the same container. Open both with
-`modifying into, viewing from` to loop over `from` and change `into`.
-A loop over a token walks the container the token is on: `var w = xs.view()` (or `viewing xs as w`) then
-`for x in w { xs.add_last(value: x) }` is RV-S625, and so is a change of any container a routine that gave the token
-may have taken it from (`var w = shorter(x: a.view(), y: b.view())` keeps both `a` and `b` still).
+rejects handing `xs` to one. Handing `xs` to a routine value is rejected too. Changing another reference, `Retained` or `Tracked` handle to the
+same kind of container while one is walked (`for v in from { into.add_last(value: v) }`, two reference parameters) is
+checked at run time when the builder can't prove them different: an `@reshaping` call on the walked container fails
+with `ReshapingWhileInUseError` (a `try`/`check` receives it). One call handed the same container twice with one
+written is RV-S623.
+A loop over a reference walks the container the reference is on: `var w: %List[S64] = xs` then
+`for x in w { xs.add_last(value: x) }` is RV-S625, and so is a change of any container a routine that gave the reference
+may have taken it from (`var w = shorter(x: a, y: b)` keeps both `a` and `b` still).
 Every stdlib collection marks its adding/removing routines `@reshaping`.
 The same holds while a member routine of a collection calls a lambda it is handed: a lambda that can add to or
-remove from that collection (or a token or shared handle that may be it), directly or through a call
+remove from that collection (or a reference or shared handle that may be it), directly or through a call
 (`r.sort_by(compare: (a, b) given (alias) => grow(xs: alias, a: a, b: b))`), is RV-S625 at that call, since the
 routine is still working on the elements.
 
 **Writes into an element land in the container.** A call, field write, or index
 write on an ENTITY element (`grid[0].add_last(value: 1)`, `boxes[0].n = 5`,
 `grid[0][1] = 20`) acts on the element inside the container, not on a copy: the
-builder reaches it through the container's `modify_at`/`view_at` token (List,
+builder reaches it through the container's `modify_at`/`view_at` reference (List,
 RotatableList, Dict). In that same statement nothing may add to or remove from
 the container, directly or through a call (RV-S639), since that could move the
 element. A VALUE element works the same way (`m[i][j] = v`, `pts[k].x = v`):
@@ -1516,7 +1425,7 @@ is allowed. Take an
 element out with a removing routine (`boxes.remove_at(index: 0)`), copy it
 explicitly when its type is `Copyable` (`grid[0].duplicate()`), or work on it
 where it sits. A new variable (`var x = boxes[0]`) is the exception: it holds a
-token on the element with the container's permission (see access tokens). Calling the reading routines
+reference on the element with the container's permission (see references). Calling the reading routines
 yourself copies a VALUE or handle element (`=`: a copy, one more holder for a
 handle). An ENTITY element is never copied behind your back: there
 is no copying `getitem`/`first()`/`last()` for it. Read it in place
@@ -1524,7 +1433,7 @@ is no copying `getitem`/`first()`/`last()` for it. Read it in place
 entity must `obeys Copyable`, else RV-S150). Element
 calls and field access (`cells[0].v = 5`, `grid[0].add_last(value: 1)`) still act
 in place through `modify_at`/`view_at`, `var c = cells[0]` is still a read
-token, and passing an entity element to an owning parameter
+reference, and passing an entity element to an owning parameter
 (`keep(c: cells[1])`) is still RV-S413 even when Copyable: write
 `keep(c: cells[1].duplicate())`.
 
@@ -1590,8 +1499,8 @@ operator (`/` is division).
   whole file) and `storage[T](at:, start:, count:)` (a window, in cells) name the file and map nothing: a block maps
   it. `viewing FileManager.storage[Byte](at: f) as v` maps it for reading only, `modifying ... as m` for writing (a
   file that can't be written fails there with `NotEnoughPermissionError`, a missing one with `NotFoundError`: `try`
-  gives none), and the block's end unmaps it. Read `v[i]`, write `m[i] = x` through the token (or
-  `Viewing[FileStorage[Byte]]` / `Modifying[...]` parameters). `count()`, `flush()`. It cannot grow the file: size it
+  gives none), and the block's end unmaps it. Read `v[i]`, write `m[i] = x` through the reference (or
+  `%FileStorage[Byte]` / `@...` parameters). `count()`, `flush()`. It cannot grow the file: size it
   with `set_size` first. An index past the end is `IndexOutOfBoundsError`, a `Char` cell that isn't a scalar
   `InvalidValueError`. `T` is limited by the `StorageCell` protocol (only `Byte` and `Char` obey it).
   `migrate --step files` renames `open_storage` / `open_storage_range` to `storage` and lists the lines.
@@ -1683,7 +1592,14 @@ warning. A diagnostic in a Mielia file spells the same number with `ME-`
 | Code         | Usual cause                           | Fix                                                |
 |--------------|---------------------------------------|----------------------------------------------------|
 | RV-S510/S512 | a bare name in another parameter's place / an unlabeled argument after a labeled one | label the argument, put unlabeled ones first |
-| RV-S413      | entity assigned without transfer      | add `steal`                                        |
+| RV-S413      | entity stored in a second place without transfer | add `steal`                                        |
+| RV-S658      | `Viewing[T]` / `Modifying[T]` written in a program | write `%T` / `@T` (`migrate --step references`) |
+| RV-S659      | `.view()` / `.modify()` written in a program | write the entity where a reference is expected, open a Guarded with a block |
+| RV-S660      | a `viewing` / `modifying` block over an entity, a reference or a `Retained` | use it directly |
+| RV-S661      | `@R` / `%R` (a reference to a record) in a member variable, an element or a global | keep the record, or make it an entity |
+| RV-S662      | `steal` of a reference or a link | steal where the original is held |
+| RV-S663      | a reference given to a parameter that takes the entity (`x: T`) | `steal` the original, or make the parameter `@T` |
+| RV-S807      | a written `destruct` without `dangerous` | `dangerous routine T.destruct()` |
 | RV-G230      | `failable` written on a routine       | remove it (`migrate --step failable`): every routine passes failures on |
 | RV-S712      | `@throws` leaves out a crashable the routine throws | add it to the list, or recover it inside |
 | RV-S010      | literal out of range for target type  | use the right constant (`U8_MAX`)                  |
@@ -1693,19 +1609,19 @@ warning. A diagnostic in a Mielia file spells the same number with `ME-`
 | RV-W007      | ignored result                        | `drop expr`                                        |
 | RV-W008      | a Work nothing ever starts          | `start_now()` it, or `retrieve()`/`gather()` it    |
 | RV-W009      | a started Work nothing collects      | `retrieve()` it, or `drop job` to stop it          |
-| RV-S601      | a token in a field, a variant, or a type argument (`List[Viewing[T]]`, `Optional[...]` kept in a name, a tuple) | keep a `Stamped[E]` (`PoolManager.add`, `fetch()`), the entity or a manager's handle, unpack `try` of a token with `when` at once |
-| RV-S632      | `to[Work]` argument unsafe to hand over (a token / `Retained` only with `start_here()`, kept in the routine) | `steal` the entity, pass `Unbroken`/`Guarded`/…, or `start_here()` |
+| RV-S601      | a reference in a field, a variant, or a type argument (`List[%T]`, `Optional[...]` kept in a name, a tuple) | keep a link in storage (a member variable, an element, a global), the entity or a manager's handle, unpack `try` of a reference with `when` at once |
+| RV-S632      | `to[Work]` argument unsafe to hand over (a reference / `Retained` only with `start_here()`, kept in the routine) | `steal` the entity, pass `Unbroken`/`Guarded`/…, or `start_here()` |
 | RV-S623      | one container handed to two parameters of one call, one of them written | copy the read one first, or pass two containers |
-| RV-S640      | an element of one token held while another token on the same kind of container changes shape | finish with the held element first, or open both with `modifying x, y` |
-| RV-S611      | `try viewing` / `try modifying` on a target the block doesn't enter (token, entity) | remove `try` |
-| RV-S654      | a `view_enter` / `modify_enter` that gives no `Viewing` / `Modifying`, or has no matching exit | return the token, declare the exit |
+| RV-S640      | an element of one reference held while another reference on the same kind of container changes shape | finish with the held element first |
+| RV-S611      | `try viewing` / `try modifying` on a target the block doesn't enter (reference, entity) | remove `try` |
+| RV-S654      | a `view_enter` / `modify_enter` that gives no `%T` / `@T`, or has no matching exit | return the reference, declare the exit |
 | RV-S806      | a routine declares `Check[T]` as its result | return the value and `throw` where it fails: the caller writes `check f(...)` |
-| RV-S657      | a value that holds a way to change an entity (a `Stamped`, a manager handle, a `Modifying`, a record or tuple with one) copied out of a `Viewing` | read it in place (`links[0].target.fetch()`), or take the container as `Modifying` |
-| RV-S612      | `using` given a non-`Enterable` (also `using g.view()`) | `viewing g as v` / `modifying g as m` |
-| RV-S630      | a `Guarded` opened again inside a block of the same routine that has it open | use the outer block's token |
-| RV-S650      | one block names a target (or a token name) twice | name it once |
+| RV-S657      | a value that holds a way to change an entity (a write link, a manager handle, a record or tuple with one) copied out of a `%T` | read it in place (`tags[0].target.x`), or take the container as `@T` |
+| RV-S612      | `using` given a non-`Enterable` (also `using x.view()`) | `viewing g as v` / `modifying g as m` |
+| RV-S630      | a `Guarded` opened again inside a block of the same routine that has it open | use the outer block's reference |
+| RV-S650      | one block names a target (or a reference name) twice | name it once |
 | RV-S651      | a target the block can't open that way | the verb its policy has, `as` for a nameless target |
-| RV-S652      | `g.view()` / `g.modify()` not passed to a call, or in a condition | pass it, or open a block |
+| RV-S652      | a Guarded's `g.view()` / `g.modify()` written (with RV-S659) | open a block |
 | RV-S642      | `to[Work]` on something that is not a routine, or over generic-parameter-typed values | convert a routine, with concrete types |
 | RV-S645      | `x.to()` with nothing that gives the target type | write it: `.to[S64]()`, or give the variable a type |
 | RV-S646      | no conversion between the two types (or to its own type) | convert to a type that has one, or drop the `.to` |
@@ -1732,7 +1648,7 @@ record Item
     name: Text
     qty: S64
 
-routine find_qty(items: Viewing[List[Item]], name: Text) -> S64?
+routine find_qty(items: %List[Item], name: Text) -> S64?
     for item in items
         if item.name == name
             return item.qty
@@ -1743,7 +1659,7 @@ routine start()
     items.add_last(value: Item(name: "bolt", qty: 40))
     items.add_last(value: Item(name: "nut", qty: 0))
 
-    var q = find_qty(items: items.view(), name: "bolt")
+    var q = find_qty(items: items, name: "bolt")
     when q
         is None => show("not found")
         else as n  => show(f"bolt qty: {n}")
@@ -1881,16 +1797,16 @@ routine start()
 hand to work that may run on another thread: a `steal`-moved bare entity, trivially copyable value data,
 or a shareable manager handle (`Unbroken`, `Guarded`, `Witnessed`). A `Roamed`
 handle is promoted. Anything else (a bare entity by copy, a record owning `Retained`/`Tracked`/
-`Viewing`/`Modifying`) is rejected. The check follows everything the value reaches: an entity's member
+a reference) is rejected. The check follows everything the value reaches: an entity's member
 variables, a collection's elements (`List[Retained[Cell]]`), a channel end's items (`Receiver[Retained[Cell]]`),
 and the `given` names of a lambda (written in the call or bound to a variable first). A routine-value parameter a
 routine hands to `to[Work]` (directly, or on to another routine that does) is followed to its callers: handing such a
-routine a lambda that captured a `Retained`, `Tracked` or token is RV-S632 ("You hand 'spawn' a lambda that captured
+routine a lambda that captured a `Retained`, `Tracked` or reference is RV-S632 ("You hand 'spawn' a lambda that captured
 `r` (a `Retained`), and 'spawn' hands its 'f' to a Work..."). A routine value read from a member variable, a
 collection or a call's result and handed to a Work could be any lambda of its type kept there earlier, so every lambda
-of that routine type that captured a `Retained`, `Tracked` or token is RV-S632 at the lambda ("This lambda captured
+of that routine type that captured a `Retained`, `Tracked` or reference is RV-S632 at the lambda ("This lambda captured
 `r` ..., and a routine value of its type ... is handed to a Work at line N"). A value holding a
-`Retained`, `Tracked` or token at any depth makes a Work of one thread: it starts with `start_here()`, and
+`Retained`, `Tracked` or reference at any depth makes a Work of one thread: it starts with `start_here()`, and
 `start_now()` / `start_apart()` (or a `retrieve()` that starts it) is RV-S632. An `Unbroken[T]` parameter is always by reference, so a routine taking
 one works on the caller's cell, and sharing one counter across jobs just works:
 
@@ -2029,7 +1945,7 @@ between them (`` `total count` ``); `` `count` `` and `count` are the same name.
 - **Iteration / range / hand-over**: `in` (loops only) `to` `til` `by` `steal`†
 - **Module system**: `import` `module`
 - **Other statements**: `using` `as` `define` `nothing` `given` `drop`
-- **Access blocks**: `viewing` `modifying` (and `try viewing` / `try modifying`, whose names are Maybes)
+- **Access blocks**: `viewing` `modifying` (open a `Guarded` or a type with the enter/exit pair; `try viewing` / `try modifying`, whose names are Maybes)
 - **Logical operators**: `and` `or` `not`
 - **Literals**: `true` `false` `None` `none`
 - **Concurrency**: `f.to[Work](args)`
