@@ -69,3 +69,43 @@ needs EntityType T
         else
             C::rf_invalidate(ptr: me.get_address())
     return
+
+# ============================================================================
+# How a link is laid out (the builder writes these calls, LinkLoweringPass)
+# ============================================================================
+# A link of a retroactive type is 128 bits: the entity's address in the low half and the generation its slot had when
+# the link was made in the high half, all zero for none. The slot's header is the 16 bytes right before the entity's
+# bytes, and starts with the slot's current generation (Ingrid/lapila/slots.lpa). `{store T}` is the type's own slot
+# store, a zeroed 16-byte global. It is also what a none link's header read falls back on, so no read goes to address 0.
+
+### The slot store of the entity type `T`: its free list and its number, both zero before its first slot.
+### :returns: The store's address.
+@llvm_ir("{result} = getelementptr i8, ptr {store T}, i64 0")
+dangerous routine LLVM::slot_store[T]() -> Addr
+
+### A link from a token: the entity's address and its slot's generation now. A link that is not present is all zero.
+### :param present: Whether the link is present.
+### :param token: The entity's address.
+### :returns: The link's 128 bits.
+@llvm_ir("{$a} = ptrtoint ptr {token} to i64\n{$none} = icmp eq i64 {$a}, 0\n{$h} = getelementptr i8, ptr {token}, i64 -16\n{$at} = select i1 {$none}, ptr {store T}, ptr {$h}\n{$g} = load i64, ptr {$at}, align 8\n{$gw} = zext i64 {$g} to i128\n{$hi} = shl i128 {$gw}, 64\n{$lo} = zext i64 {$a} to i128\n{$link} = or i128 {$hi}, {$lo}\n{result} = select i1 {present}, i128 {$link}, i128 0")
+dangerous routine LLVM::link_make[T](present: Bool, token: Addr) -> U128
+
+### Whether a link names its entity still: its address is not zero and its slot's generation is the link's.
+### :param link: The link's 128 bits.
+### :returns: `true` while the entity has not ended.
+@llvm_ir("{$a} = trunc i128 {link} to i64\n{$none} = icmp eq i64 {$a}, 0\n{$p} = inttoptr i64 {$a} to ptr\n{$h} = getelementptr i8, ptr {$p}, i64 -16\n{$at} = select i1 {$none}, ptr {store T}, ptr {$h}\n{$g} = load i64, ptr {$at}, align 8\n{$kw} = lshr i128 {link}, 64\n{$k} = trunc i128 {$kw} to i64\n{$same} = icmp eq i64 {$g}, {$k}\n{$some} = xor i1 {$none}, true\n{result} = and i1 {$some}, {$same}")
+dangerous routine LLVM::link_live[T](link: U128) -> Bool
+
+### The token a link holds: its low half as an address.
+### :param link: The link's 128 bits.
+### :returns: The entity's address.
+@llvm_ir("{$a} = trunc i128 {link} to i64\n{result} = inttoptr i64 {$a} to ptr")
+dangerous routine LLVM::link_token[T](link: U128) -> Addr
+
+### Whether two links name the same entity: the same address and the same generation. A link to an entity that ended
+### is not the same as a link to the entity now in its slot, and two none links are the same.
+### :param a: One link's 128 bits.
+### :param b: The other link's 128 bits.
+### :returns: `true` for the same entity.
+@llvm_ir("{result} = icmp eq i128 {a}, {b}")
+dangerous routine LLVM::link_same[T](a: U128, b: U128) -> Bool

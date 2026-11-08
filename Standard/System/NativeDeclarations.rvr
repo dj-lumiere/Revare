@@ -2118,6 +2118,10 @@ dangerous routine C::rf_pool_fetch(slot: U32, generation: U32) -> Addr
 # An entity of a retroactive type (a type with a link, a kept `Modifying[T]?` / `Viewing[T]?`, somewhere in the program) lives in a slot whose header
 # holds a generation, how many tokens taken from links are in use, and the number of the type's store.
 
+### A slot for a new entity of a retroactive type: a free one of the type's store, else a new one. :param store: the
+### type's store. :param size: the entity's bytes. :returns: the address the entity's bytes go to.
+dangerous routine C::rf_slot_take(store: Addr, size: U64) -> Addr
+
 ### The start of an entity's end: the generation goes up. :param box: the entity's address. :returns: 1 when the destruct
 ### runs now, 0 when it waits for the tokens taken from links that are in use.
 dangerous routine C::rf_slot_end(box: Addr) -> U8
