@@ -26,7 +26,9 @@ public sealed partial class AssertionPresenceTests
         "AssertBundleCompilesInProcess",
         "AssertDangerError",
         "AssertReshapeError",
-        "AssertRejected"
+        "AssertRejected",
+        "AssertOffers",
+        "AssertNotOffered"
     ];
 
     /// <summary>
