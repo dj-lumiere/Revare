@@ -137,7 +137,7 @@ Open a new terminal and check that it works:
 revare version
 ```
 
-The same package installs Mielia too (`mielia`). Short aliases `rv` and `mi` work as well.
+The short alias `rv` works as well.
 
 > **Linux:** linking needs the C library's development files. Most machines have them. Otherwise
 > install `libc6-dev` (Debian/Ubuntu) or `glibc-devel` (Fedora) once.

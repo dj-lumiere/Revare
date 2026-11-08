@@ -20,6 +20,19 @@ $Version = if ($env:VERSION) { $env:VERSION } else {
 }
 $Prefix = if ($env:PKG_PREFIX) { $env:PKG_PREFIX } else { 'revare' }
 $Name = "$Prefix-v$Version-$Rid"
+# The package's language picks its installer wording, its commands and the documents it carries. Both languages'
+# packages hold the same builder.
+$Fill = if ($Prefix -eq 'mielia') {
+    @{ LANGUAGE = 'Mielia'; TOOL = 'mielia'; ALIAS = 'me'; EXE = 'Mielia'; EXT = 'mie'; GUIDE = 'README.md' }
+} else {
+    @{ LANGUAGE = 'Revare'; TOOL = 'revare'; ALIAS = 'rv'; EXE = 'Revare'; EXT = 'rvr'; GUIDE = 'QUICKSTART.md' }
+}
+$Docs = if ($Prefix -eq 'mielia') {
+    'Mielia\LICENSE', 'Mielia\README.md', 'Mielia\MIELIA-FOR-AI.md', 'Revare\THIRD-PARTY-NOTICES.md'
+} else {
+    'Revare\LICENSE', 'Revare\README.md', 'Revare\THIRD-PARTY-NOTICES.md',
+        'Revare\scripts\package-assets\QUICKSTART.md', 'Revare\REVARE-FOR-AI.md'
+}
 $Out = "dist\$Name"
 
 Write-Host "=== Revare $Version -> $Name ==="
@@ -85,7 +98,7 @@ foreach ($dir in 'Revare-Wiki', 'Mielia-Wiki') {
     if (Test-Path "$Out\$dir") { Remove-Item -Recurse -Force "$Out\$dir" }
 }
 Get-ChildItem $Out -Recurse -Filter '*.pdb' | Remove-Item -Force
-Copy-Item Revare\LICENSE, Revare\README.md, Revare\THIRD-PARTY-NOTICES.md $Out
+Copy-Item $Docs $Out
 
 # Short names next to the command lines: `rv` for Revare and `me` for Mielia (copies of the NativeAOT executables,
 # which find everything from their own folder).
@@ -153,11 +166,12 @@ Copy-Item -Recurse "$mingwRoot\x86_64-w64-mingw32" "$tc\x86_64-w64-mingw32"
 if (Test-Path "$tc\x86_64-w64-mingw32\share") { Remove-Item -Recurse -Force "$tc\x86_64-w64-mingw32\share" }
 Copy-Item "$mingwRoot\LICENSE.TXT" "$tc\LICENSE.llvm-mingw.TXT"
 
-Write-Host '=== add install script + quickstart + AI reference ==='
-Copy-Item "$PSScriptRoot\package-assets\install.ps1" $Out
+Write-Host '=== add install script ==='
+# package-assets\install.ps1 is a template: the @-names become the package's language, commands and guide.
+$installer = Get-Content -Raw "$PSScriptRoot\package-assets\install.ps1"
+foreach ($key in $Fill.Keys) { $installer = $installer.Replace("@$key@", $Fill[$key]) }
+Set-Content -Path "$Out\install.ps1" -Value $installer -NoNewline -Encoding utf8
 Copy-Item "$PSScriptRoot\package-assets\install.cmd" $Out
-Copy-Item "$PSScriptRoot\package-assets\QUICKSTART.md" $Out
-Copy-Item "$PSScriptRoot\..\REVARE-FOR-AI.md" $Out
 
 Write-Host '=== smoke test: self-contained run (system toolchain hidden) ==='
 & "$Out\Revare.exe" version

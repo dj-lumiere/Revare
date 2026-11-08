@@ -25,6 +25,15 @@ case "$(uname -s)" in
 esac
 VERSION="${VERSION:-$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Revare/Revare.csproj | head -1)}"
 NAME="${PKG_PREFIX:-revare}-v${VERSION}-${RID}"
+# The package's language picks its installer wording, its commands and the documents it carries. Both languages'
+# packages hold the same builder.
+case "${PKG_PREFIX:-revare}" in
+    mielia) LANGUAGE=Mielia; TOOL=mielia; ALIAS=me; EXE=Mielia; EXT=mie; GUIDE=README.md
+            DOCS=(Mielia/LICENSE Mielia/README.md Mielia/MIELIA-FOR-AI.md Revare/THIRD-PARTY-NOTICES.md) ;;
+    *)      LANGUAGE=Revare; TOOL=revare; ALIAS=rv; EXE=Revare; EXT=rvr; GUIDE=QUICKSTART.md
+            DOCS=(Revare/LICENSE Revare/README.md Revare/THIRD-PARTY-NOTICES.md
+                  Revare/scripts/package-assets/QUICKSTART.md Revare/REVARE-FOR-AI.md) ;;
+esac
 OUT="dist/${NAME}"
 
 echo "=== Revare ${VERSION} -> ${NAME} ==="
@@ -86,7 +95,7 @@ test -f "$OUT/ingrid_lapila.bc"
 echo "=== prune dev-only artifacts ==="
 rm -rf "$OUT/Revare-Wiki" "$OUT/Mielia-Wiki"
 find "$OUT" -name '*.pdb' -delete
-cp Revare/LICENSE Revare/README.md Revare/THIRD-PARTY-NOTICES.md "$OUT/"
+cp "${DOCS[@]}" "$OUT/"
 
 # Short alias next to the canonical binary. (Users preferring `forge` can alias it
 # themselves — the name is deliberately not shipped to avoid colliding with
@@ -185,8 +194,10 @@ if [[ -n "$LLVM_ASSET" ]]; then
     fi
 fi
 
-echo "=== add install script + quickstart + AI reference ==="
-cp Revare/scripts/package-assets/install.sh Revare/scripts/package-assets/QUICKSTART.md Revare/REVARE-FOR-AI.md "$OUT/"
+echo "=== add install script ==="
+# package-assets/install.sh is a template: the @-names become the package's language, commands and guide.
+sed -e "s/@LANGUAGE@/${LANGUAGE}/g" -e "s/@TOOL@/${TOOL}/g" -e "s/@ALIAS@/${ALIAS}/g" -e "s/@EXE@/${EXE}/g" \
+    -e "s/@EXT@/${EXT}/g" -e "s/@GUIDE@/${GUIDE}/g" Revare/scripts/package-assets/install.sh > "$OUT/install.sh"
 chmod +x "$OUT/install.sh"
 
 echo "=== smoke test: self-contained run (system toolchain hidden) ==="

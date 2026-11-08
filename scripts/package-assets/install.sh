@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Revare installer (Linux / macOS)
+# @LANGUAGE@ installer (Linux / macOS)
 #
-# Symlinks `revare`, `rv`, `mielia`, and `me` into ~/.local/bin so they work from any
-# terminal. Everything runs from this folder — no root, no other downloads.
+# Symlinks `@TOOL@` and `@ALIAS@` into ~/.local/bin so they work from any terminal. Everything
+# runs from this folder: no root, no other downloads.
 #
 # Usage:  ./install.sh
 set -euo pipefail
@@ -40,15 +40,28 @@ if [ "$(uname -s)" = "Darwin" ]; then
 fi
 
 mkdir -p "$BIN"
-ln -sf "$DIR/Revare" "$BIN/revare"
-ln -sf "$DIR/Revare" "$BIN/rv"
-ln -sf "$DIR/Mielia" "$BIN/mielia"
-ln -sf "$DIR/Mielia" "$BIN/me"
-echo "Linked revare, rv, mielia, and me into $BIN"
+linked=()
+for name in @TOOL@ @ALIAS@; do
+  link="$BIN/$name"
+  if [ -L "$link" ]; then
+    old="$(readlink "$link")"
+    if [ "$old" != "$DIR/@EXE@" ]; then
+      echo "Replacing $link: it pointed at $old"
+    fi
+  elif [ -e "$link" ]; then
+    echo "Skipped $link: a file that is not a link is already there. Remove it and run ./install.sh again." >&2
+    continue
+  fi
+  ln -sf "$DIR/@EXE@" "$link"
+  linked+=("$name")
+done
+if [ "${#linked[@]}" -gt 0 ]; then
+  echo "Linked ${linked[*]} into $BIN"
+fi
 
 case ":$PATH:" in
   *":$BIN:"*)
-    echo "Ready — try: revare version"
+    echo "Ready. Try: @TOOL@ version"
     ;;
   *)
     echo "NOTE: $BIN is not on your PATH yet. Add it, e.g.:"
@@ -57,4 +70,4 @@ case ":$PATH:" in
     ;;
 esac
 echo
-echo "See QUICKSTART.md for a hello-world walkthrough."
+echo "See @GUIDE@ for a hello-world walkthrough."
