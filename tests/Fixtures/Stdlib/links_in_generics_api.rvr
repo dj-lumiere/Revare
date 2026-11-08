@@ -1,0 +1,101 @@
+module Tests/Stdlib/LinksInGenericsApi
+
+import IO/Console
+# Links and tokens inside generic code: a generic entity and a generic routine instantiated with links, a record holding
+# links kept in a generic entity, a generic routine handed a token a link gave (checked in each instance whose type is
+# retroactive, a no-op for a record), and a generic routine that grows a container a running loop walks. Each use after
+# the entity ended gives none under `try`, a failure `try` receives, never a read of an ended entity.
+
+protocol HasId
+    routine Me.ident() -> S64
+
+entity Node
+obeys HasId
+    id: S64
+
+routine Node.ident() -> S64
+    return me.id
+
+record Rec
+obeys HasId
+    v: S64
+
+routine Rec.ident() -> S64
+    return me.v
+
+entity Shelf[T]
+    item: T
+
+record LinkPair
+    first: Modifying[Node]?
+    second: Modifying[Node]?
+
+entity Holder
+    nodes: List[Node]
+
+entity Watch
+    target: Modifying[Node]?
+
+routine pick[T](a: T, b: T) -> T
+    return b
+
+routine read_after[T](n: Modifying[T], holder: Modifying[Holder]) -> S64
+needs T obeys HasId
+    holder.nodes.clear()
+    return n.ident()
+
+routine grow[T](into: Modifying[List[T]], value: T)
+    into.add_last(value: steal value)
+    return
+
+entity ListShelf
+    other: Modifying[List[S64]]?
+
+routine feed(shelf: Modifying[ListShelf], from: Viewing[List[S64]]) -> S64
+    var fed: S64 = 0
+    for y in from
+        when shelf.other
+            is None => nothing
+            else as o =>
+                grow[S64](o, value: y)
+                fed += 1
+    return fed
+
+routine start()
+    var a = Node(id: 1)
+    var b = Node(id: 2)
+    var s = Shelf[Modifying[Node]?](item: none)
+    s.item = a
+    var p = LinkPair(first: a, second: b)
+    var kept = Shelf[LinkPair](item: p)
+    var la: Modifying[Node]? = a
+    var lb: Modifying[Node]? = b
+    var picked = pick[Modifying[Node]?](la, lb)
+    show(f"{s.item.id} {kept.item.second.id} {picked.id}")
+    drop a
+    drop b
+    show(f"{try s.item.id} {try kept.item.second.id} {try picked.id}")
+
+    var holder = Holder(nodes: [])
+    var w = Watch(target: none)
+    holder.nodes.add_last(value: Node(id: 3))
+    w.target = holder.nodes[0]
+    when w.target
+        is None => show("none")
+        else as n =>
+            when try read_after[Node](n, holder: holder)
+                is None => show("try over a generic routine: received")
+                else as v => show(v)
+    var rec = Rec(v: 7)
+    show(read_after[Rec](rec, holder: holder))
+
+    var xs: List[S64] = [1, 2, 3]
+    var shelf = ListShelf(other: none)
+    shelf.other = xs
+    when try feed(shelf: shelf, from: xs)
+        is None => show("try over a generic grow of the walked list: received")
+        else as v => show(v)
+    var ys: List[S64] = [9]
+    shelf.other = ys
+    show(f"{feed(shelf: shelf, from: xs)} {ys.count()}")
+    return

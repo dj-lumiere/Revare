@@ -86,6 +86,7 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             if (_checked.Add(item: routine))
             {
                 CheckReturns(routine: routine);
+                CheckLambdaReturns(routine: routine);
                 new Flow(owner: this, routine: routine).Run();
             }
         }
@@ -432,6 +433,19 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
 
                 return origins;
             }
+            // A routine value gives a token taken from one of its arguments (a lambda that would give one taken from
+            // what it captured is RV-S600 where it is written): the token comes from every argument, and a change that
+            // ends any one of them ends it, as for a direct call.
+            // The call of an element (`fs[0](a, b)`) is the call of the routine value it reads.
+            case GenericMemberRoutineCallExpression { ElementCall: { } element }:
+                return OriginsOf(expr: element, tokenOrigins: tokenOrigins);
+            // A call written with type arguments (`pick[Modifying[Box]](a, b)`) gives a token from every token or
+            // entity it is handed: the generic body's summary is over its type parameters, which are no tokens there.
+            case GenericMemberRoutineCallExpression generic:
+                return JoinedArguments(arguments: generic.IsFree ? generic.Arguments : [generic.Object, .. generic.Arguments],
+                    tokenOrigins: tokenOrigins);
+            case CallExpression call when IsRoutineValueCall(call: call):
+                return JoinedArguments(arguments: call.Arguments, tokenOrigins: tokenOrigins);
             case ConditionalExpression cond:
             {
                 HashSet<string>? a = OriginsOf(expr: cond.TrueExpression, tokenOrigins: tokenOrigins);
@@ -444,6 +458,33 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             default:
                 return [UnknownOrigin];
         }
+    }
+
+    /// <summary>
+    /// The origins of a token a call gives from every token or entity among <paramref name="arguments"/>: a change that
+    /// ends any one of them ends it. Null when one is a temporary (the token ends with the statement), unknown when
+    /// none is a token or an entity.
+    /// </summary>
+    private HashSet<string>? JoinedArguments(IEnumerable<Expression> arguments, Func<string, HashSet<string>?> tokenOrigins)
+    {
+        var origins = new HashSet<string>(comparer: StringComparer.Ordinal);
+        foreach (Expression arg in arguments)
+        {
+            Expression value = Unwrap(expr: arg);
+            if (!IsTrackedToken(type: value.ResolvedType) && value.ResolvedType is not EntityTypeSymbol)
+            {
+                continue;
+            }
+
+            if (PathsOf(expr: value, tokenOrigins: tokenOrigins) is not { } bases)
+            {
+                return null;
+            }
+
+            origins.UnionWith(other: bases);
+        }
+
+        return origins.Count > 0 ? origins : [UnknownOrigin];
     }
 
     // ---- Summaries --------------------------------------------------------------------------------------
@@ -816,6 +857,40 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
         }
     }
 
+    /// <summary>
+    /// RV-S600 for a lambda that gives a token: it takes the token from one of its parameters, never from what it
+    /// captured. A call through a routine value then gives a token on what the call handed it, as a direct call does.
+    /// </summary>
+    private void CheckLambdaReturns(RoutineDeclaration routine)
+    {
+        AstWalker.Walk(root: routine.Body,
+            visit: node =>
+            {
+                if (node is not LambdaExpression { ResolvedType: RoutineTypeSymbol { ReturnType: var given } } lambda ||
+                    !IsTrackedToken(type: given))
+                {
+                    return;
+                }
+
+                var parameters = lambda.Parameters.Select(selector: p => p.Name).ToHashSet(comparer: StringComparer.Ordinal);
+                HashSet<string> from = OriginsOf(expr: lambda.Body, tokenOrigins: _ => null) ?? ["~"];
+                if (from.FirstOrDefault(predicate: f => !parameters.Contains(item: RootName(path: f))) is not { } other)
+                {
+                    return;
+                }
+
+                string what = other.StartsWith(value: "~", comparisonType: StringComparison.Ordinal) || other == UnknownOrigin
+                    ? "a temporary or something the builder cannot trace to a parameter"
+                    : $"'{Shown(path: other)}', which the lambda captured";
+                report(code: SemanticDiagnosticCode.TokenReturnNotAllowed,
+                    message:
+                    $"Your lambda gives a token taken from {what}. A call of it would hand back a token the caller " +
+                    "cannot follow to what it passed. Give a token taken from one of the lambda's parameters, and pass " +
+                    "the entity in as an argument.",
+                    location: lambda.Body.Location);
+            });
+    }
+
     // ---- Flow -------------------------------------------------------------------------------------------
 
     /// <summary>A token variable at one point of the routine: where it may come from, and what ended it.</summary>
@@ -1029,7 +1104,7 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                         t.Origins.FirstOrDefault(predicate: o => Ends(written: path, origin: o)) is { } ended)
                     {
                         string from = ended == UnknownOrigin || ended.StartsWith(value: "~", comparisonType: StringComparison.Ordinal)
-                            ? "the object it was taken from"
+                            ? "the entity it was taken from"
                             : $"'{Shown(path: ended)}', where it was taken from,";
                         _state.Tokens[key: name] = t with { EndedBy = $"{from} {reason}", EndedAt = at };
                     }
@@ -1215,7 +1290,7 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             owner.Report(code: SemanticDiagnosticCode.TokenUsedAfterSourceChanged,
                 message:
                 $"You are using the token '{id.Name}', but {t.EndedBy} (line {t.EndedAt?.Line}). '{id.Name}' no " +
-                "longer points at a live object. Take the token again after that line, or use it before.",
+                "longer points at a live entity. Take the token again after that line, or use it before.",
                 location: id.Location);
         }
 

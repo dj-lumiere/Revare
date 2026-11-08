@@ -1,0 +1,6 @@
+1 2 2
+none none none
+try over a generic routine: received
+7
+try over a generic grow of the walked list: received
+3 4

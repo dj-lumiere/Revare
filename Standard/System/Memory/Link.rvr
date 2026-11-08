@@ -141,6 +141,30 @@ needs EntityType T
                 throw EntityEndedError(type_name: T.type_name())
     return
 
+### Fails when the entity a write token reaches has ended. The builder puts this into a generic routine, before a
+### statement that uses a token a link may have given: an instance whose `T` is not a retroactive entity type does
+### nothing.
+### :param token: The token.
+### :throws: {EntityEndedError} The entity has ended.
+@inline
+routine require_modifying_live[T](token: Modifying[T])
+    if T.is_retroactive()
+        danger
+            if C::rf_slot_ended(box: LLVM::reinterpret_bits[Modifying[T], Addr](token)) != 0
+                throw EntityEndedError(type_name: T.type_name())
+    return
+
+### Fails when the entity a read token reaches has ended, as `require_modifying_live` does for a write token.
+### :param token: The token.
+### :throws: {EntityEndedError} The entity has ended.
+@inline
+routine require_viewing_live[T](token: Viewing[T])
+    if T.is_retroactive()
+        danger
+            if C::rf_slot_ended(box: LLVM::reinterpret_bits[Viewing[T], Addr](token)) != 0
+                throw EntityEndedError(type_name: T.type_name())
+    return
+
 ### Gives back an entity's box, which the builder puts before each return of a written `destruct`: the heap block, or for
 ### an entity of a retroactive type its slot, which goes back to its type's free list.
 @inline

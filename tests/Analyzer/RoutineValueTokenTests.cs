@@ -1,0 +1,195 @@
+using Builder.Diagnostics;
+using Builder.Verification.Results;
+
+namespace Revare.Tests.Analyzer;
+
+using static TestHelpers;
+
+/// <summary>
+/// A token a call through a routine value gives back comes from the arguments the call handed it, as for a direct call:
+/// a routine value bound to a name, a lambda, one read out of a member variable, a list or a global. Ending any of those
+/// arguments ends the token (RV-S643), and ending anything else does not. A lambda that would give a token taken from
+/// what it captured is RV-S600 where it is written, so the arguments are all a call's result can come from.
+/// </summary>
+public class RoutineValueTokenTests
+{
+    private const string Prelude = """
+                                   import IO/Console
+
+                                   entity Box
+                                       n: S64
+
+                                   routine pick_second(a: Modifying[Box], b: Modifying[Box]) -> Modifying[Box]
+                                       return b
+
+                                   """;
+
+    private static void AssertEndedBy(string body, string ended)
+    {
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + body,
+            expectedErrorSubstring: $"'{ended}', where it was taken from");
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged);
+    }
+
+    [Fact]
+    public void Analyze_NamedRoutineValueResultAfterAnArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            routine start()
+                                var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = f(a, b)
+                                drop b
+                                show(r.n)
+                                return
+                            """, ended: "b");
+    }
+
+    [Fact]
+    public void Analyze_RoutineValueResultAfterTheOtherArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            routine start()
+                                var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = f(a, b)
+                                drop a
+                                show(r.n)
+                                return
+                            """, ended: "a");
+    }
+
+    [Fact]
+    public void Analyze_RoutineValueResultAfterSomethingElseEnds_Analyzes()
+    {
+        AssertAnalyzesSa(source: Prelude + """
+                                           routine start()
+                                               var f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+                                               var a = Box(n: 1)
+                                               var b = Box(n: 2)
+                                               var c = Box(n: 3)
+                                               var r = f(a, b)
+                                               drop c
+                                               show(r.n)
+                                               return
+                                           """);
+    }
+
+    [Fact]
+    public void Analyze_LambdaResultAfterAnArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            routine start()
+                                var f = (x: Modifying[Box], y: Modifying[Box]) given () => y
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = f(a, b)
+                                drop b
+                                show(r.n)
+                                return
+                            """, ended: "b");
+    }
+
+    [Fact]
+    public void Analyze_MemberVariableRoutineValueResultAfterAnArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            entity Holder
+                                f: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]]
+
+                            routine start()
+                                var h = Holder(f: pick_second)
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = h.f(a, b)
+                                drop b
+                                show(r.n)
+                                return
+                            """, ended: "b");
+    }
+
+    [Fact]
+    public void Analyze_ListElementRoutineValueResultAfterAnArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            routine start()
+                                var fs = List[Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]]]()
+                                fs.add_last(value: pick_second)
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = fs[0](a, b)
+                                drop b
+                                show(r.n)
+                                return
+                            """, ended: "b");
+    }
+
+    [Fact]
+    public void Analyze_GlobalRoutineValueResultAfterAnArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            global chooser: Callable[(Modifying[Box], Modifying[Box]), Modifying[Box]] = pick_second
+
+                            routine start()
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = chooser(a, b)
+                                drop b
+                                show(r.n)
+                                return
+                            """, ended: "b");
+    }
+
+    [Fact]
+    public void Analyze_GenericRoutineGivenTokensAfterAnArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            routine pick[T](a: T, b: T) -> T
+                                return b
+
+                            routine start()
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = pick[Modifying[Box]](a.modify(), b.modify())
+                                drop b
+                                show(r.n)
+                                return
+                            """, ended: "b");
+    }
+
+    [Fact]
+    public void Analyze_LambdaGivingATokenOnWhatItCaptured_Errors()
+    {
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   routine start()
+                                                                       var a = Box(n: 1)
+                                                                       var b = Box(n: 2)
+                                                                       var f = (x: Modifying[Box]) given (b) => b.modify()
+                                                                       var r = f(a)
+                                                                       show(r.n)
+                                                                       return
+                                                                   """,
+            expectedErrorSubstring: "which the lambda captured");
+        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.TokenReturnNotAllowed);
+    }
+
+    [Fact]
+    public void Analyze_GenericRoutineOverTokensAfterAnArgumentEnds_Errors()
+    {
+        AssertEndedBy(body: """
+                            routine pick_v[T](a: Modifying[T], b: Modifying[T]) -> Modifying[T]
+                                return b
+
+                            routine start()
+                                var a = Box(n: 1)
+                                var b = Box(n: 2)
+                                var r = pick_v[Box](a, b)
+                                drop b
+                                show(r.n)
+                                return
+                            """, ended: "b");
+    }
+}
