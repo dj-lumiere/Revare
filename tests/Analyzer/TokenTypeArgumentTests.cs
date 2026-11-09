@@ -60,44 +60,45 @@ public class TokenTypeArgumentTests
     }
 
     [Fact]
-    public void Analyze_MaybeOfTokenInVariable_IsALinkThatReadsNone()
+    public void Analyze_MaybeOfTokenInVariable_AfterItsEntityEnded_Errors()
     {
-        // An optional token on an entity kept in a name is a link: once `l` ends, `when m` gives none.
-        AssertAnalyzes(source: Prelude + """
-                                        routine start()
-                                            var m: Optional[%Cell] = none
-                                            if true
-                                                var l = Cell(n: 42)
-                                                m = l
-                                            when m
-                                                is None =>
-                                                    show("none")
-                                                else as v =>
-                                                    show(f"{v.n}")
-                                            return
-                                        """);
+        // An optional token on an entity kept in a local lasts as long as the entity it was given: once `l` ends,
+        // reading `m` is a build error.
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   routine start()
+                                                                       var m: Optional[%Cell] = none
+                                                                       if true
+                                                                           var l = Cell(n: 42)
+                                                                           m = l
+                                                                       when m
+                                                                           is None =>
+                                                                               show("none")
+                                                                           else as v =>
+                                                                               show(f"{v.n}")
+                                                                       return
+                                                                   """,
+            expectedErrorSubstring: "You are using 'm', which holds references, but 'l'");
+        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged);
     }
 
     [Fact]
-    public void Analyze_LocalListOfReferences_KeepsLinks()
+    public void Analyze_LocalListOfReferences_AfterAnEntityPutInItEnded_Errors()
     {
-        // A collection keeps a reference as a link: a use after the entity ended fails when it runs.
-        AssertAnalyzesSa(source: """
-                                 import IO/Console
-
-                                 entity Cell
-                                     n: S64
-
-                                 routine start()
-                                     var xs = List[%Cell]()
-                                     if true
-                                         var l = Cell(n: 42)
-                                         xs.add_last(value: l)
-                                     when try xs[0].n
-                                         is None => show("ended")
-                                         else as n => show(n)
-                                     return
-                                 """);
+        // A local collection of references lasts as long as the shortest-lived entity put in it: once `l` ends, using
+        // `xs` is a build error, under `try` too.
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   routine start()
+                                                                       var xs = List[%Cell]()
+                                                                       if true
+                                                                           var l = Cell(n: 42)
+                                                                           xs.add_last(value: l)
+                                                                       when try xs[0].n
+                                                                           is None => show("ended")
+                                                                           else as n => show(n)
+                                                                       return
+                                                                   """,
+            expectedErrorSubstring: "You are using 'xs', which holds references, but 'l'");
+        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.TokenUsedAfterSourceChanged);
     }
 
     [Fact]
@@ -162,18 +163,42 @@ public class TokenTypeArgumentTests
     }
 
     [Fact]
-    public void Analyze_VariantCaseHoldingReference_Errors()
+    public void Analyze_VariantCaseHoldingReference_KeepsALink()
+    {
+        // A reference written as a variant's case is a link, as in a record's member variable: the variant may be kept
+        // anywhere, and `is %Cell` names that case.
+        AssertAnalyzesSa(source: Prelude + """
+                                           variant Held
+                                               %Cell
+                                               S64
+
+                                           routine start()
+                                               var c = Cell(n: 1)
+                                               var h: Held = c
+                                               when h
+                                                   is %Cell as seen => show(seen.n)
+                                                   is S64 as n => show(n)
+                                               return
+                                           """);
+    }
+
+    [Fact]
+    public void Analyze_VariantCaseHoldingRecordReference_Errors()
     {
         AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   record Spot
+                                                                       x: S64
+
                                                                    variant Held
-                                                                       %Cell
+                                                                       %Spot
                                                                        S64
 
                                                                    routine start()
                                                                        return
                                                                    """,
-            expectedErrorSubstring: "as payload for variant case");
-        Assert.Contains(collection: result.Errors,
+            expectedErrorSubstring: "a reference to a record");
+        Assert.Contains(collection: result.Errors, filter: e => e.Code == SemanticDiagnosticCode.RecordReferenceKept);
+        Assert.DoesNotContain(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.TokenVariantPayloadNotAllowed);
     }
 

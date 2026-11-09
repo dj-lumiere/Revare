@@ -87,7 +87,99 @@ public class ReferenceSurfaceTests
                                                var h = Hunter(target: none)
                                                return
                                            """,
-            expectedErrorSubstring: "link written without `?`, which always names an entity");
+            expectedErrorSubstring: "It is written without `?`, so it always names an entity");
+    }
+
+    [Fact]
+    public void Analyze_NoneIntoListOfLinksWithoutQuestionMark_Errors()
+    {
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   entity Hunter
+                                                                       all: List[@Node]
+
+                                                                   routine start()
+                                                                       var h = Hunter(all: [])
+                                                                       h.all.add_last(value: none)
+                                                                       return
+                                                                   """,
+            expectedErrorSubstring: "It is written without `?`, so it always names an entity");
+        // Diagnostics show the link as written.
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.SurfaceMessage.Contains(value: "where a `@Node` link goes", comparisonType: StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Analyze_LinkThatMayBeEmptyIntoLinkWithoutQuestionMark_Errors()
+    {
+        // `@Node?` may be empty, so it does not go into `@Node`, as a member variable or as an element.
+        AssertHasErrorSa(source: Prelude + """
+                                           entity Hunter
+                                               target: @Node
+                                               maybe: @Node?
+
+                                           routine start()
+                                               var a = Node(id: 1)
+                                               var h = Hunter(target: a, maybe: none)
+                                               h.target = h.maybe
+                                               return
+                                           """,
+            expectedErrorSubstring: "Cannot assign value of type 'Optional[Modifying[Node]]' to target of type 'Linked[Modifying[Node]]'");
+        AssertHasErrorSa(source: Prelude + """
+                                           entity Hunter
+                                               all: List[@Node]
+                                               maybe: @Node?
+
+                                           routine start()
+                                               var h = Hunter(all: [], maybe: none)
+                                               h.all.add_last(value: h.maybe)
+                                               return
+                                           """,
+            expectedErrorSubstring: "cannot convert 'Optional[Modifying[Node]]' to 'Linked[Modifying[Node]]'");
+    }
+
+    [Fact]
+    public void Analyze_ListOfLinksWithAndWithoutQuestionMarkDiffer_Errors()
+    {
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   entity Hunter
+                                                                       all: List[@Node]
+
+                                                                   routine count(links: %List[@Node?]) -> U64
+                                                                       return links.count()
+
+                                                                   routine start()
+                                                                       var h = Hunter(all: [])
+                                                                       show(count(links: h.all))
+                                                                       return
+                                                                   """,
+            expectedErrorSubstring: "List[Linked[Modifying[Node]]]");
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.SurfaceMessage.Contains(value: "List[@Node]", comparisonType: StringComparison.Ordinal) &&
+                         e.SurfaceMessage.Contains(value: "List[@Node?]", comparisonType: StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Analyze_LinkWithoutQuestionMarkGoesWhereOneMayBeEmpty_Analyzes()
+    {
+        AssertAnalyzesSa(source: Prelude + """
+                                           entity Hunter
+                                               target: @Node
+                                               maybe: @Node?
+                                               some: List[@Node?]
+
+                                           routine aim(h: @Hunter, n: @Node)
+                                               h.target = n
+                                               return
+
+                                           routine start()
+                                               var a = Node(id: 1)
+                                               var h = Hunter(target: a, maybe: none, some: [])
+                                               h.maybe = h.target
+                                               h.some.add_last(value: h.target)
+                                               aim(h: h, n: a)
+                                               show(h.target.id)
+                                               return
+                                           """);
     }
 
     [Fact]

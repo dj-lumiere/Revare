@@ -30,6 +30,9 @@ routine parent_x(c: %Creature) -> S64
         is None => return -1
         else as p => return p.x
 
+entity Keyed
+    links: Dict[S64, @Creature?]
+
 routine keyed(links: %Dict[S64, @Creature?]) -> S64
     var sum: S64 = 0
     for (k, link) in links
@@ -53,10 +56,10 @@ routine start()
         kids.add_last(value: Creature(x: 0, y: 0, parent: at))
     for kid in kids
         show(parent_x(c: kid))
-    var by_key = Dict[S64, @Creature?]()
-    by_key[2] = herd[1]
-    by_key[3] = herd[0]
-    show(keyed(links: by_key))
+    var by_key = Keyed(links: Dict[S64, @Creature?]())
+    by_key.links[2] = herd[1]
+    by_key.links[3] = herd[0]
+    show(keyed(links: by_key.links))
     drop herd.remove_last()
-    show(f"after the end: {parent_x(c: kids[1])} {keyed(links: by_key)}")
+    show(f"after the end: {parent_x(c: kids[1])} {keyed(links: by_key.links)}")
     return

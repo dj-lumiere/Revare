@@ -925,8 +925,8 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
     temporary or an entity parameter is RV-S600.
   - **A lambda giving a reference**: from its parameters, a call of the routine value gives a reference on its
     arguments. From what it captured (the builder can't follow that entity to the call), it is allowed: the entity's
-    type becomes retroactive, and every reference a routine-value call gives is checked where it is used
-    (`EntityEndedError`, receivable with `try`/`check`). From a temporary is RV-S600. A lambda that captures a reference
+    type becomes retroactive, and every reference a routine-value call gives is checked where it is used, in a variable
+    or in the same expression (`f().x`, `f()[0]`, `f().rename()`) (`EntityEndedError`, receivable with `try`/`check`). From a temporary is RV-S600. A lambda that captures a reference
     (or `me`, a local collection, a `for` element) is bound to it: a local may hold it and a routine may call it, but
     keeping it in a member variable or returning it is RV-S606 (RV-S607 for an entity); `check --json` gives `boundTo`.
   - An entity element read into a variable (`var b = boxes[0]`) is a reference to the element with the container's
@@ -936,14 +936,30 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
     inside it points at. A write link read through a `%T` reads as a read link (a write there is RV-S631). A value that
     holds a way to change an entity (a write link, a manager handle except a `ReadOnly` Guarded, a record/tuple/
     `Optional`/variant with one) is read in place from a `%T` or from a `@readonly` `me`, never copied out (RV-S657).
-- **Links: references kept in storage.** In a member variable, a collection element (`List[@Node]`, `Dict[K, @Node?]`)
-  or a global, `@T` / `%T` / `@T?` / `%T?` is a **link**: it points without keeping the entity alive and knows when it
-  ends. A record may hold links too.
+- **Links: references kept in storage.** In a member variable, a collection element (`List[@Node]`, `Dict[K, @Node?]`),
+  a global or a variant's case, `@T` / `%T` / `@T?` / `%T?` is a **link**: it points without keeping the entity alive and
+  knows when it ends. A record may hold links too.
 
   | Type | Means | Entity ended |
   |---|---|---|
-  | `@T`, `%T` | names an entity (never `none`: `none` into it is a build error) | a use fails with `StaleLinkError`, `try` gives `none` |
+  | `@T`, `%T` | names an entity: it takes the entity, a reference or another such link, never a value that may be empty (`none`, a `@T?`: build error) | a use fails with `StaleLinkError`, `try` gives `none` |
   | `@T?`, `%T?` | may also be empty | a use fails (`AbsentValueError` when empty), `try` gives `none` |
+
+  `@T` and `@T?` are two types (inside the builder `Linked[Modifying[T]]` and `Optional[Modifying[T]]`, laid out the same
+  way): a `@T` goes where a `@T?` is kept as it is, `List[@T]` and `List[@T?]` differ, and diagnostics and hover show what
+  was written.
+  - **A local that holds references** (a local `List[@Node]`, `Dict[K, @Node]`, `@Node?`, a variant with a reference
+    case) lasts as long as the shortest-lived entity put in it: the build joins the sources of every reference put in
+    it (a literal, a routine on it, a subscript write, a routine it is handed to with leave to change it), and using
+    the local after any of them ended is RV-S643 ("You are using 'xs', which holds references, but 'b' ..."). No
+    lifetime is written. A reference read out of it (`var first = xs[0]`, a `for` element) lasts as long as the local.
+    Giving the whole local a new value starts again, and `drop xs` reads nothing. Its elements stay links underneath, so
+    the local goes to a parameter or a member variable of the same type. Member variables, globals and collections kept
+    there are checked when used.
+  - **A variant case written as a reference** (`variant Target` with `@Node`) is a link, as a member variable is. The
+    variant takes the entity (`var t: Target = a`, `h.target = xs[0]`, `return a`), `is @Node as n` names the case and binds
+    the link, a use of `n` fails once the entity ended. A reference to a record as a case is RV-S661 (RV-S602 is left for
+    library variants).
 
   Assigning an entity (or a wider reference) makes the link: `child.parent = node`, `Hunter(target: e)`,
   `xs.add_last(value: e)`. Use a link as a reference (`enemy.target.hp`, `hit(e: h.target)` for `e: @Enemy`): the builder

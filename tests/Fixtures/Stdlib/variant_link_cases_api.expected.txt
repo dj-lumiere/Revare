@@ -1,0 +1,9 @@
+node 1
+node 1
+node 1
+number 5
+nothing
+saw 1
+word
+node 2
+ended: received

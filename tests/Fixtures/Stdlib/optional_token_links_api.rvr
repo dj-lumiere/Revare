@@ -2,7 +2,7 @@ module Tests/Stdlib/OptionalTokenLinksApi
 
 import IO/Console
 # A link is an optional token on an entity kept in a place: `parent: Modifying[Node]?` in a member variable, a list's
-# element, a record in a list, a generic container or a local. It never keeps its entity alive: once the entity ends,
+# element, a record in a list or a generic container. It never keeps its entity alive: once the entity ends,
 # taking the link with `when` gives none. An entity ends where its original ends, even while a token taken from a link
 # is in use: that token's next use fails with EntityEndedError, which `check` receives.
 
@@ -45,9 +45,9 @@ routine id_after_clear(n: @Node, nodes: @List[Node]) -> S64
 routine in_use_while_ended()
     var nodes = List[Node]()
     nodes.add_last(value: Node(id: 3, parent: none))
-    var watch: @Node? = none
-    watch = nodes[0]
-    when watch
+    var watch = Shelf[@Node?](held: none)
+    watch.held = nodes[0]
+    when watch.held
         is None => show("none")
         else as n =>
             when check id_after_clear(n: n, nodes: nodes)
@@ -55,21 +55,21 @@ routine in_use_while_ended()
                 is EntityEndedError => show("used after its end")
                 else => show("other")
     show("after the use")
-    when watch
+    when watch.held
         is None => show("watch none")
         else as n => show(f"watch {n.id}")
     return
 
 routine list_of_links()
     var nodes = List[Node]()
-    var links = List[@Node?]()
+    var links = Shelf[List[@Node?]](held: [])
     for i in 10 til 13
         nodes.add_last(value: Node(id: i, parent: none))
     for i in 0 til 3
-        links.add_last(value: nodes[i])
-    links.add_last(value: none)
+        links.held.add_last(value: nodes[i])
+    links.held.add_last(value: none)
     drop nodes.remove_at(index: 1)
-    for link in links
+    for link in links.held
         when link
             is None => show("link none")
             else as n => show(f"link {n.id}")

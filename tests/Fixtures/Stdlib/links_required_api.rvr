@@ -1,0 +1,49 @@
+module Tests/Stdlib/LinksRequiredApi
+
+import IO/Console
+# A link written without `?` (`target: @Node`, `List[@Node]`) always names an entity: it takes an entity, a reference to
+# one or another such link, and goes where a link that may be empty is kept. Its entity may still end: a use then fails
+# with StaleLinkError, which `try` receives as none. `List[@Node]` and `List[@Node?]` are two types.
+
+entity Node
+    id: S64
+
+entity Hunter
+    target: @Node
+    maybe: @Node?
+    all: List[@Node]
+    some: List[@Node?]
+
+routine aim(h: @Hunter, n: @Node)
+    h.target = n
+    h.all.add_last(value: n)
+    return
+
+routine start()
+    var a = Node(id: 1)
+    var b = Node(id: 2)
+    var h = Hunter(target: a, maybe: none, all: [], some: [])
+    h.all.add_last(value: a)
+    h.some.add_last(value: none)
+    h.some.add_last(value: h.target)
+    h.maybe = h.target
+    show(f"{h.target.id} {h.all[0].id} {h.maybe.id} {h.some.count()}")
+    aim(h: h, n: b)
+    for t in h.all
+        show(t.id)
+    var seen = Set[@Node]()
+    drop seen.add(value: h.target)
+    drop seen.add(value: h.all[1])
+    show(f"{seen.count()} {h.target === h.all[1]}")
+    var xs = List[Node]()
+    xs.add_last(value: Node(id: 3))
+    h.target = xs[0]
+    show(h.target.id)
+    xs.clear()
+    when try h.target.id
+        is None => show("ended: received")
+        else as v => show(v)
+    when check h.target.id
+        is StaleLinkError => show("ended: StaleLinkError")
+        else => show("check ok")
+    return

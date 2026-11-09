@@ -1,0 +1,53 @@
+module Tests/Stdlib/LinksRoutineValueDirectApi
+
+import IO/Console
+# A reference a routine-value call gives may name an entity that ended (a lambda may give one taken from what it
+# captured). It is checked where it is used: through a local holding it, used in the same expression (`f().id`), and
+# under `try`, which receives the EntityEndedError. A link used where a reference is expected (`look(p: w.target)`) is
+# checked inside the routine it was handed to.
+
+entity Node
+    id: S64
+
+entity Watch
+    target: @Node?
+
+routine look(w: @Watch, xs: @List[Node], how: S64)
+    when w.target
+        is None => show("none")
+        else as p =>
+            var f = () given (p) => p
+            show(f().id)
+            xs.clear()
+            if how == 0
+                var r = f()
+                show(r.id)
+            elseif how == 1
+                show(f().id)
+            else
+                when try f().id
+                    is None => show("try direct: received")
+                    else as v => show(v)
+                when try p.id
+                    is None => show("try name: received")
+                    else as v => show(v)
+    return
+
+routine read_after_end(p: @Node, xs: @List[Node]) -> S64
+    xs.clear()
+    return p.id
+
+routine start()
+    var xs = List[Node]()
+    var w = Watch(target: none)
+    for how in 0 til 3
+        xs.add_last(value: Node(id: 7 + how))
+        w.target = xs[0]
+        if not try look(w: w, xs: xs, how: how)
+            show(f"case {how}: received")
+    xs.add_last(value: Node(id: 20))
+    w.target = xs[0]
+    when try read_after_end(p: w.target, xs: xs)
+        is None => show("link argument: received")
+        else as v => show(v)
+    return

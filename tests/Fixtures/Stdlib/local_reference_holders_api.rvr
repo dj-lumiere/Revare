@@ -1,0 +1,39 @@
+module Tests/Stdlib/LocalReferenceHoldersApi
+
+import IO/Console
+# A local collection of references (and a local optional reference) holds references to entities that outlive it: it is
+# used while every entity put in it lives, read in place, walked, filled by a routine and read out.
+
+entity Node
+    id: S64
+
+routine total(xs: %List[@Node]) -> S64
+    var sum: S64 = 0
+    for n in xs
+        sum += n.id
+    return sum
+
+routine fill(into: @List[@Node], n: @Node)
+    into.add_last(value: n)
+    return
+
+routine start()
+    var a = Node(id: 1)
+    var b = Node(id: 2)
+    var xs: List[@Node] = [a]
+    fill(into: xs, n: b)
+    show(total(xs: xs))
+    var p: @Node? = b
+    when p
+        is None => show("none")
+        else as q => show(q.id)
+    var ys = List[@Node]()
+    for n in xs
+        ys.add_last(value: n)
+    var first = ys[0]
+    show(f"{first.id} {ys.count()}")
+    var byId = Dict[S64, @Node]()
+    byId[a.id] = a
+    byId[b.id] = b
+    show(byId[2].id)
+    return

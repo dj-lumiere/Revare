@@ -1,0 +1,61 @@
+module Tests/Stdlib/VariantLinkCasesApi
+
+import IO/Console
+# A reference written as a variant's case is a link, as in a record's member variable: the variant may be kept in a
+# member variable, a collection or a local. The entity becomes the link where the variant is given it, `is @Node as n`
+# names that case, and a use of `n` after its entity ended fails (`try` receives it).
+
+entity Node
+    id: S64
+
+variant Target
+    @Node
+    S64
+    None
+
+variant Seen
+    %Node
+    Text
+
+entity Hunter
+    target: Target
+
+routine describe(t: Target) -> Text
+    when t
+        is @Node as n => return f"node {n.id}"
+        is S64 as v => return f"number {v}"
+        is None => return "nothing"
+
+routine look(s: Seen) -> Text
+    when s
+        is %Node as n => return f"saw {n.id}"
+        is Text as t => return t
+
+routine first_target(a: @Node) -> Target
+    return a
+
+routine start()
+    var a = Node(id: 1)
+    var t: Target = a
+    show(describe(t: t))
+    show(describe(t: first_target(a: a)))
+    var h = Hunter(target: a)
+    show(describe(t: h.target))
+    h.target = 5
+    show(describe(t: h.target))
+    h.target = none
+    show(describe(t: h.target))
+    var all = List[Seen]()
+    all.add_last(value: a)
+    all.add_last(value: "word")
+    for s in all
+        show(look(s: s))
+    var xs = List[Node]()
+    xs.add_last(value: Node(id: 2))
+    h.target = xs[0]
+    show(describe(t: h.target))
+    xs.clear()
+    when try describe(t: h.target)
+        is None => show("ended: received")
+        else as d => show(d)
+    return

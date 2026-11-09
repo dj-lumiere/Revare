@@ -63,8 +63,9 @@ public sealed class RevareRules : LanguageRules
 
     /// <summary>
     /// Writes the builder's names of the references the way a Revare program spells them: <c>Viewing[Node]</c> reads
-    /// <c>%Node</c>, <c>Modifying[Node]</c> reads <c>@Node</c>, and <c>Optional[Modifying[Node]]</c> reads <c>@Node?</c>,
-    /// at any depth (<c>List[Modifying[Node]?]</c> reads <c>List[@Node?]</c>).
+    /// <c>%Node</c>, <c>Modifying[Node]</c> reads <c>@Node</c>, <c>Optional[Modifying[Node]]</c> reads <c>@Node?</c>, and a
+    /// link written without <c>?</c> (<c>Linked[Modifying[Node]]</c>) reads <c>@Node</c> as written, at any depth
+    /// (<c>List[Modifying[Node]?]</c> reads <c>List[@Node?]</c>).
     /// </summary>
     public override string SurfaceText(string text)
     {
@@ -78,6 +79,11 @@ public sealed class RevareRules : LanguageRules
             inner.StartsWith(value: "Viewing[", comparisonType: StringComparison.Ordinal) ||
             inner.StartsWith(value: "Modifying[", comparisonType: StringComparison.Ordinal)
                 ? inner + "?"
+                : null);
+        text = ReplaceWrapper(text: text, name: "Linked[", rewrite: inner =>
+            inner.StartsWith(value: "Viewing[", comparisonType: StringComparison.Ordinal) ||
+            inner.StartsWith(value: "Modifying[", comparisonType: StringComparison.Ordinal)
+                ? inner
                 : null);
         text = ReplaceWrapper(text: text, name: "Viewing[", rewrite: inner => "%" + Signed(inner: inner));
         return ReplaceWrapper(text: text, name: "Modifying[", rewrite: inner => "@" + Signed(inner: inner));

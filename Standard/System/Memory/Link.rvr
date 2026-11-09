@@ -164,6 +164,27 @@ routine require_viewing_live[T](token: %T)
                 throw EntityEndedError(type_name: T.type_name())
     return
 
+### Fails when the entity a write token reaches has ended, and gives the token back otherwise. The builder wraps a token
+### in this where it is used in the same expression that made it, so no statement can go before the use (`f().x`, with
+### `f` a routine value that may give a token on an entity that ended).
+### :param token: The token.
+### :returns: The same token.
+### :throws: {EntityEndedError} The entity has ended.
+@inline
+routine live_modifying[T](token: @T) -> @T
+    require_modifying_live[T](token: token)
+    return token
+
+### Fails when the entity a read token reaches has ended, and gives the token back otherwise, as `live_modifying` does
+### for a write token.
+### :param token: The token.
+### :returns: The same token.
+### :throws: {EntityEndedError} The entity has ended.
+@inline
+routine live_viewing[T](token: %T) -> %T
+    require_viewing_live[T](token: token)
+    return token
+
 ### Gives back an entity's box, which the builder puts before each return of a written `destruct`: the heap block, or for
 ### an entity of a retroactive type its slot, which goes back to its type's free list.
 @inline

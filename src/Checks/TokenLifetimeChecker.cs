@@ -903,15 +903,21 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
     /// <summary>A token variable at one point of the routine: where it may come from, and what ended it.</summary>
     private sealed record TokenState(HashSet<string> Origins, string? EndedBy, SourceLocation? EndedAt);
 
-    /// <summary>Token variables at one point; null when the point cannot be reached.</summary>
-    private sealed class State(Dictionary<string, TokenState> tokens)
+    /// <summary>Token variables at one point, or null when the point cannot be reached. <see cref="Holders"/> are the
+    /// locals that hold references kept as links (a local <c>List[@Node]</c>, a local <c>@Node?</c>): their origins are
+    /// the sources of every reference put in them, and once one of those ends, the local is ended as a whole.</summary>
+    private sealed class State(Dictionary<string, TokenState> tokens, Dictionary<string, TokenState>? holders = null)
     {
         public Dictionary<string, TokenState> Tokens { get; } = tokens;
+
+        public Dictionary<string, TokenState> Holders { get; } =
+            holders ?? new Dictionary<string, TokenState>(comparer: StringComparer.Ordinal);
 
         public State Clone()
         {
             return new State(tokens: new Dictionary<string, TokenState>(dictionary: Tokens,
-                comparer: StringComparer.Ordinal));
+                    comparer: StringComparer.Ordinal),
+                holders: new Dictionary<string, TokenState>(dictionary: Holders, comparer: StringComparer.Ordinal));
         }
 
         public static State? Merge(State? a, State? b)
@@ -926,11 +932,17 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                 return a.Clone();
             }
 
+            return new State(tokens: MergeStates(a: a.Tokens, b: b.Tokens), holders: MergeStates(a: a.Holders, b: b.Holders));
+        }
+
+        private static Dictionary<string, TokenState> MergeStates(Dictionary<string, TokenState> a,
+            Dictionary<string, TokenState> b)
+        {
             var merged = new Dictionary<string, TokenState>(comparer: StringComparer.Ordinal);
-            foreach (string name in a.Tokens.Keys.Union(second: b.Tokens.Keys))
+            foreach (string name in a.Keys.Union(second: b.Keys))
             {
-                TokenState? x = a.Tokens.GetValueOrDefault(key: name);
-                TokenState? y = b.Tokens.GetValueOrDefault(key: name);
+                TokenState? x = a.GetValueOrDefault(key: name);
+                TokenState? y = b.GetValueOrDefault(key: name);
                 if (x == null || y == null)
                 {
                     merged[key: name] = x ?? y!;
@@ -943,19 +955,24 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     EndedAt: x.EndedAt ?? y.EndedAt);
             }
 
-            return new State(tokens: merged);
+            return merged;
         }
 
         public bool SameAs(State? other)
         {
-            if (other == null || other.Tokens.Count != Tokens.Count)
+            return other != null && SameStates(a: Tokens, b: other.Tokens) && SameStates(a: Holders, b: other.Holders);
+        }
+
+        private static bool SameStates(Dictionary<string, TokenState> a, Dictionary<string, TokenState> b)
+        {
+            if (a.Count != b.Count)
             {
                 return false;
             }
 
-            foreach ((string name, TokenState t) in Tokens)
+            foreach ((string name, TokenState t) in a)
             {
-                if (!other.Tokens.TryGetValue(key: name, value: out TokenState? o) ||
+                if (!b.TryGetValue(key: name, value: out TokenState? o) ||
                     (t.EndedBy == null) != (o.EndedBy == null) || !t.Origins.SetEquals(other: o.Origins))
                 {
                     return false;
@@ -1104,6 +1121,17 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
 
             foreach ((string path, string reason) in writes)
             {
+                foreach ((string name, TokenState h) in _state.Holders.ToList())
+                {
+                    if (h.EndedBy == null && h.Origins.FirstOrDefault(predicate: o => Ends(written: path, origin: o)) is { } gone)
+                    {
+                        string from = gone == UnknownOrigin || gone.StartsWith(value: "~", comparisonType: StringComparison.Ordinal)
+                            ? "an entity a reference in it was taken from"
+                            : $"'{Shown(path: gone)}', where a reference in it was taken from,";
+                        _state.Holders[key: name] = h with { EndedBy = $"{from} {reason}", EndedAt = at };
+                    }
+                }
+
                 foreach ((string name, TokenState t) in _state.Tokens.ToList())
                 {
                     if (t.EndedBy == null && name != spared &&
@@ -1123,7 +1151,7 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
         /// other type.</summary>
         private static string? LinkedEntityName(TypeSymbol? type)
         {
-            return type is { BareName: RuntimeContract.OptionalCarrier, TypeArguments: [{ } token] } &&
+            return type is { BareName: RuntimeContract.OptionalCarrier or RuntimeContract.RequiredLink, TypeArguments: [{ } token] } &&
                    token.BareName is RuntimeContract.Viewing or RuntimeContract.Modifying &&
                    token.TypeArguments is [EntityTypeSymbol entity]
                 ? entity.Name
@@ -1282,6 +1310,19 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
 
         private void Use(IdentifierExpression id)
         {
+            if (_state != null && _reporting && _state.Holders.TryGetValue(key: id.Name, value: out TokenState? h) &&
+                h.EndedBy != null && _reported.Add(item: $"{id.Name}@{id.Location.Line}:{id.Location.Column}"))
+            {
+                owner.Report(code: SemanticDiagnosticCode.TokenUsedAfterSourceChanged,
+                    message:
+                    $"You are using '{id.Name}', which holds references, but {h.EndedBy} (line {h.EndedAt?.Line}). A local " +
+                    "that holds references lasts as long as the shortest-lived entity put in it, so a reference in " +
+                    $"'{id.Name}' may no longer point at a live entity. Use '{id.Name}' before that line, or keep that " +
+                    "entity until you are done with it.",
+                    location: id.Location);
+                return;
+            }
+
             if (_state == null || !_reporting ||
                 !_state.Tokens.TryGetValue(key: id.Name, value: out TokenState? t) || t.EndedBy == null)
             {
@@ -1382,6 +1423,13 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     {
                         Bind(name: v.Name, value: v.Initializer!, index: index);
                     }
+                    else if (!v.Name.StartsWith(value: "_", comparisonType: StringComparison.Ordinal) &&
+                             HoldsLinks(type: v.Type?.ResolvedType ?? v.Initializer?.ResolvedType))
+                    {
+                        _state!.Holders[key: v.Name] = new TokenState(
+                            Origins: v.Initializer != null ? HeldOrigins(value: v.Initializer, index: index) : [],
+                            EndedBy: null, EndedAt: null);
+                    }
 
                     _blockLocals.TryPeek(result: out List<string>? locals);
                     locals?.Add(item: v.Name);
@@ -1480,8 +1528,8 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     // being matched (`when slot.item`, `when v`).
                     // A link's token names the linked entity, not the place the link is kept in.
                     HashSet<string>? matched = stepSources != null
-                        ? stepSources.Select(selector: w => Join(path: w, suffix: "[]"))
-                                     .ToHashSet()
+                        ? WithHolderOrigins(paths: stepSources.Select(selector: w => Join(path: w, suffix: "[]"))
+                                                              .ToHashSet())
                         : LinkedEntityName(type: whenStmt.Expression.ResolvedType) != null
                             ? null
                             : owner.PathsOf(expr: whenStmt.Expression, tokenOrigins: Held);
@@ -1643,6 +1691,12 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     return;
                 // `drop x` ends `x` as `steal x` does: a token taken from it ends here.
                 case DropStatement { EndsBinding: true } ended:
+                    // Letting go of a local that holds references reads none of them.
+                    if (ended.Expression is IdentifierExpression { Name: var droppedName })
+                    {
+                        _state.Holders.Remove(key: droppedName);
+                    }
+
                     Expr(expr: ended.Expression);
                     if (owner.PathsOf(expr: ended.Expression, tokenOrigins: Held) is { } dropped)
                     {
@@ -1748,6 +1802,7 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                 foreach (string name in locals)
                 {
                     _state.Tokens.Remove(key: name);
+                    _state.Holders.Remove(key: name);
                 }
             }
         }
@@ -1767,7 +1822,157 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                 ? walkedPaths.Select(selector: w => Join(path: w, suffix: "[]"))
                              .ToHashSet()
                 : owner.OriginsOf(expr: value, tokenOrigins: Held) ?? [$"~{index}"];
-            _state.Tokens[key: name] = new TokenState(Origins: origins, EndedBy: null, EndedAt: null);
+            _state.Tokens[key: name] = new TokenState(Origins: WithHolderOrigins(paths: origins), EndedBy: null,
+                EndedAt: null);
+        }
+
+        // -- locals that hold references --
+
+        /// <summary>Whether a local of <paramref name="type"/> holds references kept as links: it is a link itself
+        /// (<c>@Node?</c>), or a link is among its type arguments, its tuple's elements or its variant's cases
+        /// (<c>List[@Node]</c>, <c>Dict[S64, @Node]</c>). A shared handle keeps what it holds for every holder, so
+        /// what is inside one is checked where it is used, not here.</summary>
+        private static bool HoldsLinks(TypeSymbol? type, int depth = 0)
+        {
+            if (type == null || depth > 8 || type is RoutineTypeSymbol)
+            {
+                return false;
+            }
+
+            if (LinkedEntityName(type: type) != null)
+            {
+                return true;
+            }
+
+            if (IsTrackedToken(type: type) || type.BareName is RuntimeContract.Retained or RuntimeContract.Tracked or
+                    RuntimeContract.Guarded or RuntimeContract.Witnessed or RuntimeContract.Roamed or RuntimeContract.Hijacked)
+            {
+                return false;
+            }
+
+            IEnumerable<TypeSymbol> parts = type switch
+            {
+                TupleTypeSymbol tuple => tuple.ElementTypes,
+                VariantTypeSymbol variant => variant.Members.Where(predicate: m => m.Type != null)
+                                                    .Select(selector: m => m.Type!),
+                _ => type.TypeArguments ?? []
+            };
+            return parts.Any(predicate: part => HoldsLinks(type: part, depth: depth + 1));
+        }
+
+        /// <summary>The local that holds references a write reaches (<c>xs</c> of <c>xs</c>, <c>xs[i]</c>), or null.</summary>
+        private string? HolderRoot(Expression expr)
+        {
+            Expression e = Unwrap(expr: expr);
+            // A local handed where a reference is expected is given as the reference the builder takes of it.
+            if (e is CallExpression { Callee: MemberExpression { Object: var minted, MemberName: "view" or "modify" } })
+            {
+                e = minted;
+            }
+
+            while (e is IndexExpression { Object: var container })
+            {
+                e = container;
+            }
+
+            return e is IdentifierExpression { Name: var name } && _state?.Holders.ContainsKey(key: name) == true
+                ? name
+                : null;
+        }
+
+        /// <summary>
+        /// The sources of the references <paramref name="value"/> puts in a local that holds them: an entity or a token
+        /// gives where it comes from (a temporary gives the statement, which ends with it), a link from storage gives
+        /// none (its use is checked when it runs), a literal or a call gives those of every part it is made of.
+        /// </summary>
+        private HashSet<string> HeldOrigins(Expression value, int index)
+        {
+            var origins = new HashSet<string>(comparer: StringComparer.Ordinal);
+            Expression e = Unwrap(expr: value);
+            TypeSymbol? type = e.ResolvedType;
+            // What is read out of a local that holds references (`xs`, `xs[0]`) carries that local's sources.
+            if (RootIdentifier(expr: e) is { } root && _state?.Holders.TryGetValue(key: root, value: out TokenState? held) == true)
+            {
+                origins.UnionWith(other: held.Origins);
+                return origins;
+            }
+
+            // A `for` element is an element of what the loop walks.
+            if (RootIdentifier(expr: e) is { } step && _stepElements.TryGetValue(key: step, value: out HashSet<string>? walked))
+            {
+                origins.UnionWith(other: WithHolderOrigins(paths: walked.Select(selector: w => Join(path: w, suffix: "[]"))
+                                                                        .ToHashSet()));
+                return origins;
+            }
+
+            if (LinkedEntityName(type: type) != null)
+            {
+                return origins;
+            }
+
+            if (!HoldsLinks(type: type) && (type is EntityTypeSymbol || IsTrackedToken(type: type)))
+            {
+                origins.UnionWith(other: owner.PathsOf(expr: e, tokenOrigins: Held) is { } paths
+                    ? WithHolderOrigins(paths: paths)
+                    : [$"~{index}"]);
+                return origins;
+            }
+
+            IEnumerable<Expression> parts = e switch
+            {
+                ListLiteralExpression list => list.Elements,
+                SetLiteralExpression set => set.Elements,
+                TupleLiteralExpression tuple => tuple.Elements,
+                DictLiteralExpression dict => dict.Pairs.SelectMany(selector: p => new[] { p.Key, p.Value }),
+                CallExpression call => call.Callee is MemberExpression { Object: var receiver }
+                    ? [receiver, .. call.Arguments]
+                    : call.Arguments,
+                CreatorExpression creator => creator.MemberVariables.Select(selector: m => m.Value),
+                _ => []
+            };
+            foreach (Expression part in parts)
+            {
+                origins.UnionWith(other: HeldOrigins(value: part, index: index));
+            }
+
+            return origins;
+        }
+
+        /// <summary>Adds the sources of what <paramref name="value"/> puts in <paramref name="holder"/> to its own.</summary>
+        private void AddHeld(string holder, Expression value, int index)
+        {
+            if (_state?.Holders.TryGetValue(key: holder, value: out TokenState? h) != true)
+            {
+                return;
+            }
+
+            HashSet<string> added = HeldOrigins(value: value, index: index);
+            if (added.Count > 0 && !added.IsSubsetOf(other: h!.Origins))
+            {
+                _state.Holders[key: holder] = h with { Origins = h.Origins.Union(second: added).ToHashSet() };
+            }
+        }
+
+        /// <summary><paramref name="paths"/> with the sources of each local that holds references among them: a
+        /// reference read out of one (<c>xs[0]</c>, a <c>for</c> element) comes from what was put in it.</summary>
+        private HashSet<string> WithHolderOrigins(HashSet<string> paths)
+        {
+            if (_state == null || _state.Holders.Count == 0)
+            {
+                return paths;
+            }
+
+            HashSet<string>? joined = null;
+            foreach (string path in paths)
+            {
+                if (_state.Holders.TryGetValue(key: RootName(path: path), value: out TokenState? h))
+                {
+                    joined ??= [.. paths];
+                    joined.UnionWith(other: h.Origins);
+                }
+            }
+
+            return joined ?? paths;
         }
 
         /// <summary>Binds an emitter kept in a local as a token on the elements of what it walks (<c>xs[]</c> for
@@ -1911,6 +2116,21 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                 }
             }
 
+            // A reference put in a local that holds references (`xs[i] = e`) adds its sources to the local's, and a
+            // new value for the whole local (`xs = ...`) starts from the sources of what it holds now.
+            if (_state != null && HolderRoot(expr: target) is { } holder)
+            {
+                if (target is IdentifierExpression)
+                {
+                    _state.Holders[key: holder] = new TokenState(Origins: HeldOrigins(value: value, index: index),
+                        EndedBy: null, EndedAt: null);
+                }
+                else
+                {
+                    AddHeld(holder: holder, value: value, index: index);
+                }
+            }
+
             if (owner.PathsOf(expr: target, tokenOrigins: Held) is { } written)
             {
                 // A write to a member through a token (`c.y = 5`) changes what is inside the token's object, never the
@@ -1963,6 +2183,10 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     Use(id: id);
                     return;
                 case LambdaExpression:
+                    return;
+                // A use under `try` / `check` is a use like any other.
+                case RecoveryExpression recovery:
+                    Expr(expr: recovery.Inner);
                     return;
                 case NamedArgumentExpression named:
                     Expr(expr: named.Value);
@@ -2067,6 +2291,44 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
             }
         }
 
+        /// <summary>
+        /// A call that may put references in a local that holds them: one made on it (<c>xs.add_last(value: e)</c>), or
+        /// one it is handed to with leave to change it (<c>fill(into: xs, from: e)</c>). What the call is handed besides
+        /// may go in, so its sources join the local's. A routine that only reads its receiver puts nothing in.
+        /// </summary>
+        private void NoteHeldByCall(CallExpression call)
+        {
+            if (_state == null || _state.Holders.Count == 0)
+            {
+                return;
+            }
+
+            var operands = new List<Expression>();
+            if (call.Callee is MemberExpression { Object: var self })
+            {
+                operands.Add(item: self);
+            }
+
+            operands.AddRange(collection: call.Arguments);
+            RoutineInfo? callee = call.ResolvedRoutine;
+            for (int i = 0; i < operands.Count; i++)
+            {
+                if (HolderRoot(expr: operands[index: i]) is not { } holder ||
+                    i == 0 && call.Callee is MemberExpression && callee is { IsReadOnly: true })
+                {
+                    continue;
+                }
+
+                for (int j = 0; j < operands.Count; j++)
+                {
+                    if (j != i)
+                    {
+                        AddHeld(holder: holder, value: operands[index: j], index: _statementIndex);
+                    }
+                }
+            }
+        }
+
         private void Call(CallExpression call)
         {
             List<string>? outer = _callEnds;
@@ -2130,6 +2392,7 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                     isReadElement: e => e is IdentifierExpression { Name: var n } && _readElements.Contains(item: n));
             }
 
+            NoteHeldByCall(call: call);
             List<(string Path, string Callee)> writes = owner.CallWrites(call: call, tokenOrigins: Held);
             if (_reporting && inUse.Count > 0)
             {

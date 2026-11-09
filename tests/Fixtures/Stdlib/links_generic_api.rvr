@@ -32,10 +32,11 @@ routine start()
     var lists = List[List[S64]]()
     lists.add_last(value: [1, 2, 3])
     lists.add_last(value: [4])
-    var l: @List[S64]? = lists[0]
-    show(l.count())
+    var l = Wrap[List[S64]](link: none)
+    l.link = lists[0]
+    show(l.link.count())
     drop lists.remove_first()
-    show(try l.count())
+    show(try l.link.count())
     var boxes = List[Box[S64]]()
     boxes.add_last(value: Box[S64](held: 7))
     var w = Wrap[Box[S64]](link: none)
@@ -50,11 +51,12 @@ routine start()
     show(lones.count())
     var churn = List[List[S64]]()
     var stale: S64 = 0
+    var k = Wrap[List[S64]](link: none)
     for i in 0 til 20000
         churn.add_last(value: [i])
-        var k: @List[S64]? = churn[0]
+        k.link = churn[0]
         drop churn.remove_first()
-        when k
+        when k.link
             is None => stale += 1
             else => nothing
     show(stale)

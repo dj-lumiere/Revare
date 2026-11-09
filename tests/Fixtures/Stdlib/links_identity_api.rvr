@@ -3,10 +3,17 @@ module Tests/Stdlib/LinksIdentityApi
 import IO/Console
 # Two links compare with `===` / `!==`: the same entity and the same slot generation. A link has no `==`. A link to an
 # entity that ended is not the same as a link to the next entity in its slot. A link is a `Set` element and a `Dict`
-# key by that identity, which stays the same after its entity ends.
+# key by that identity, which stays the same after its entity ends. What is read after the entity ended is kept in a
+# member variable: a local that holds references lasts only as long as its entities.
 
 entity Node
     id: S64
+
+entity Kept
+    a: @Node?
+    c: @Node?
+    seen: Set[@Node?]
+    score: Dict[@Node?, S64]
 
 routine start()
     var nodes = List[Node]()
@@ -18,21 +25,20 @@ routine start()
     var empty: @Node? = none
     var other_empty: @Node? = none
     show(f"{a === b} {a === c} {a !== c} {a === empty} {empty === other_empty}")
-    var seen = Set[@Node?]()
-    drop seen.add(a)
-    drop seen.add(b)
-    drop seen.add(c)
-    show(f"set: {seen.count()}")
-    var score = Dict[@Node?, S64]()
-    score[a] = 10
-    score[c] = 20
+    var k = Kept(a: a, c: c, seen: Set[@Node?](), score: Dict[@Node?, S64]())
+    drop k.seen.add(a)
+    drop k.seen.add(b)
+    drop k.seen.add(c)
+    show(f"set: {k.seen.count()}")
+    k.score[a] = 10
+    k.score[c] = 20
     drop nodes.remove_first()
     nodes.add_last(value: Node(id: 9))
     var d: @Node? = nodes[3]
-    show(f"ended vs next in its slot: {a === d}")
-    show(f"still keyed: {seen.has(a)} {seen.has(d)} {score[a]} {score.count()}")
+    show(f"ended vs next in its slot: {k.a === d}")
+    show(f"still keyed: {k.seen.has(k.a)} {k.seen.has(d)} {k.score[k.a]} {k.score.count()}")
     var links = List[@Node?]()
-    links.add_last(value: c)
+    links.add_last(value: k.c)
     links.add_last(value: d)
     var found: S64 = 0
     for link in links
