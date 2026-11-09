@@ -1,0 +1,17 @@
+end 3
+after drop
+plain 2
+end 2
+after drop
+try 1
+end 1
+after drop
+check 0
+---
+end 4
+try none
+end 5
+check failed
+done
+end 99
+end 99

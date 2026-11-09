@@ -982,8 +982,11 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
     handed to a routine that may get one, `me` of a routine called through one) is checked before each statement that
     uses it, and again where it is used when the statement calls something else first (`x.hp = hurt(x)`): the check
     compares its generation with the slot's and fails with `EntityEndedError` once its entity ended. A reference the
-    build proves comes from an original is not checked. Not covered: a call's receiver is checked before the call's
-    arguments run, so an argument that ends the receiver's entity (`n.attach(world.remove(n))`) is not seen.
+    build proves comes from an original is not checked. A call's receiver runs before its arguments: when an argument
+    calls a routine and the receiver (or an earlier argument) reaches an entity through such a reference
+    (`n.attach(world.remove(n))`, `n.kids.add_last(value: world.remove(n))`), the arguments run first and the
+    reference is checked again right before the call. A number read out of the entity before the argument
+    (`n.id.add(you: world.remove(n))`) is a copy taken while the entity was there, and stays good.
   - A written `destruct` that reads a link may find its entity ended first (teardown order): read it with `try` there.
 - **Access blocks: `viewing` / `modifying` only open a `Guarded`** (and any type with the `view_enter`/`view_exit` or
   `modify_enter`/`modify_exit` pair: `FileStorage`, a type of your own). `viewing g as v` calls `g.view_enter()` (a
@@ -1743,8 +1746,9 @@ Verbs (methods on `Work[T]`, all failable):
   message. Call `job.cancel()` first to throw away what it comes to, a failure included.
 - `cancel()` — asks the work to stop. Work nothing started yet never runs. Running work sees the request at
   its next wait (`waitfor`, `retrieve`, a channel), which returns early, or through `cancellation_requested()`.
-  A job started with `start_now()`/`start_here()` that waits again after that stops at that wait, its owned
-  values torn down, so a loop of waits that never polls still ends (a thread of its own cannot be stopped from
+  A job started with `start_now()`/`start_here()` that waits again after that stops at that wait, and every routine
+  on its stack tears down what it holds (its locals and the entities it was handed by value, not one it already
+  handed on), so a loop of waits that never polls still ends (a thread of its own cannot be stopped from
   outside, each of its waits only returns early). Retrieving a cancelled Work waits for it to stop,
   then throws `CancelRequested` (a crashable, no `Error` in the name because cancelling is not a failure),
   recovered with `check`/`try`.

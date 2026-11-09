@@ -47,6 +47,8 @@ public sealed partial class PbrfRoundTripTests
         Builder.Lowering.Passes.CancellationInstrumentationPass.Run(
             programs: r.Registry.UserPrograms,
             instantiatedBodies: r.InstantiatedGenericBodies,
+            synthesizedBodies: r.SynthesizedBodies,
+            registry: r.Registry,
             maySuspendKeys: r.MaySuspendRoutineKeys);
         var gen = new Builder.LlvmEmit.LlvmEmitter(userPrograms: r.Registry.UserPrograms,
             registry: r.Registry,

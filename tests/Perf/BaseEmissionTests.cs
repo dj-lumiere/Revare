@@ -145,6 +145,8 @@ public sealed class BaseEmissionTests
         Builder.Lowering.Passes.CancellationInstrumentationPass.Run(
             programs: r.Registry.UserPrograms,
             instantiatedBodies: r.InstantiatedGenericBodies,
+            synthesizedBodies: r.SynthesizedBodies,
+            registry: r.Registry,
             maySuspendKeys: r.MaySuspendRoutineKeys);
 
         // The full reachable set (bare mangled names) — the "everything already materialized" universe.
@@ -210,6 +212,8 @@ public sealed class BaseEmissionTests
         Builder.Lowering.Passes.CancellationInstrumentationPass.Run(
             programs: r.Registry.UserPrograms,
             instantiatedBodies: r.InstantiatedGenericBodies,
+            synthesizedBodies: r.SynthesizedBodies,
+            registry: r.Registry,
             maySuspendKeys: r.MaySuspendRoutineKeys);
 
         // BASE: empty user programs + null live set (⇒ non-pruned) + stdlib present. Runs to completion
@@ -321,6 +325,8 @@ public sealed class BaseEmissionTests
         Builder.Lowering.Passes.CancellationInstrumentationPass.Run(
             programs: baseR.Registry.UserPrograms,
             instantiatedBodies: baseR.InstantiatedGenericBodies,
+            synthesizedBodies: baseR.SynthesizedBodies,
+            registry: baseR.Registry,
             maySuspendKeys: baseR.MaySuspendRoutineKeys);
 
         var baseGen = new LlvmEmitter(userPrograms: new List<(Program, string, string)>(),

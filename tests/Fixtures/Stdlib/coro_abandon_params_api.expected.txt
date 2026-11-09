@@ -1,0 +1,22 @@
+destruct 50
+destruct 5
+---
+holds resumed
+destruct 50
+destruct 5
+---
+consume 7
+destruct 7
+destruct 60
+destruct 8
+---
+destruct 70
+destruct 71
+---
+destruct 9
+---
+parked woke once
+destruct 50
+destruct 5
+cancelled
+done

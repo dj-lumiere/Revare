@@ -1,0 +1,14 @@
+attach after peek 11
+end 1 with 0 kids
+attach after remove: try none
+end 77 with 0 kids
+end 1 with 0 kids
+add_last after remove: check failed
+end 77 with 0 kids
+end 1 with 0 kids
+id read before remove 2
+end 77 with 0 kids
+end 1 with 0 kids
+attach_self: try none
+slot holds 77 with 0 kids
+end 77 with 0 kids

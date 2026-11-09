@@ -1,0 +1,112 @@
+module Tests/Stdlib/CoroAbandonParamsApi
+
+# An abandoned coroutine tears down what every frame on its stack holds: the entities its routines took as
+# parameters, and their locals. A routine that hands a parameter on before it parks leaves that entity to whoever
+# took it, so the abandon does not end it a second time. A local given a new entity before the routine parks holds
+# that one when the routine is abandoned. A routine that gives its parameter back leaves it to its caller. A Work runs the `check` version of its routine, which
+# tears down the same values.
+
+import IO/Console
+
+entity Res
+    tag: S64
+
+@override
+dangerous routine Res.destruct()
+    show(f"destruct {me.tag}")
+    return
+
+routine holds(r: Res)
+    var own = Res(tag: r.tag * 10)
+    C::rf_coro_yield()
+    show("holds resumed")
+    return
+
+routine consume(r: Res)
+    show(f"consume {r.tag}")
+    return
+
+routine hands_on(r: Res, second: Res)
+    var own = Res(tag: 60)
+    consume(r: steal r)
+    C::rf_coro_yield()
+    show(f"hands_on resumed {second.tag} {own.tag}")
+    return
+
+routine replaces()
+    var own = Res(tag: 70)
+    own = Res(tag: 71)
+    C::rf_coro_yield()
+    show("replaces resumed")
+    return
+
+routine replaces_body(ud: Addr)
+    replaces()
+    return
+
+routine gives_back(r: Res, keep: Bool) -> Res
+    if keep
+        return r
+    if r.tag < 0
+        C::rf_coro_yield()
+    return Res(tag: 0)
+
+routine gives_back_body(ud: Addr)
+    var back = gives_back(r: Res(tag: 9), keep: true)
+    C::rf_coro_yield()
+    show(f"gives_back resumed {back.tag}")
+    return
+
+routine holds_body(ud: Addr)
+    holds(r: Res(tag: 5))
+    return
+
+routine hands_on_body(ud: Addr)
+    hands_on(r: Res(tag: 7), second: Res(tag: 8))
+    return
+
+routine parked(r: Res) -> S64
+    var own = Res(tag: 50)
+    waitfor(200ms)
+    show("parked woke once")
+    waitfor(200ms)
+    show("parked woke twice")
+    return r.tag + own.tag
+
+routine start()
+    danger
+        var c1 = C::rf_coro_create(entry: holds_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::rf_coro_resume(coro: c1)
+        C::rf_coro_abandon(coro: c1)
+    show("---")
+    danger
+        var c2 = C::rf_coro_create(entry: holds_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::rf_coro_resume(coro: c2)
+        drop C::rf_coro_resume(coro: c2)
+        C::rf_coro_delete(coro: c2)
+    show("---")
+    danger
+        var c3 = C::rf_coro_create(entry: hands_on_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::rf_coro_resume(coro: c3)
+        C::rf_coro_abandon(coro: c3)
+    show("---")
+    danger
+        var c4 = C::rf_coro_create(entry: replaces_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::rf_coro_resume(coro: c4)
+        C::rf_coro_abandon(coro: c4)
+    show("---")
+    danger
+        var c5 = C::rf_coro_create(entry: gives_back_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::rf_coro_resume(coro: c5)
+        C::rf_coro_abandon(coro: c5)
+    show("---")
+    var job = parked.to[Work](r: Res(tag: 5))
+    job.start_now()
+    waitfor(50ms)
+    job.cancel()
+    var c = check job.retrieve()
+    when c
+        is S64 as v => show(f"value {v}")
+        else => show("cancelled")
+    show("done")
+    return

@@ -1,0 +1,64 @@
+module Tests/Stdlib/TryVariantDropApi
+
+# `drop` of a call's value ends that value at the drop, in a routine's plain version and in the versions `try` and
+# `check` call alike. Each version prints the entity's end before the line after the drop. A routine that reads `me`
+# after its drop ended `me` gets the ended-entity failure, which `try` and `check` receive.
+
+import IO/Console
+
+entity Node
+    id: S64
+
+dangerous routine Node.destruct()
+    show(f"end {me.id}")
+    return
+
+entity Holder
+    nodes: List[Node]
+
+entity Watch
+    target: @Node?
+
+routine end_then_count(holder: @Holder) -> S64
+    drop holder.nodes.remove_last()
+    show("after drop")
+    return holder.nodes.count().to[S64]()
+
+routine Node.end_then_read(holder: @Holder) -> S64
+    drop holder.nodes.remove_last()
+    holder.nodes.add_last(value: Node(id: 99))
+    return me.id
+
+routine start()
+    var holder = Holder(nodes: [])
+    holder.nodes.add_last(value: Node(id: 1))
+    holder.nodes.add_last(value: Node(id: 2))
+    holder.nodes.add_last(value: Node(id: 3))
+    show(f"plain {end_then_count(holder: holder)}")
+    when try end_then_count(holder: holder)
+        is None => show("try none")
+        else as v => show(f"try {v}")
+    when check end_then_count(holder: holder)
+        is S64 as v => show(f"check {v}")
+        else => show("check failed")
+    show("---")
+    holder.nodes.add_last(value: Node(id: 4))
+    var w = Watch(target: none)
+    w.target = holder.nodes[0]
+    when w.target
+        is None => show("none")
+        else as n =>
+            when try n.end_then_read(holder: holder)
+                is None => show("try none")
+                else as v => show(f"try {v}")
+    var other = Holder(nodes: [])
+    other.nodes.add_last(value: Node(id: 5))
+    w.target = other.nodes[0]
+    when w.target
+        is None => show("none")
+        else as n =>
+            when check n.end_then_read(holder: other)
+                is S64 as v => show(f"check {v}")
+                else => show("check failed")
+    show("done")
+    return
