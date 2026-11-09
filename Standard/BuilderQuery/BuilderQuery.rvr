@@ -227,15 +227,15 @@ infallible routine T.is_in_flight() -> Bool
 @innate
 infallible common routine T.reaches_entity() -> Bool
 
-### Whether this entity type is retroactive: a link (`@T` / `%T`) to it is kept somewhere in the program, so its entities
-### live in slots whose generation goes up when one ends. `false` for every other type.
-### :returns: `true` for a retroactive entity type.
+### Whether this type is an entity type, whose values live in slots of its type's store (a crashable too). `false` for
+### every other type.
+### :returns: `true` for an entity type.
 @readonly
 @innate
-infallible common routine T.is_retroactive() -> Bool
+infallible common routine T.is_entity_type() -> Bool
 
-### Whether this type is a token on a retroactive entity type (`@Node` where links to `Node` are kept), so
-### `T?` is a link: the entity's address and its slot generation. `false` for every other type.
+### Whether this type is a reference to an entity type (`@Node`, `%Node`), so `T?` is a link: the entity's address and
+### its slot generation. `false` for every other type.
 ### :returns: `true` for a token whose optional is a link.
 @readonly
 @innate

@@ -2,7 +2,7 @@ no link
 1 10 value 10
 11
 end 1
-The Node this reference points at has ended. A token taken from a link stops working when its entity ends: take the link again with `try` after what may end it.
+The Node this reference points at has ended. A reference taken from a link stops working when its entity ends: take the link again with `try` after what may end it.
 try: none, check: The Node this link names has ended. Take the link with `try` where it may have ended.
 end 2
 1

@@ -2089,10 +2089,9 @@ dangerous routine C::rf_access_lock(access: Addr, kind: U32, mode: U32)
 dangerous routine C::rf_access_holds(access: Addr) -> U8
 
 # ============================================================================
-# The slot store of links (Ingrid/lapila/slots.lpa)
+# The slot stores of entities (Ingrid/lapila/slots.lpa)
 # ============================================================================
-# An entity of a retroactive type (a type with a link, a kept `@T?` / `%T?`, somewhere in the program) lives in a slot whose header
-# holds a generation, how many tokens taken from links are in use, and the number of the type's store.
+# Every entity lives in a slot of its type's store, whose 8-byte header holds the slot's generation.
 
 ### Opens one more use of the shape of a container (Ingrid/lapila/shapes.lpa). :param at: the container's address.
 dangerous routine C::rf_shape_use_begin(at: Addr)
@@ -2103,25 +2102,16 @@ dangerous routine C::rf_shape_use_end(at: Addr)
 ### Whether a use of the shape of a container is open. :param at: the container's address. :returns: 1 while one is.
 dangerous routine C::rf_shape_in_use(at: Addr) -> U8
 
-### A slot for a new entity of a retroactive type: a free one of the type's store, else a new one. :param store: the
-### type's store. :param size: the entity's bytes. :returns: the address the entity's bytes go to.
+### A slot for a new entity: a free one of the type's store, else a new one, its bytes zero. :param store: the type's
+### store. :param size: the entity's bytes. :returns: the address the entity's bytes go to.
 dangerous routine C::rf_slot_take(store: Addr, size: U64) -> Addr
 
-### The start of an entity's end: the generation goes up and the slot is marked ended. :param box: the entity's address.
+### The start of an entity's end: the slot's generation goes up. :param box: the entity's address.
 dangerous routine C::rf_slot_end(box: Addr)
 
-### Puts an ended entity's slot on its store's free list, or once the last token taken from a link ends. :param box:
-### the entity's address.
+### Gives an ended entity's slot back to its type's store, free for a new entity at once. :param box: the entity's
+### address.
 dangerous routine C::rf_slot_give_back(box: Addr)
-
-### A token taken from a link is in use, so the slot is not reused. :param box: the entity's address.
-dangerous routine C::rf_slot_use_begin(box: Addr)
-
-### A token taken from a link is no longer in use. :param box: the entity's address.
-dangerous routine C::rf_slot_use_end(box: Addr)
-
-### Whether the entity in a slot has ended. :param box: the entity's address. :returns: 1 once it ended.
-dangerous routine C::rf_slot_ended(box: Addr) -> U8
 
 ### Gives up the access this job holds. :param access: the policy's state. :param kind: 1 or 2. :param mode: 1 or 2.
 dangerous routine C::rf_access_unlock(access: Addr, kind: U32, mode: U32)

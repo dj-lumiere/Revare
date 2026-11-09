@@ -2,11 +2,13 @@ module System/Memory
 
 import BuilderQuery
 ### Represents temporary read-only access to a value where it is stored: an entity, or a record in its place
-### (a variable, a field, a container slot). It is the address of that place, the same as `Hijacked[T]`.
+### (a variable, a field, a container slot). It is 128 bits: the address of that place, and for an entity the generation
+### its slot had when the token was made (0 for a record), so a use the builder could not prove alive can check the
+### entity has not ended.
 ### `%T` is the non-Assignable access token produced by `.view()` for single-threaded observation.
 ### :typeparam T: The type being viewed.
 ### :see: {Modifying[T]}, {Guarded[T, TPolicy]}
-@llvm("ptr")
+@llvm("i128")
 record Viewing[T]
     nothing
 

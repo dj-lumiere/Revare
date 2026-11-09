@@ -57,7 +57,7 @@ public sealed class LapilaBackendNameTests
     }
 
     /// <summary>
-    /// A link of a retroactive entity type on the Lapila backend: 128 bits made from the entity's address and its
+    /// A link on the Lapila backend: 128 bits made from the entity's address and its
     /// slot's generation, read while the entity lives and none once it ended, and a new entity of the type taking a
     /// slot from the type's store.
     /// </summary>

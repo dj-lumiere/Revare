@@ -204,8 +204,8 @@ When unsure, consult ground truth in the repo/package:
    exempt. The text is read with `DocComment.Parse`. The body of `until true` gets RV-W057 and, like the code after an
    unconditional `return`/`break` (RV-S786, still an error), is shown FADED (LSP `Unnecessary` tag, range through its
    last line). Diagnostics carry an optional `Fix` (title + 1-based `TextEdit`s): the language server offers it as a
-   quick fix (sent in `diagnostic.data`), and `check --json` writes every error/warning/note as a JSON array (`file`,
-   `line`, `column`, `severity`, `code`, `message`, `endLine?`, `fix?`). Fixes so far: RV-G211 removes the call-site
+   quick fix (sent in `diagnostic.data`), and `check --json` writes every error/warning/note into an object
+   `{ "diagnostics": [...] }` (each with `file`, `line`, `column`, `severity`, `code`, `message`, `endLine?`, `fix?`). Fixes so far: RV-G211 removes the call-site
    `!`, RV-G212 writes `xs.has(x)`, RV-W007 prepends `drop`, RV-S767 converts two named operands to the type holding
    both. Named Bool conditions get no loop note.
    Besides quick fixes the language server offers three `refactor.rewrite` actions on an `if` line: invert it
@@ -924,8 +924,8 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
     from, through calls, and the caller's reference has every argument handed to them as a source. From a local, a
     temporary or an entity parameter is RV-S600.
   - **A lambda giving a reference**: from its parameters, a call of the routine value gives a reference on its
-    arguments. From what it captured (the builder can't follow that entity to the call), it is allowed: the entity's
-    type becomes retroactive, and every reference a routine-value call gives is checked where it is used, in a variable
+    arguments. From what it captured (the builder can't follow that entity to the call), it is allowed: every
+    reference a routine-value call gives is checked where it is used, in a variable
     or in the same expression (`f().x`, `f()[0]`, `f().rename()`) (`EntityEndedError`, receivable with `try`/`check`). From a temporary is RV-S600. A lambda that captures a reference
     (or `me`, a local collection, a `for` element) is bound to it: a local may hold it and a routine may call it, but
     keeping it in a member variable or returning it is RV-S606 (RV-S607 for an entity); `check --json` gives `boundTo`.
@@ -962,7 +962,8 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
     library variants).
 
   Assigning an entity (or a wider reference) makes the link: `child.parent = node`, `Hunter(target: e)`,
-  `xs.add_last(value: e)`. Use a link as a reference (`enemy.target.hp`, `hit(e: h.target)` for `e: @Enemy`): the builder
+  `xs.add_last(value: e)`. Use a link as a reference (`enemy.target.hp`, `hit(e: h.target)` for `e: @Enemy`, `cur = cur.out[k]`
+  for a local `cur: @GNode`): the builder
   takes its reference first, which fails once the entity ended, so the routine can fail and a `try`/`check` above
   receives it. Take it with `when` (`is None` / `else as v`) or `try` where the entity may have ended. A `for` over a
   list of links hands out references on the links. A link is copied with `=` (copying a record copies its links),
@@ -971,15 +972,18 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
   `%Point?`) in storage is RV-S661: a record has no identity and moves with its place (make it an entity). A member
   variable without a sign holds its original (`left: Node?`: the outer entity holds it and ends it), and its `?` only
   says whether one is there.
-  - **Retroactivity.** A type gets slots with a U64 generation when the program keeps a link to it anywhere: decided per
-    type at build time, shown by hover on the type and by `check --json`, whose output is an object `{ "diagnostics": [...],
-    "retroactive": [{ "type": ..., "site": { "file", "line", "column" } }] }` (each retroactive type with the place of the first link
-    that made it so). Such an entity's `destruct` runs where its original ends (no deferral), the slot's generation goes
-    up, and the slot is reused only by that type. A link is 16 bytes (address + generation, address 0 is `none`); a
-    reference is 8 bytes. Other types cost nothing extra.
-  - **The walk guard / live checks.** A reference whose origin the build can't prove (taken from a link, given by a
-    routine value, handed to a routine that may get one) is checked at the statement that uses it: `require_live()`
-    fails with `EntityEndedError` once its entity ended. Only retroactive types are checked.
+  - **One shape for every entity.** Every entity lives in a slot of its type's store, whose 8-byte header holds a U64
+    generation. Every reference and every link (`@T`, `%T`, `@T?`, `%T?`) is 16 bytes: the address and the generation
+    the slot had when it was made (a link's address 0 is `none`; a reference to a record carries generation 0). An
+    entity's `destruct` runs where its original ends (no deferral), the generation goes up, and the slot holds a new
+    entity of the same type at once. A store page whose slots are all free gives its memory back to the system (its
+    address range stays the store's).
+  - **Live checks.** A reference whose origin the build can't prove (taken from a link, given by a routine value,
+    handed to a routine that may get one, `me` of a routine called through one) is checked before each statement that
+    uses it, and again where it is used when the statement calls something else first (`x.hp = hurt(x)`): the check
+    compares its generation with the slot's and fails with `EntityEndedError` once its entity ended. A reference the
+    build proves comes from an original is not checked. Not covered: a call's receiver is checked before the call's
+    arguments run, so an argument that ends the receiver's entity (`n.attach(world.remove(n))`) is not seen.
   - A written `destruct` that reads a link may find its entity ended first (teardown order): read it with `try` there.
 - **Access blocks: `viewing` / `modifying` only open a `Guarded`** (and any type with the `view_enter`/`view_exit` or
   `modify_enter`/`modify_exit` pair: `FileStorage`, a type of your own). `viewing g as v` calls `g.view_enter()` (a

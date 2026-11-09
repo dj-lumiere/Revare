@@ -2,17 +2,6 @@ module System/Memory
 
 import BuilderQuery
 
-### A token taken from a link is in use. A link is an optional token on an entity kept in a place (`parent:
-### @Node?` in a member variable, a collection's element, a global, a local): it never keeps its entity alive,
-### and it reads as none once the entity ended. The builder keeps one of these in each arm of a `when` that takes a link
-### and binds its token, for as long as the arm runs. The entity's destruct waits while one is kept, and its end lets
-### the destruct run when the entity ended meanwhile. For a type no link is kept to, it does nothing, so a generic body
-### keeps one wherever its `T` may be such an entity.
-### :typeparam T: The entity's type.
-record LinkUse[T]
-    ### The entity's address.
-    secret at: Addr
-
 ### Raised when a link is used without taking it by `when` (`node.parent.id`) and the entity it names has ended. Under
 ### `try` the use gives none instead.
 crashable StaleLinkError
@@ -26,7 +15,7 @@ routine StaleLinkError.crash_message() -> Text
     return f"The {me.type_name} this link names has ended. Take the link with `try` where it may have ended."
 
 ### The token a write link holds, for a use of the link that does not take it by `when` (`node.parent.id`, `try
-### node.parent.rename()`). The builder calls this first and keeps the token in use while the use runs.
+### node.parent.rename()`). The builder calls this first. The token keeps the generation the link had.
 ### :param link: The link.
 ### :returns: A write token on the entity.
 ### :throws: {StaleLinkError} The entity the link names has ended.
@@ -60,7 +49,7 @@ needs EntityType E
 secret routine link_address[E](link: @E?) -> Addr
 needs EntityType E
     danger
-        return LLVM::link_token[E](link: LLVM::reinterpret_bits[@E?, U128](link))
+        return LLVM::reinterpret_bits[U128, Addr](LLVM::reinterpret_bits[@E?, U128](link))
 
 ### The address a read-only link holds, whether or not its entity has ended: 0 for an empty link.
 ### :param link: The link.
@@ -68,55 +57,19 @@ needs EntityType E
 secret routine link_address[E](link: %E?) -> Addr
 needs EntityType E
     danger
-        return LLVM::link_token[E](link: LLVM::reinterpret_bits[%E?, U128](link))
+        return LLVM::reinterpret_bits[U128, Addr](LLVM::reinterpret_bits[%E?, U128](link))
 
-### Marks a token taken from a link as in use, until the result ends.
-### :returns: What ends the use.
-@readonly
-@inline
-infallible routine Modifying[T].begin_link_use() -> LinkUse[T]
-    danger
-        if T.is_retroactive()
-            var at = Hijacked[T](me).get_address()
-            C::rf_slot_use_begin(box: at)
-            return LinkUse[T](at: at)
-        else
-            return LinkUse[T](at: Addr.hollow())
-
-### Marks a token taken from a link as in use, until the result ends.
-### :returns: What ends the use.
-@readonly
-@inline
-infallible routine Viewing[T].begin_link_use() -> LinkUse[T]
-    danger
-        if T.is_retroactive()
-            var at = Hijacked[T](me).get_address()
-            C::rf_slot_use_begin(box: at)
-            return LinkUse[T](at: at)
-        else
-            return LinkUse[T](at: Addr.hollow())
-
-### Ends the use of a token taken from a link. When the entity ended while the token was in use, its slot goes back to
-### its store now.
-@override
-infallible dangerous routine LinkUse[T].destruct()
-    if T.is_retroactive()
-        C::rf_slot_use_end(box: me.at)
-    return
-
-### The start of an entity's end, which the builder puts first in a written `destruct`. For an entity of a retroactive
-### type its slot's generation goes up and the slot is marked ended, so every link to it reads as none from now on and
-### a token taken from a link that is still in use fails when it is used. For any other type it does nothing.
+### The start of an entity's end, which the builder puts first in a written `destruct`: its slot's generation goes up,
+### so every reference and link to it reads as ended from now on.
 @inline
 infallible routine T.note_entity_end()
 needs EntityType T
-    if T.is_retroactive()
-        danger
-            C::rf_slot_end(box: me.get_address())
+    danger
+        C::rf_slot_end(box: me.get_address())
     return
 
-### Raised when a token taken from a link (or handed on from one) is used after the entity it reaches has ended, there
-### or in a routine it was handed to.
+### Raised when a reference the builder could not prove alive (one taken from a link, handed on from one, or given by a
+### routine value) is used after the entity it reaches has ended, there or in a routine it was handed to.
 crashable EntityEndedError
     ### The name of the entity's type.
     type_name: Text
@@ -125,31 +78,18 @@ crashable EntityEndedError
 ### :returns: The resulting `Text` value.
 @override
 routine EntityEndedError.crash_message() -> Text
-    return f"The {me.type_name} this reference points at has ended. A token taken from a link stops working when its entity ends: take the link again with `try` after what may end it."
+    return f"The {me.type_name} this reference points at has ended. A reference taken from a link stops working when its entity ends: take the link again with `try` after what may end it."
 
-### Fails when the entity this token reaches has ended. The builder puts this before a statement that uses a token taken
-### from a link, or a token parameter a link may have given, of a retroactive entity type.
-### :throws: {EntityEndedError} The entity has ended.
-@readonly
-@inline
-routine T.require_live()
-needs EntityType T
-    if T.is_retroactive()
-        danger
-            if C::rf_slot_ended(box: me.get_address()) != 0
-                throw EntityEndedError(type_name: T.type_name())
-    return
-
-### Fails when the entity a write token reaches has ended. The builder puts this into a generic routine, before a
-### statement that uses a token a link may have given: an instance whose `T` is not a retroactive entity type does
+### Fails when the entity a write token reaches has ended: its slot's generation is no longer the token's. The builder
+### puts this before a statement that uses a reference it could not prove alive. For a token on a record it does
 ### nothing.
 ### :param token: The token.
 ### :throws: {EntityEndedError} The entity has ended.
 @inline
 routine require_modifying_live[T](token: @T)
-    if T.is_retroactive()
+    if T.is_entity_type()
         danger
-            if C::rf_slot_ended(box: LLVM::reinterpret_bits[@T, Addr](token)) != 0
+            if not LLVM::token_live[T](token: LLVM::reinterpret_bits[@T, U128](token))
                 throw EntityEndedError(type_name: T.type_name())
     return
 
@@ -158,15 +98,15 @@ routine require_modifying_live[T](token: @T)
 ### :throws: {EntityEndedError} The entity has ended.
 @inline
 routine require_viewing_live[T](token: %T)
-    if T.is_retroactive()
+    if T.is_entity_type()
         danger
-            if C::rf_slot_ended(box: LLVM::reinterpret_bits[%T, Addr](token)) != 0
+            if not LLVM::token_live[T](token: LLVM::reinterpret_bits[%T, U128](token))
                 throw EntityEndedError(type_name: T.type_name())
     return
 
 ### Fails when the entity a write token reaches has ended, and gives the token back otherwise. The builder wraps a token
-### in this where it is used in the same expression that made it, so no statement can go before the use (`f().x`, with
-### `f` a routine value that may give a token on an entity that ended).
+### in this where it is used in the same expression that made it, or after something in the same statement that may
+### end its entity, so the check runs right where the token is used (`f().x`).
 ### :param token: The token.
 ### :returns: The same token.
 ### :throws: {EntityEndedError} The entity has ended.
@@ -185,49 +125,87 @@ routine live_viewing[T](token: %T) -> %T
     require_viewing_live[T](token: token)
     return token
 
-### Gives back an entity's box, which the builder puts before each return of a written `destruct`: the heap block, or for
-### an entity of a retroactive type its slot, which goes back to its type's free list.
+### The generation of the slot an entity is in now. The builder keeps it when a routine starts whose `me` a reference it
+### could not prove alive was handed to, and compares it before each later use (`require_entity_generation`).
+### :returns: The generation.
+@inline
+infallible routine T.entity_generation() -> U64
+needs EntityType T
+    danger
+        return LLVM::slot_generation[T](box: me.get_address())
+
+### Fails when the entity has ended since its slot had `generation`.
+### :param generation: The generation the routine started with.
+### :throws: {EntityEndedError} The entity has ended.
+@inline
+routine T.require_entity_generation(generation: U64)
+needs EntityType T
+    danger
+        if LLVM::slot_generation[T](box: me.get_address()) != generation
+            throw EntityEndedError(type_name: T.type_name())
+    return
+
+### Gives back an entity's slot, which the builder puts before each return of a written `destruct`: it goes back to its
+### type's store, free for a new entity at once.
 @inline
 infallible routine T.give_back_entity_box()
 needs EntityType T
     danger
-        if T.is_retroactive()
-            C::rf_slot_give_back(box: me.get_address())
-        else
-            C::rf_invalidate(ptr: me.get_address())
+        C::rf_slot_give_back(box: me.get_address())
     return
 
 # ============================================================================
-# How a link is laid out (the builder writes these calls, LinkLoweringPass)
+# How references and links are laid out (the builder writes these calls, LinkLoweringPass)
 # ============================================================================
-# A link of a retroactive type is 128 bits: the entity's address in the low half and the generation its slot had when
-# the link was made in the high half, all zero for none. The slot's header is the 16 bytes right before the entity's
-# bytes, and starts with the slot's current generation (Ingrid/lapila/slots.lpa). `{store T}` is the type's own slot
-# store, a zeroed 16-byte global. It is also what a none link's header read falls back on, so no read goes to address 0.
+# A reference to an entity (`@T`, `%T`) is 128 bits: the entity's address in the low half and the generation its slot had
+# when the reference was made in the high half. A link (`@T?`, `%T?`) is the reference it holds, all zero for none. The
+# slot's header is the 8 bytes right before the entity's bytes and holds the slot's current generation
+# (Ingrid/lapila/slots.lpa). `{store T}` is the type's own slot store, a zeroed global. It is also what a header read of
+# the zero address falls back on, so no read goes to address 0.
 
-### The slot store of the entity type `T`: its free list and its number, both zero before its first slot.
+### The slot store of the entity type `T`.
 ### :returns: The store's address.
 @llvm_ir("{result} = getelementptr i8, ptr {store T}, i64 0")
 dangerous routine LLVM::slot_store[T]() -> Addr
 
-### A link from a token: the entity's address and its slot's generation now. A link that is not present is all zero.
+### A reference to the entity at `at`: its address and its slot's generation now, all zero for the zero address.
+### :param at: The entity's address.
+### :returns: The reference's 128 bits.
+@llvm_ir("{$a} = ptrtoint ptr {at} to i64\n{$none} = icmp eq i64 {$a}, 0\n{$h} = getelementptr i8, ptr {at}, i64 -8\n{$p} = select i1 {$none}, ptr {store T}, ptr {$h}\n{$g} = load i64, ptr {$p}, align 8\n{$gw} = zext i64 {$g} to i128\n{$hi} = shl i128 {$gw}, 64\n{$lo} = zext i64 {$a} to i128\n{$r} = or i128 {$hi}, {$lo}\n{result} = select i1 {$none}, i128 0, i128 {$r}")
+dangerous routine LLVM::token_make[T](at: Addr) -> U128
+
+### The generation of the slot an entity is in now.
+### :param box: The entity's address.
+### :returns: The generation.
+@llvm_ir("{$h} = getelementptr i8, ptr {box}, i64 -8\n{result} = load i64, ptr {$h}, align 8")
+dangerous routine LLVM::slot_generation[T](box: Addr) -> U64
+
+### Whether a reference's entity has not ended: its slot's generation is still the reference's. A reference to the zero
+### address counts as live, since there is nothing whose end it could miss.
+### :param token: The reference's 128 bits.
+### :returns: `true` while the entity has not ended.
+@llvm_ir("{$a} = trunc i128 {token} to i64\n{$none} = icmp eq i64 {$a}, 0\n{$p} = inttoptr i64 {$a} to ptr\n{$h} = getelementptr i8, ptr {$p}, i64 -8\n{$at} = select i1 {$none}, ptr {store T}, ptr {$h}\n{$g} = load i64, ptr {$at}, align 8\n{$kw} = lshr i128 {token}, 64\n{$k} = trunc i128 {$kw} to i64\n{$same} = icmp eq i64 {$g}, {$k}\n{result} = or i1 {$none}, {$same}")
+dangerous routine LLVM::token_live[T](token: U128) -> Bool
+
+### A link from a reference: the reference itself, or all zero when the link is not present or the reference is to the
+### zero address.
 ### :param present: Whether the link is present.
-### :param token: The entity's address.
+### :param token: The reference's 128 bits.
 ### :returns: The link's 128 bits.
-@llvm_ir("{$a} = ptrtoint ptr {token} to i64\n{$none} = icmp eq i64 {$a}, 0\n{$h} = getelementptr i8, ptr {token}, i64 -16\n{$at} = select i1 {$none}, ptr {store T}, ptr {$h}\n{$g} = load i64, ptr {$at}, align 8\n{$gw} = zext i64 {$g} to i128\n{$hi} = shl i128 {$gw}, 64\n{$lo} = zext i64 {$a} to i128\n{$link} = or i128 {$hi}, {$lo}\n{result} = select i1 {present}, i128 {$link}, i128 0")
-dangerous routine LLVM::link_make[T](present: Bool, token: Addr) -> U128
+@llvm_ir("{$a} = trunc i128 {token} to i64\n{$some} = icmp ne i64 {$a}, 0\n{$keep} = and i1 {present}, {$some}\n{result} = select i1 {$keep}, i128 {token}, i128 0")
+dangerous routine LLVM::link_make[T](present: Bool, token: U128) -> U128
 
 ### Whether a link names its entity still: its address is not zero and its slot's generation is the link's.
 ### :param link: The link's 128 bits.
 ### :returns: `true` while the entity has not ended.
-@llvm_ir("{$a} = trunc i128 {link} to i64\n{$none} = icmp eq i64 {$a}, 0\n{$p} = inttoptr i64 {$a} to ptr\n{$h} = getelementptr i8, ptr {$p}, i64 -16\n{$at} = select i1 {$none}, ptr {store T}, ptr {$h}\n{$g} = load i64, ptr {$at}, align 8\n{$kw} = lshr i128 {link}, 64\n{$k} = trunc i128 {$kw} to i64\n{$same} = icmp eq i64 {$g}, {$k}\n{$some} = xor i1 {$none}, true\n{result} = and i1 {$some}, {$same}")
+@llvm_ir("{$a} = trunc i128 {link} to i64\n{$none} = icmp eq i64 {$a}, 0\n{$p} = inttoptr i64 {$a} to ptr\n{$h} = getelementptr i8, ptr {$p}, i64 -8\n{$at} = select i1 {$none}, ptr {store T}, ptr {$h}\n{$g} = load i64, ptr {$at}, align 8\n{$kw} = lshr i128 {link}, 64\n{$k} = trunc i128 {$kw} to i64\n{$same} = icmp eq i64 {$g}, {$k}\n{$some} = xor i1 {$none}, true\n{result} = and i1 {$some}, {$same}")
 dangerous routine LLVM::link_live[T](link: U128) -> Bool
 
-### The token a link holds: its low half as an address.
+### The reference a link holds: the same 128 bits.
 ### :param link: The link's 128 bits.
-### :returns: The entity's address.
-@llvm_ir("{$a} = trunc i128 {link} to i64\n{result} = inttoptr i64 {$a} to ptr")
-dangerous routine LLVM::link_token[T](link: U128) -> Addr
+### :returns: The reference's 128 bits.
+@llvm_ir("{result} = or i128 {link}, 0")
+dangerous routine LLVM::link_token[T](link: U128) -> U128
 
 ### Whether two links name the same entity: the same address and the same generation. A link to an entity that ended
 ### is not the same as a link to the entity now in its slot, and two none links are the same.

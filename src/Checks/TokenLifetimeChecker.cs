@@ -860,8 +860,8 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
     /// <summary>
     /// A lambda that gives a reference takes it from one of its parameters (a call through the routine value then
     /// gives a reference on what the call handed it, as a direct call does) or from what it captured, which the builder
-    /// cannot follow to the call: such a lambda is marked, so its entity's type is retroactive and each use of what a
-    /// routine value call gives is checked at run time. A reference from a temporary is RV-S600.
+    /// cannot follow to the call: each use of what a routine value call gives is checked at run time, since the
+    /// reference keeps the generation of its entity's slot. A reference from a temporary is RV-S600.
     /// </summary>
     private void CheckLambdaReturns(RoutineDeclaration routine)
     {
@@ -882,10 +882,9 @@ internal sealed class TokenLifetimeChecker(DiagnosticReporter report) : IUserBod
                 }
 
                 // A reference taken from what the lambda captured is one whose entity the builder cannot follow to
-                // the call: its type becomes retroactive, and each use of what a call gives is checked then.
+                // the call: each use of what a call gives is checked then.
                 if (!other.StartsWith(value: "~", comparisonType: StringComparison.Ordinal) && other != UnknownOrigin)
                 {
-                    lambda.GivesUnprovenToken = true;
                     return;
                 }
 

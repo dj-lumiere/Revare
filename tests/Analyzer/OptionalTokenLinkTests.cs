@@ -277,40 +277,40 @@ public class OptionalTokenLinkTests
                                          """);
     }
 
-    /// <summary>
-    /// Retroactivity is decided once the program's bodies are analyzed. A type found retroactive later (an instance made
-    /// while a generic body is made concrete) is still fine until code or a layout relied on the answer (<c>Spare</c>,
-    /// which no code uses); after that the build fails loudly instead of running code made for the other answer.
-    /// </summary>
+    /// <summary>A generic entity's link written without <c>?</c> stays one in each instance: it never takes none.</summary>
     [Fact]
-    public void MarkRetroactive_AfterTheAnswerWasRelied_FailsLoudly()
+    public void Analyze_GenericRequiredLinkInInstance_RefusesNone()
     {
-        AnalysisResult result = AssertAnalyzes(source: Prelude + """
-                                                                 entity Other
-                                                                     id: S64
+        AssertHasErrorSa(source: Prelude + """
+                                           entity Wrap[T]
+                                               link: @T
 
-                                                                 entity Spare
-                                                                     id: S64
+                                           routine start()
+                                               var a = Node(id: 1)
+                                               var w = Wrap[Node](link: a)
+                                               w.link = none
+                                               return
+                                           """,
+            expectedErrorSubstring: "It is written without `?`");
+    }
 
-                                                                 entity Child
-                                                                     parent: @Node?
+    /// <summary>A name that holds a reference takes a link's reference when assigned one, as its declaration does.</summary>
+    [Fact]
+    public void Analyze_LinkAssignedToReferenceLocal_Analyzes()
+    {
+        AssertAnalyzesSa(source: Prelude + """
+                                           entity GNode
+                                               id: S64
+                                               out: List[@GNode]
 
-                                                                 routine start()
-                                                                     var a = Node(id: 1)
-                                                                     var c = Child(parent: none)
-                                                                     c.parent = a
-                                                                     var o = Other(id: 2)
-                                                                     show(o.id)
-                                                                     return
-                                                                 """);
-        Assert.True(condition: result.Registry.RetroactivityDecided);
-        EntityTypeSymbol other = result.Registry.GetAllTypes().OfType<EntityTypeSymbol>().Single(predicate: t => t.Name == "Other");
-        EntityTypeSymbol spare = result.Registry.GetAllTypes().OfType<EntityTypeSymbol>().Single(predicate: t => t.Name == "Spare");
-        Assert.False(condition: other.IsRetroactive);
-        Assert.False(condition: other.ReadRetroactivity());
-        Assert.Throws<InvalidOperationException>(testCode: () =>
-            result.Registry.MarkRetroactive(entity: other, site: other.Location!));
-        result.Registry.MarkRetroactive(entity: spare, site: spare.Location!);
-        Assert.True(condition: spare.IsRetroactive);
+                                           routine start()
+                                               var xs = List[GNode]()
+                                               xs.add_last(value: GNode(id: 0, out: []))
+                                               xs[0].out.add_last(value: xs[0])
+                                               var cur: @GNode = xs[0]
+                                               cur = cur.out[0]
+                                               show(cur.id)
+                                               return
+                                           """);
     }
 }

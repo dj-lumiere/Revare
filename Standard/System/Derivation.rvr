@@ -822,7 +822,7 @@ needs T obeys Copyable
 ### The auto-derived `destruct()`: tear down each member (unconditionally, every type has a `destruct`, a no-op
 ### for a raw-pointer / scalar / borrow leaf). Records/tuples stop here (stack values). An ENTITY then gives back
 ### its own box: one `destruct` call ends the entity. A written entity `destruct` holds only the teardown of what
-### the entity owns, and the builder adds the same `C::rf_invalidate(ptr: me.get_address())` before each of its returns. The
+### the entity owns, and the builder adds `me.give_back_entity_box()` before each of its returns. The
 ### `allmemvarof` walk covers every owned member including `secret`.
 @overridable
 infallible dangerous routine T.destruct()
@@ -857,19 +857,14 @@ needs EntityType T
         # A hollow entity (all zero, the member variable of a hollow value) has nothing to tear down.
         if me.get_address().is_hollow()
             return
-        # A retroactive entity (one with links to it) marks its slot ended first, so every link to it reads as none.
-        # Its slot then goes back to the type's free list, once no token taken from a link is in use.
-        if T.is_retroactive()
-            C::rf_slot_end(box: me.get_address())
-            expand m in allmemvarof(T)
-                me.$nameof(m).destruct()
-            C::rf_slot_give_back(box: me.get_address())
-            return
+        # The entity's slot is marked ended first, so every reference and link to it reads as ended.
+        C::rf_slot_end(box: me.get_address())
         var chain = me.lift_own_child()
         expand m in allmemvarof(T)
             me.$nameof(m).destruct()
-        # The box is given back through its address: a Hijacked[T] here would be built for every entity type.
-        C::rf_invalidate(ptr: me.get_address())
+        # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
+        # entity type.
+        C::rf_slot_give_back(box: me.get_address())
         until chain.is_hollow()
             var after = LLVM::reinterpret_bits[Addr, T](chain).lift_own_child()
             LLVM::reinterpret_bits[Addr, T](chain).destruct()
@@ -933,7 +928,8 @@ infallible dangerous routine T.roam_free()
 needs EntityType T
     expand m in allmemvarof(T)
         me.$nameof(m).roam_free()
-    C::rf_invalidate(ptr: me.get_address())
+    C::rf_slot_end(box: me.get_address())
+    C::rf_slot_give_back(box: me.get_address())
     return
 
 ### Record `roam_free()`: a record that holds an entity handle (directly or in a member record) frees what it owns
