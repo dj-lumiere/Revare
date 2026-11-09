@@ -204,8 +204,8 @@ When unsure, consult ground truth in the repo/package:
    exempt. The text is read with `DocComment.Parse`. The body of `until true` gets RV-W057 and, like the code after an
    unconditional `return`/`break` (RV-S786, still an error), is shown FADED (LSP `Unnecessary` tag, range through its
    last line). Diagnostics carry an optional `Fix` (title + 1-based `TextEdit`s): the language server offers it as a
-   quick fix (sent in `diagnostic.data`), and `check --json` writes every error/warning/note into an object
-   `{ "diagnostics": [...] }` (each with `file`, `line`, `column`, `severity`, `code`, `message`, `endLine?`, `fix?`). Fixes so far: RV-G211 removes the call-site
+   quick fix (sent in `diagnostic.data`), and `check --json` writes every error/warning/note as one JSON array
+   (each with `file`, `line`, `column`, `severity`, `code`, `message`, `endLine?`, `fix?`). Fixes so far: RV-G211 removes the call-site
    `!`, RV-G212 writes `xs.has(x)`, RV-W007 prepends `drop`, RV-S767 converts two named operands to the type holding
    both. Named Bool conditions get no loop note.
    Besides quick fixes the language server offers three `refactor.rewrite` actions on an `if` line: invert it
