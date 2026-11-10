@@ -1,0 +1,13 @@
+2
+check 2
+-1
+check: absent
+7
+check 7
+0
+check worth: absent
+10
+check worth 10
+loops done
+slime ends at 2
+slime ends at 7

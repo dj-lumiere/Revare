@@ -93,7 +93,8 @@ When unsure, consult ground truth in the repo/package:
    `AbsentValueError`), otherwise the call runs on the value, and a failure below the call is received as usual.
    `?` asks whether there is a link, the call asks whether what it points at still lives. A record is copied out. An
    entity or a variant is reached where the optional keeps it (a write reference on the original), so a call that changes
-   it (`try xs.add_last(value: 3)` with `xs: List[S64]?`) acts on the original. Without a keyword a call on a `T?` is
+   it (`try xs.add_last(value: 3)` with `xs: List[S64]?`) acts on the original. A `for` element over a `List[T?]` takes
+   such calls the same way (`for s in slimes` then `try s.hp()`). Without a keyword a call on a `T?` is
    still an error. A chain that ends in a `T?` (`try optionals.first()` over a `List[S64?]`, or `try pass(x: steal maybe_node)`) gives
    `T?`, not `T??`, for a record, an entity or a variant: a none end is the one absence, `None` under `try`, an
    `AbsentValueError` under `check`. An entity or a variant moves out of the value the last call made.

@@ -1,0 +1,53 @@
+module Tests/Stdlib/OptionalLoopRecoveryApi
+
+import IO/Console
+
+# A `for` element over a `List[T?]` takes `try` and `check` calls the way a `T?` local does: a present element runs the
+# call, an absent one makes `try` give none and `check` give AbsentValueError. Each entity in the list ends once, at
+# the end of the list.
+
+entity Slime
+    life: S64
+
+@readonly
+routine Slime.hp() -> S64
+    return me.life
+
+routine Slime.hit()
+    me.life -= 1
+    return
+
+dangerous routine Slime.destruct()
+    show(f"slime ends at {me.life}")
+    return
+
+record Coin
+    n: S64
+
+@readonly
+routine Coin.worth() -> S64
+    return me.n * 5
+
+routine start()
+    var slimes = List[Slime?]()
+    slimes.add_last(value: Slime(life: 3))
+    slimes.add_last(value: none)
+    slimes.add_last(value: Slime(life: 8))
+    for s in slimes
+        drop try s.hit()
+        show(try s.hp() ?? -1)
+        when check s.hp()
+            is S64 as n => show(f"check {n}")
+            is AbsentValueError => show("check: absent")
+            is Crashables => show("check: other")
+    var coins = List[Coin?]()
+    coins.add_last(value: none)
+    coins.add_last(value: Coin(n: 2))
+    for c in coins
+        show(try c.worth() ?? 0)
+        when check c.worth()
+            is S64 as w => show(f"check worth {w}")
+            is AbsentValueError => show("check worth: absent")
+            is Crashables => show("check worth: other")
+    show("loops done")
+    return
