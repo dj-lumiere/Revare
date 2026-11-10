@@ -986,7 +986,7 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
     calls a routine and the receiver (or an earlier argument) reaches an entity through such a reference
     (`n.attach(world.remove(n))`, `n.kids.add_last(value: world.remove(n))`), the arguments run first and the
     reference is checked again right before the call. A number read out of the entity before the argument
-    (`n.id.add(you: world.remove(n))`) is a copy taken while the entity was there, and stays good.
+    (`n.id.add(you: world.remove(n))`) is a copy taken while the entity was there, and stays good, with `try` or `check` in front of the call too.
   - A written `destruct` that reads a link may find its entity ended first (teardown order): read it with `try` there.
 - **Access blocks: `viewing` / `modifying` only open a `Guarded`** (and any type with the `view_enter`/`view_exit` or
   `modify_enter`/`modify_exit` pair: `FileStorage`, a type of your own). `viewing g as v` calls `g.view_enter()` (a

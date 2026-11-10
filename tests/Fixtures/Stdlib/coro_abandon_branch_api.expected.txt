@@ -1,0 +1,6 @@
+back 5
+destruct 6
+fails: none
+destruct 5
+cancelled
+done

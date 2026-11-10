@@ -1,0 +1,51 @@
+module Tests/Stdlib/CoroAbandonBranchApi
+
+# A `return` or `throw` that is a branch of its own (a `when` arm written `== true => return r`) leaves the routine the
+# same way a `return` inside a block does: the cancellation stack gives up what the routine registered first, so a job
+# cancelled later tears down only what it still holds. Here `back` returns its parameter from an arm and the job is
+# cancelled while it waits afterwards: the parameter is ended once, by the one that kept it.
+
+import IO/Console
+
+entity Res
+    tag: S64
+
+@override
+dangerous routine Res.destruct()
+    show(f"destruct {me.tag}")
+    return
+
+routine back(r: Res, flag: Bool) -> Res
+    when flag
+        == true => return r
+        else => show("other")
+    waitfor(1ms)
+    return Res(tag: 0)
+
+routine fails(r: Res, flag: Bool) -> Res
+    when flag
+        == true => throw VerificationFailedError()
+        else => return r
+    return Res(tag: 0)
+
+routine runs() -> S64
+    var got = back(r: Res(tag: 5), flag: true)
+    show(f"back {got.tag}")
+    var failed = try fails(r: Res(tag: 6), flag: true)
+    when failed
+        is None => show("fails: none")
+        else as v => show(f"fails {v.tag}")
+    waitfor(300ms)
+    return got.tag
+
+routine start()
+    var job = runs.to[Work]()
+    job.start_now()
+    waitfor(100ms)
+    job.cancel()
+    var c = check job.retrieve()
+    when c
+        is S64 as v => show(f"value {v}")
+        else => show("cancelled")
+    show("done")
+    return

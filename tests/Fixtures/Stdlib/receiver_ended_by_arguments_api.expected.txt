@@ -9,6 +9,12 @@ end 1 with 0 kids
 id read before remove 2
 end 77 with 0 kids
 end 1 with 0 kids
+id read before remove, in try 2
+end 77 with 0 kids
+end 1 with 0 kids
+id read before remove, try here 2
+end 77 with 0 kids
+end 1 with 0 kids
 attach_self: try none
 slot holds 77 with 0 kids
 end 77 with 0 kids

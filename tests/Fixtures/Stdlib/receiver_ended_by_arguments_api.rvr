@@ -4,7 +4,7 @@ module Tests/Stdlib/ReceiverEndedByArgumentsApi
 # reference is the call's receiver (`n.attach(world.remove(n))`) or reaches a member of it the call works on
 # (`n.kids.add_last(...)`), the reference is checked again after the arguments: the call fails with the ended-entity
 # failure, which `try` and `check` receive, and never reaches the entity that took the slot. A number read out of the
-# entity before the argument runs is a copy, which stays good. Each statement below is written without `try` in a
+# entity before the argument runs is a copy, which stays good, with or without a `try` in front of the call. Each statement below is written without `try` in a
 # routine of its own: its reference parameter comes from a link, so the builder cannot prove it alive.
 
 import IO/Console
@@ -51,6 +51,9 @@ routine add_kid_removed(n: @Node, world: @World)
 routine id_plus_removed(n: @Node, world: @World) -> S64
     return n.id.add(you: world.remove(node: n))
 
+routine id_plus_removed_tried(n: @Node, world: @World) -> S64?
+    return try n.id.add(you: world.remove(node: n))
+
 routine fresh(world: @World, w: @Watch)
     drop world.nodes.remove_last()
     world.nodes.add_last(value: Node(id: 1, kids: []))
@@ -85,6 +88,20 @@ routine start()
             when try id_plus_removed(n: n, world: world)
                 is None => show("id read before remove: try none")
                 else as v => show(f"id read before remove {v}")
+    fresh(world: world, w: w)
+    when w.target
+        is None => show("none")
+        else as n =>
+            when id_plus_removed_tried(n: n, world: world)
+                is None => show("id read before remove, in try: none")
+                else as v => show(f"id read before remove, in try {v}")
+    fresh(world: world, w: w)
+    when w.target
+        is None => show("none")
+        else as n =>
+            when try n.id.add(you: world.remove(node: n))
+                is None => show("id read before remove, try here: none")
+                else as v => show(f"id read before remove, try here {v}")
     fresh(world: world, w: w)
     when w.target
         is None => show("none")
