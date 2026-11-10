@@ -364,7 +364,7 @@ needs RecordType T
 routine List[T].setitem(index: U64, value: T)
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
-    var byte_offset = T.data_size() * index
+    var byte_offset = me.element_offset(index)
     danger
         me.data.offset(byte_offset).peek().destruct()
         me.data.offset(byte_offset).poke(value)
@@ -396,7 +396,7 @@ needs AnyType T
         throw IndexOutOfBoundsError(index: index, count: me.count)
     # A record element's token is the address of its slot.
     danger
-        return Modifying[T](me.data.offset(T.data_size() * index))
+        return Modifying[T](me.data.offset(me.element_offset(index)))
 
 ### `modify_at` for a single-owner entity: the slot holds the entity's address, which is the token.
 ### :param index: The position of the element.
@@ -407,7 +407,7 @@ needs EntityType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
     danger
-        return Modifying[T](me.data.offset(T.data_size() * index).peek_as[Hijacked[T]]())
+        return Modifying[T](me.data.offset(me.element_offset(index)).peek_as[Hijacked[T]]())
 
 ### Returns a read token on the element stored at `index`, so a read through it does not copy the element
 ### first: `grid[0].count()` lowers to `grid.view_at(index: 0).count()`. A plain `getitem` hands back a copy.
@@ -422,7 +422,7 @@ needs AnyType T
         throw IndexOutOfBoundsError(index: index, count: me.count)
     # A record element's token is the address of its slot.
     danger
-        return Viewing[T](me.data.offset(T.data_size() * index))
+        return Viewing[T](me.data.offset(me.element_offset(index)))
 
 ### `view_at` for a single-owner entity: the slot holds the entity's address, which is the token.
 ### :param index: The position of the element.
@@ -434,7 +434,7 @@ needs EntityType T
     if index >= me.count
         throw IndexOutOfBoundsError(index: index, count: me.count)
     danger
-        return Viewing[T](me.data.offset(T.data_size() * index).peek_as[Hijacked[T]]())
+        return Viewing[T](me.data.offset(me.element_offset(index)).peek_as[Hijacked[T]]())
 
 ### Returns a NEW list holding independent copies of the elements in `range` — the slice form of
 ### indexing (`list[a til b]`). A half-open `a til b` yields `[a, b)`; an inclusive `a to b` yields
@@ -465,7 +465,7 @@ needs RecordType T
 @inline
 infallible routine List[T].get_raw(index: U64) -> T
     danger
-        return me.data.offset(T.data_size() * index).peek()
+        return me.data.offset(me.element_offset(index)).peek()
 
 ### Writes `value` at `index` without bounds checking.
 ### Only call this when the index is already proven to be in range.
@@ -474,8 +474,18 @@ infallible routine List[T].get_raw(index: U64) -> T
 @inline
 routine List[T].set_raw(index: U64, value: T)
     danger
-        me.data.offset(T.data_size() * index).poke(value)
+        me.data.offset(me.element_offset(index)).poke(value)
     return
+
+### The byte offset of the element at `index` in the buffer. The product never wraps around: every caller passes an
+### `index` below the capacity, and the buffer of `capacity` elements was allocated, so its size in bytes fits in a
+### `U64`. A checked multiply here would add a test and a crash branch to every indexed read and write.
+### :param index: The position, below the capacity.
+### :returns: The offset in bytes.
+@readonly
+@inline
+secret infallible routine List[T].element_offset(index: U64) -> ByteSize
+    return ByteSize(bytes: T.data_size().byte_size() *% index)
 
 ### Ensures the backing allocation holds at least `new_capacity` elements.
 ### Does nothing if the current capacity already meets or exceeds `new_capacity`.
@@ -1115,10 +1125,9 @@ routine List[T].merge_into_by(
 ### Destroys each live element (no-op for value-typed `T`), then frees the backing buffer.
 @override
 dangerous routine List[T].destruct()
-    var elem_size = T.data_size()
     for i in 0 til me.count()
         me.data
-            .offset(elem_size * i)
+            .offset(me.element_offset(index: i))
             .peek()
             .destruct()
     me.data.invalidate()
