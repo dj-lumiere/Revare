@@ -165,14 +165,83 @@ entity FileManager
 # Paths — pure, no OS calls
 # ============================================================================
 
-### A runtime byte buffer of `len` bytes as text. A path that is not UTF-8 fails here: text with U+FFFD in it would
-### name a different file.
-### :param ptr: The buffer.
-### :param len: Its length.
+### Word `index` of a runtime block: the runtime hands back bytes as six U64 words (why it failed, the byte count, four
+### more) and then the bytes, so what a call returns travels with it.
+### :param block: The block.
+### :param index: The word, 0 to 5.
+### :returns: The word.
+secret routine block_word(block: Hijacked[Byte], index: S64) -> U64
+    danger
+        return Hijacked[U64](block.stride(count: index * 8).address()).peek()
+
+### Why the call that made the block failed, a code the runtime gives (1 another reason, 2 nothing is there, 3 not
+### allowed, 4 the device is full, 5 the device failed, 6 already there, 7 not a name the OS takes). 0 when it didn't
+### fail. A block that isn't there is another reason.
+### :param block: The block.
+### :returns: The code.
+secret routine block_reason(block: Hijacked[Byte]) -> S32
+    if block.is_hollow()
+        return 1
+    return block_word(block: block, index: 0).to[S32]()
+
+### How many bytes follow the block's header.
+### :param block: The block.
+### :returns: The count, 0 for a block that isn't there.
+secret routine block_count(block: Hijacked[Byte]) -> U64
+    if block.is_hollow()
+        return 0
+    return block_word(block: block, index: 1)
+
+### Gives the runtime's block back.
+### :param block: The block, or a hollow pointer.
+secret routine block_free(block: Hijacked[Byte])
+    if not block.is_hollow()
+        danger
+            C::rf_invalidate(ptr: block.address())
+    return
+
+### The bytes of a runtime block, copied once. The block is given back.
+### :param block: The block, or a hollow pointer.
+### :returns: The bytes, empty for a failed block.
+secret routine block_bytes(block: Hijacked[Byte]) -> Bytes
+    if block.is_hollow()
+        return Bytes(ptr: block, count: 0)
+    var count = block_count(block: block)
+    danger
+        var bytes = Bytes(ptr: block.stride(count: 48), count: count)
+        block_free(block: block)
+        return bytes
+
+### The bytes of a runtime block as text. A path that is not UTF-8 fails here: text with U+FFFD in it would name a
+### different file. The block is given back.
+### :param block: The block.
 ### :returns: The text.
 ### :throws: {MalformedUtf8Error} if the bytes are not well-formed UTF-8.
-secret routine path_text(ptr: Hijacked[Byte], len: U64) -> Text
-    return Bytes(ptr: ptr, count: len).decode_as_utf8()
+secret routine block_text(block: Hijacked[Byte]) -> Text
+    return block_bytes(block: block).decode_as_utf8()
+
+### Throws the crashable for why the runtime call that made the block failed, when it did, after giving the block back.
+### :param block: The block.
+### :param action: What was being done, as the start of the message.
+### :param path: The path the call worked on.
+### :throws: The crashable for the reason, when the block holds one.
+secret routine check_block(block: Hijacked[Byte], action: Text, path: Text)
+    var reason = block_reason(block: block)
+    if reason != 0
+        block_free(block: block)
+        fail_io(action: action, path: path, reason: reason)
+    return
+
+### The reason a status the runtime gave stands for: a failure is minus 16 minus the code, minus 2 is a copy whose
+### original could not be deleted (another reason), anything else is no failure.
+### :param status: The status.
+### :returns: The code, or 0 when the status is not a failure.
+secret routine status_reason(status: S32) -> S32
+    if status <= -16
+        return 0 - status - 16
+    if status < 0
+        return 1
+    return 0
 
 ### Two path segments joined with the platform separator.
 ### :param a: The left segment.
@@ -181,40 +250,35 @@ secret routine path_text(ptr: Hijacked[Byte], len: U64) -> Text
 secret routine join_path(a: Text, b: Text) -> Text
     var a_cstr = a.to[CStr]()
     var b_cstr = b.to[CStr]()
-    var ptr = C::rf_fs_join_path(a_cstr, a_cstr.count().to[S32](), b_cstr, b_cstr.count().to[S32]())
-    return path_text(ptr: ptr, len: C::rf_get_result_len())
+    return block_text(block: C::rf_fs_join_path(a_cstr, a_cstr.count().to[S32](), b_cstr, b_cstr.count().to[S32]()))
 
 ### The parent of a path, empty when it has none.
 ### :param path: The path.
 ### :returns: The parent path.
 secret routine parent_path(path: Text) -> Text
     var cstr = path.to[CStr]()
-    var ptr = C::rf_fs_parent_path(path: cstr, len: cstr.count().to[S32]())
-    return path_text(ptr: ptr, len: C::rf_get_result_len())
+    return block_text(block: C::rf_fs_parent_path(path: cstr, len: cstr.count().to[S32]()))
 
 ### The final component of a path.
 ### :param path: The path.
 ### :returns: The final component.
 secret routine last_component(path: Text) -> Text
     var cstr = path.to[CStr]()
-    var ptr = C::rf_fs_file_name(path: cstr, len: cstr.count().to[S32]())
-    return path_text(ptr: ptr, len: C::rf_get_result_len())
+    return block_text(block: C::rf_fs_file_name(path: cstr, len: cstr.count().to[S32]()))
 
 ### The final component of a path without its extension.
 ### :param path: The path.
 ### :returns: The stem.
 secret routine path_stem(path: Text) -> Text
     var cstr = path.to[CStr]()
-    var ptr = C::rf_fs_file_stem(path: cstr, len: cstr.count().to[S32]())
-    return path_text(ptr: ptr, len: C::rf_get_result_len())
+    return block_text(block: C::rf_fs_file_stem(path: cstr, len: cstr.count().to[S32]()))
 
 ### The extension of a path, without the leading dot, empty when it has none.
 ### :param path: The path.
 ### :returns: The extension.
 secret routine path_extension(path: Text) -> Text
     var cstr = path.to[CStr]()
-    var ptr = C::rf_fs_extension(path: cstr, len: cstr.count().to[S32]())
-    return path_text(ptr: ptr, len: C::rf_get_result_len())
+    return block_text(block: C::rf_fs_extension(path: cstr, len: cstr.count().to[S32]()))
 
 ### This file's extension, without the leading dot (empty when absent).
 ### :returns: The extension `Text`.
@@ -291,13 +355,13 @@ routine Directory.go_to(name: Text) -> Directory
 # Why a file system call failed
 # ============================================================================
 
-### Throws the crashable for why the last file system call on this thread failed: {NotFoundError},
-### {NotEnoughPermissionError}, {NotEnoughSpaceError}, {StorageFaultError}, or {IOError} for any other reason.
+### Throws the crashable for why a file system call failed: {NotFoundError}, {NotEnoughPermissionError},
+### {NotEnoughSpaceError}, {StorageFaultError}, or {IOError} for any other reason.
 ### :param action: What was being done, as the start of the message (`Cannot read 'notes.txt'`).
 ### :param path: The path the call worked on.
+### :param reason: The code the call gave for why it failed.
 ### :throws: Always, the crashable for the reason.
-secret routine fail_io(action: Text, path: Text)
-    var reason = C::rf_fs_last_error()
+secret routine fail_io(action: Text, path: Text, reason: S32)
     if reason == 2
         throw NotFoundError(description: f"{action}: nothing is there")
     if reason == 3
@@ -328,21 +392,21 @@ secret routine partition_of_line(line: Text) -> PartitionManager
         size: try fields[4].to[U64]() ?? 0,
     )
 
-### The lines of a runtime listing, none for an empty or a failed one.
-### :param ptr: The listing.
-### :param len: Its length.
+### The lines of a runtime listing, none for an empty or a failed one. The block is given back.
+### :param block: The listing.
 ### :returns: The lines.
-secret routine listing_lines(ptr: Hijacked[Byte], len: U64) -> List[Text]
-    if ptr.is_hollow() or len == 0
+secret routine listing_lines(block: Hijacked[Byte]) -> List[Text]
+    var count = block_count(block: block)
+    var text = block_text(block: block)
+    if count == 0
         return List[Text]()
-    return path_text(ptr: ptr, len: len).split(separator: '\n')
+    return text.split(separator: '\n')
 
 ### The storage devices the operating system reports, none where it reports none.
 ### :returns: The devices.
 common routine StorageManager.all() -> List[StorageManager]
-    var ptr = C::rf_storage_list()
     var result = List[StorageManager]()
-    for line in listing_lines(ptr: ptr, len: C::rf_get_result_len())
+    for line in listing_lines(block: C::rf_storage_list())
         var fields = line.split(separator: '\t')
         if fields.count() >= 2
             result.add_last(value: StorageManager(name: fields[0], size: try fields[1].to[U64]() ?? 0))
@@ -361,9 +425,8 @@ routine StorageManager.partitions() -> List[PartitionManager]
 ### The partitions the operating system has mounted, none where it reports none.
 ### :returns: The partitions.
 common routine PartitionManager.all() -> List[PartitionManager]
-    var ptr = C::rf_partition_list()
     var result = List[PartitionManager]()
-    for line in listing_lines(ptr: ptr, len: C::rf_get_result_len())
+    for line in listing_lines(block: C::rf_partition_list())
         result.add_last(value: partition_of_line(line: line))
     return result
 
@@ -373,11 +436,12 @@ common routine PartitionManager.all() -> List[PartitionManager]
 ### :throws: {NotFoundError} when nothing is at the path, {IOError} when the OS can't tell.
 secret routine partition_at(path: Text) -> PartitionManager
     var cstr = path.to[CStr]()
-    var ptr = C::rf_partition_of(path: cstr, len: cstr.count().to[S32]())
-    var len = C::rf_get_result_len()
-    if ptr.is_hollow() or len == 0
-        fail_io(action: f"Cannot tell the partition of '{path}'", path: path)
-    return partition_of_line(line: path_text(ptr: ptr, len: len))
+    var block = C::rf_partition_of(path: cstr, len: cstr.count().to[S32]())
+    if block_reason(block: block) != 0 or block_count(block: block) == 0
+        var reason = block_reason(block: block)
+        block_free(block: block)
+        fail_io(action: f"Cannot tell the partition of '{path}'", path: path, reason: reason)
+    return partition_of_line(line: block_text(block: block))
 
 ### The partition the directory is on: its file manager is the OS's file manager for that partition.
 ### :param at: The directory.
@@ -432,8 +496,8 @@ common routine FileManager.is_directory(at: Directory) -> Bool
 common routine FileManager.size(at: File) -> S64
     var cstr = at.at.to[CStr]()
     var size = C::rf_fs_file_size(path: cstr, len: cstr.count().to[S32]())
-    if size == -1
-        fail_io(action: f"Cannot read the size of '{at.at}'", path: at.at)
+    if size < 0
+        fail_io(action: f"Cannot read the size of '{at.at}'", path: at.at, reason: status_reason(status: size.to[S32]()))
     return size
 
 ### The metadata of the path, captured in a single stat.
@@ -442,16 +506,18 @@ common routine FileManager.size(at: File) -> S64
 ### :throws: {NotFoundError} when nothing is there, {IOError} when the path cannot be inspected.
 secret routine metadata_of(path: Text) -> FileMetadata
     var cstr = path.to[CStr]()
-    var status = C::rf_fs_metadata(path: cstr, len: cstr.count().to[S32]())
-    if status == -1
-        fail_io(action: f"Cannot read the metadata of '{path}'", path: path)
-    return FileMetadata(
-        size: C::rf_fs_meta_size(),
-        modified: Moment.from_timestamp(seconds: C::rf_fs_meta_modified()),
-        created: Moment.from_timestamp(seconds: C::rf_fs_meta_created()),
-        is_directory: C::rf_fs_meta_is_directory(),
-        readonly: C::rf_fs_meta_readonly(),
+    var block = C::rf_fs_metadata(path: cstr, len: cstr.count().to[S32]())
+    check_block(block: block, action: f"Cannot read the metadata of '{path}'", path: path)
+    var kind_bits = block_word(block: block, index: 1)
+    var metadata = FileMetadata(
+        size: block_word(block: block, index: 2).to_wrap[S64](),
+        modified: Moment.from_timestamp(seconds: block_word(block: block, index: 3).to_wrap[S64]()),
+        created: Moment.from_timestamp(seconds: block_word(block: block, index: 4).to_wrap[S64]()),
+        is_directory: kind_bits % 2 == 1,
+        readonly: kind_bits // 2 % 2 == 1,
     )
+    block_free(block: block)
+    return metadata
 
 ### A file's metadata, captured in a single stat.
 ### :param at: The file.
@@ -515,11 +581,9 @@ common routine FileManager.can_execute(at: Directory) -> Bool
 ### :throws: {IOError} when the path cannot be resolved.
 secret routine absolute_path(path: Text) -> Text
     var cstr = path.to[CStr]()
-    var ptr = C::rf_fs_absolute_path(path: cstr, len: cstr.count().to[S32]())
-    var len = C::rf_get_result_len()
-    if ptr.is_hollow()
-        fail_io(action: f"Cannot resolve the absolute path of '{path}'", path: path)
-    return path_text(ptr: ptr, len: len)
+    var block = C::rf_fs_absolute_path(path: cstr, len: cstr.count().to[S32]())
+    check_block(block: block, action: f"Cannot resolve the absolute path of '{path}'", path: path)
+    return block_text(block: block)
 
 ### The canonical path of the text `path` (casing normalized, links and relative segments resolved).
 ### :param path: The path.
@@ -527,11 +591,9 @@ secret routine absolute_path(path: Text) -> Text
 ### :throws: {NotFoundError} when nothing is there, {IOError} when the path cannot be resolved.
 secret routine canonical_path(path: Text) -> Text
     var cstr = path.to[CStr]()
-    var ptr = C::rf_fs_canonical_path(path: cstr, len: cstr.count().to[S32]())
-    var len = C::rf_get_result_len()
-    if ptr.is_hollow()
-        fail_io(action: f"Cannot resolve the canonical path of '{path}'", path: path)
-    return path_text(ptr: ptr, len: len)
+    var block = C::rf_fs_canonical_path(path: cstr, len: cstr.count().to[S32]())
+    check_block(block: block, action: f"Cannot resolve the canonical path of '{path}'", path: path)
+    return block_text(block: block)
 
 ### The file at its absolute path (symlinks and other non-canonical components kept).
 ### :param at: The file.
@@ -577,8 +639,8 @@ common routine FileManager.make_file(at: File, replacing: Bool = false) -> File
     var result = C::rf_fs_make_file(path: cstr, len: cstr.count().to[S32](), replacing: replacing)
     if result == 1
         throw IOError(description: f"Cannot make '{at.at}': it already exists. Pass 'replacing: true' to empty it")
-    if result == -1
-        fail_io(action: f"Cannot make '{at.at}'", path: at.at)
+    if result < 0
+        fail_io(action: f"Cannot make '{at.at}'", path: at.at, reason: status_reason(status: result))
     return at
 
 ### Makes the directory. An existing directory is an error. With `parents`, missing directories above it are made
@@ -594,8 +656,8 @@ common routine FileManager.make_directory(at: Directory, parents: Bool = false) 
         result = C::rf_fs_create_dir_all(path: cstr, len: cstr.count().to[S32]())
     else
         result = C::rf_fs_create_dir(path: cstr, len: cstr.count().to[S32]())
-    if result == -1
-        fail_io(action: f"Cannot make the directory '{at.at}'", path: at.at)
+    if result < 0
+        fail_io(action: f"Cannot make the directory '{at.at}'", path: at.at, reason: status_reason(status: result))
     return at
 
 ### Removes the file.
@@ -603,8 +665,9 @@ common routine FileManager.make_directory(at: Directory, parents: Bool = false) 
 ### :throws: {NotFoundError} when nothing is there, {IOError} when the file cannot be removed.
 common routine FileManager.delete(at: File)
     var cstr = at.at.to[CStr]()
-    if C::rf_fs_remove(path: cstr, len: cstr.count().to[S32]()) == -1
-        fail_io(action: f"Cannot remove '{at.at}'", path: at.at)
+    var status = C::rf_fs_remove(path: cstr, len: cstr.count().to[S32]())
+    if status < 0
+        fail_io(action: f"Cannot remove '{at.at}'", path: at.at, reason: status_reason(status: status))
     return
 
 ### Removes the directory, which must be empty. `delete_all` removes one with contents.
@@ -612,8 +675,9 @@ common routine FileManager.delete(at: File)
 ### :throws: {NotFoundError} when nothing is there, {IOError} when the directory cannot be removed.
 common routine FileManager.delete(at: Directory)
     var cstr = at.at.to[CStr]()
-    if C::rf_fs_remove(path: cstr, len: cstr.count().to[S32]()) == -1
-        fail_io(action: f"Cannot remove the directory '{at.at}'", path: at.at)
+    var status = C::rf_fs_remove(path: cstr, len: cstr.count().to[S32]())
+    if status < 0
+        fail_io(action: f"Cannot remove the directory '{at.at}'", path: at.at, reason: status_reason(status: status))
     return
 
 ### Removes the directory and everything in it.
@@ -621,8 +685,9 @@ common routine FileManager.delete(at: Directory)
 ### :throws: {NotFoundError} when nothing is there, {IOError} when the tree cannot be removed.
 common routine FileManager.delete_all(at: Directory)
     var cstr = at.at.to[CStr]()
-    if C::rf_fs_remove_all(path: cstr, len: cstr.count().to[S32]()) == -1
-        fail_io(action: f"Cannot remove the directory tree '{at.at}'", path: at.at)
+    var status = C::rf_fs_remove_all(path: cstr, len: cstr.count().to[S32]())
+    if status < 0
+        fail_io(action: f"Cannot remove the directory tree '{at.at}'", path: at.at, reason: status_reason(status: status))
     return
 
 ### Gives the path `path` the name `name`, in the same directory.
@@ -645,8 +710,8 @@ secret routine rename_path(path: Text, name: Text, replacing: Bool) -> Text
         throw IOError(description: f"Cannot rename '{path}' to '{name}': something there has that name. Pass 'replacing: true' to replace it")
     if result == 2
         throw IOError(description: f"Cannot rename '{path}' to '{name}': a name holds no separator, put it in another directory with 'move'")
-    if result == -1
-        fail_io(action: f"Cannot rename '{path}' to '{name}'", path: path)
+    if result < 0
+        fail_io(action: f"Cannot rename '{path}' to '{name}'", path: path, reason: status_reason(status: result))
     var dir = parent_path(path: path)
     return if dir.is_empty() then name else join_path(a: dir, b: name)
 
@@ -695,9 +760,9 @@ secret routine move_path(path: Text, into: Text, replacing: Bool) -> Text
     if result == 1
         throw IOError(description: f"Cannot move '{path}' into '{into}': something there has its name. Pass 'replacing: true' to replace it")
     if result == -2
-        fail_io(action: f"Moved a copy of '{path}' into '{into}', but cannot delete the original, so both are there", path: path)
-    if result == -1
-        fail_io(action: f"Cannot move '{path}' into '{into}'", path: path)
+        fail_io(action: f"Moved a copy of '{path}' into '{into}', but cannot delete the original, so both are there", path: path, reason: 1)
+    if result < 0
+        fail_io(action: f"Cannot move '{path}' into '{into}'", path: path, reason: status_reason(status: result))
     return join_path(a: into, b: last_component(path: path))
 
 ### Puts the file into the directory `into`, keeping its name. A move is a copy into `into` and then a delete of the
@@ -745,8 +810,8 @@ common routine FileManager.copy(from: File, to: File, replacing: Bool = false)
         result = C::rf_fs_copy_no_replace(src, src.count().to[S32](), dst, dst.count().to[S32]())
     if result == 1
         throw IOError(description: f"Cannot copy '{from.at}' to '{to.at}': it already exists. Pass 'replacing: true' to replace it")
-    if result == -1
-        fail_io(action: f"Cannot copy '{from.at}' to '{to.at}'", path: from.at)
+    if result < 0
+        fail_io(action: f"Cannot copy '{from.at}' to '{to.at}'", path: from.at, reason: status_reason(status: result))
     return
 
 ### Copies the directory and everything in it. Symbolic links are not followed. An existing destination is an
@@ -775,8 +840,9 @@ common routine FileManager.copy(from: Directory, to: Directory, replacing: Bool 
 ### :throws: {NotFoundError} when nothing is there, or the crashable for why the attribute cannot be set.
 common routine FileManager.set_readonly(at: File, readonly: Bool = true)
     var cstr = at.at.to[CStr]()
-    if C::rf_fs_set_readonly(cstr, cstr.count().to[S32](), readonly) == -1
-        fail_io(action: f"Cannot set readonly on '{at.at}'", path: at.at)
+    var status = C::rf_fs_set_readonly(cstr, cstr.count().to[S32](), readonly)
+    if status < 0
+        fail_io(action: f"Cannot set readonly on '{at.at}'", path: at.at, reason: status_reason(status: status))
     return
 
 ### Sets the readonly attribute of the directory (file system metadata).
@@ -785,8 +851,9 @@ common routine FileManager.set_readonly(at: File, readonly: Bool = true)
 ### :throws: {NotFoundError} when nothing is there, or the crashable for why the attribute cannot be set.
 common routine FileManager.set_readonly(at: Directory, readonly: Bool = true)
     var cstr = at.at.to[CStr]()
-    if C::rf_fs_set_readonly(cstr, cstr.count().to[S32](), readonly) == -1
-        fail_io(action: f"Cannot set readonly on '{at.at}'", path: at.at)
+    var status = C::rf_fs_set_readonly(cstr, cstr.count().to[S32](), readonly)
+    if status < 0
+        fail_io(action: f"Cannot set readonly on '{at.at}'", path: at.at, reason: status_reason(status: status))
     return
 
 ### Sets an existing file's size to exactly `bytes` (extending with zero bytes or truncating). Size a file before
@@ -796,8 +863,9 @@ common routine FileManager.set_readonly(at: Directory, readonly: Bool = true)
 ### :throws: {NotFoundError} when the file doesn't exist, or the crashable for why its size cannot be set.
 common routine FileManager.set_size(at: File, bytes: U64)
     var cstr = at.at.to[CStr]()
-    if C::rf_fs_set_size(path: cstr, len: cstr.count().to[S32](), size: bytes) == -1
-        fail_io(action: f"Cannot set the size of '{at.at}'", path: at.at)
+    var status = C::rf_fs_set_size(path: cstr, len: cstr.count().to[S32](), size: bytes)
+    if status < 0
+        fail_io(action: f"Cannot set the size of '{at.at}'", path: at.at, reason: status_reason(status: status))
     return
 
 # ============================================================================
@@ -828,10 +896,9 @@ common routine FileManager.read_text_lossy(at: File) -> Text
 ### :throws: {NotFoundError} when the file doesn't exist, or the crashable for why it can't be read.
 common routine FileManager.read_bytes(at: File) -> Bytes
     var cstr = at.at.to[CStr]()
-    var ptr = C::rf_io_read_file_all(cstr, cstr.count().to[S32]())
-    if C::rf_io_last_failed()
-        fail_io(action: f"Cannot read '{at.at}'", path: at.at)
-    return Bytes(ptr: ptr, count: C::rf_io_get_result_len())
+    var block = C::rf_io_read_file_all(cstr, cstr.count().to[S32]())
+    check_block(block: block, action: f"Cannot read '{at.at}'", path: at.at)
+    return block_bytes(block: block)
 
 ### Writes `content` to an existing file, replacing what it held. UNCOLORED, like `read_text`. The text is encoded as
 ### UTF-8.
@@ -859,14 +926,14 @@ common routine FileManager.write_bytes(at: File, content: Bytes)
 ### :throws: {NotFoundError} when the file doesn't exist, or the crashable for why it can't be written.
 secret routine write_all(path: Text, data: Hijacked[Byte], count: U64)
     var cstr = path.to[CStr]()
-    drop C::rf_io_write_file_all(
+    var wrote = C::rf_io_write_file_all(
         path: cstr,
         path_len: cstr.count().to[S32](),
         data: data,
         data_len: count.to[S64](),
     )
-    if C::rf_io_last_failed()
-        fail_io(action: f"Cannot write '{path}'. Make it with 'FileManager.make_file' first", path: path)
+    if wrote < 0
+        fail_io(action: f"Cannot write '{path}'. Make it with 'FileManager.make_file' first", path: path, reason: (0 - wrote).to[S32]())
     return
 
 ### Adds `content` at the end of an existing file. The text is encoded as UTF-8.
@@ -889,8 +956,8 @@ common routine FileManager.append_text(at: File, content: Text)
 common routine FileManager.open_read(at: File) -> FileSource
     var cstr = at.at.to[CStr]()
     var fd = C::rf_file_open(cstr, cstr.count().to[S32](), 0)
-    if fd == -1
-        fail_io(action: f"Cannot open '{at.at}' for reading", path: at.at)
+    if fd < 0
+        fail_io(action: f"Cannot open '{at.at}' for reading", path: at.at, reason: status_reason(status: fd))
     return FileSource(fd: fd, is_closed: false)
 
 ### Opens an existing file for sequential writing, EMPTYING it first, giving a {Sink} filled with `push`.
@@ -900,8 +967,8 @@ common routine FileManager.open_read(at: File) -> FileSource
 common routine FileManager.open_write(at: File) -> FileSink
     var cstr = at.at.to[CStr]()
     var fd = C::rf_file_open(cstr, cstr.count().to[S32](), 1)
-    if fd == -1
-        fail_io(action: f"Cannot open '{at.at}' for writing", path: at.at)
+    if fd < 0
+        fail_io(action: f"Cannot open '{at.at}' for writing", path: at.at, reason: status_reason(status: fd))
     return FileSink(fd: fd, is_closed: false)
 
 ### Opens an existing file for sequential appending (writes land after its contents), giving a {Sink}.
@@ -911,8 +978,8 @@ common routine FileManager.open_write(at: File) -> FileSink
 common routine FileManager.open_append(at: File) -> FileSink
     var cstr = at.at.to[CStr]()
     var fd = C::rf_file_open(cstr, cstr.count().to[S32](), 2)
-    if fd == -1
-        fail_io(action: f"Cannot open '{at.at}' for appending", path: at.at)
+    if fd < 0
+        fail_io(action: f"Cannot open '{at.at}' for appending", path: at.at, reason: status_reason(status: fd))
     return FileSink(fd: fd, is_closed: false)
 
 ### The whole file as a {FileStorage} of `T` cells (`Byte` or `Char`), mapped by the `viewing` / `modifying` block
@@ -951,12 +1018,13 @@ secret routine FileStorage[T].map(write: Bool)
     var mode: U8 = 0
     if write
         mode = 1
-    var base = C::rf_file_map(path: cstr, path_len: cstr.count().to[S32](), offset: me.start *% esize,
+    var block = C::rf_file_map(path: cstr, path_len: cstr.count().to[S32](), offset: me.start *% esize,
         length: length, write: mode)
-    if base.is_hollow()
-        fail_io(action: f"Cannot map '{me.file.at}' as storage", path: me.file.at)
-    var mapped_len = C::rf_get_result_len()
-    var delta = C::rf_file_map_delta()
+    check_block(block: block, action: f"Cannot map '{me.file.at}' as storage", path: me.file.at)
+    var mapped_len = block_count(block: block)
+    var delta = block_word(block: block, index: 2)
+    var base = Hijacked[Byte](block_word(block: block, index: 3).to[Addr]())
+    block_free(block: block)
     me.buf = base.offset(bytes: ByteSize(bytes: delta)).recast_as[T]()
     me.byte_len = mapped_len - mapped_len % esize
     me.map_delta = delta
@@ -1017,13 +1085,9 @@ routine FileStorage[T].modify_exit()
 ###   UTF-8, or the crashable for why it cannot be listed.
 common routine FileManager.list(at: Directory) -> List[Text]
     var cstr = at.at.to[CStr]()
-    var ptr = C::rf_fs_list_dir(path: cstr, len: cstr.count().to[S32]())
-    var len = C::rf_get_result_len()
-    if ptr.is_hollow()
-        fail_io(action: f"Cannot list '{at.at}'", path: at.at)
-    if len == 0
-        return List[Text]()
-    return path_text(ptr: ptr, len: len).split(separator: '\n')
+    var block = C::rf_fs_list_dir(path: cstr, len: cstr.count().to[S32]())
+    check_block(block: block, action: f"Cannot list '{at.at}'", path: at.at)
+    return listing_lines(block: block)
 
 ### The direct entries of the directory WITH their kind and modification time, in one directory read.
 ### Prefer this over `list` + `is_directory` + `metadata` when walking a tree: on Windows the kind and
@@ -1035,14 +1099,10 @@ common routine FileManager.list(at: Directory) -> List[Text]
 ###   UTF-8, or the crashable for why it cannot be listed.
 common routine FileManager.entries(at: Directory) -> List[DirEntry]
     var cstr = at.at.to[CStr]()
-    var ptr = C::rf_fs_list_dir_typed(path: cstr, len: cstr.count().to[S32]())
-    var len = C::rf_get_result_len()
-    if ptr.is_hollow()
-        fail_io(action: f"Cannot list '{at.at}'", path: at.at)
+    var block = C::rf_fs_list_dir_typed(path: cstr, len: cstr.count().to[S32]())
+    check_block(block: block, action: f"Cannot list '{at.at}'", path: at.at)
     var result = List[DirEntry]()
-    if len == 0
-        return result
-    for line in path_text(ptr: ptr, len: len).split(separator: '\n')
+    for line in listing_lines(block: block)
         # Each line is `<kind><mtime> <name>`: 'd'/'f', then decimal Unix seconds, one
         # space, then the raw name (which may itself contain spaces).
         var is_dir = line[0] == 'd'
@@ -1234,14 +1294,10 @@ routine FileSource.read_bytes(count: U64) -> Bytes
     return me.pull(max: count)
 
 ### The bytes of a block the runtime read from a file, copied once. The runtime's block is given back.
-### :param ptr: The block (its length is the runtime's last result length), or a hollow pointer.
+### :param ptr: The block, or a hollow pointer.
 ### :returns: The bytes.
 secret routine taken_bytes(ptr: Hijacked[Byte]) -> Bytes
-    var bytes = Bytes(ptr: ptr, count: C::rf_get_result_len())
-    if not ptr.is_hollow()
-        danger
-            C::rf_invalidate(ptr: ptr.address())
-    return bytes
+    return block_bytes(block: ptr)
 
 ### Closes the descriptor. Idempotent — `close()`, scope-exit `exit`, and teardown `destruct` never
 ### double-close.

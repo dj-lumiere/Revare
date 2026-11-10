@@ -15,24 +15,56 @@ import IO/File
 record Environment
     nothing
 
-### The runtime byte buffer of `len` bytes as text.
-### :param ptr: The buffer.
-### :param len: Its length.
+### Word `index` of a runtime block: the runtime hands back bytes as six U64 words (why it failed, the byte count, four
+### more) and then the bytes, so what a call returns travels with it.
+### :param block: The block.
+### :param index: The word, 0 to 5.
+### :returns: The word.
+secret routine block_word(block: Hijacked[Byte], index: S64) -> U64
+    danger
+        return Hijacked[U64](block.stride(count: index * 8).address()).peek()
+
+### Whether the call that made the block failed (a variable that isn't set, a directory that can't be told). A block
+### that isn't there counts as failed.
+### :param block: The block.
+### :returns: True when it failed.
+secret routine block_failed(block: Hijacked[Byte]) -> Bool
+    if block.is_hollow()
+        return true
+    return block_word(block: block, index: 0) != 0
+
+### The bytes of a runtime block, copied once. The block is given back.
+### :param block: The block, or a hollow pointer.
+### :returns: The bytes, empty for a failed block.
+secret routine block_bytes(block: Hijacked[Byte]) -> Bytes
+    if block.is_hollow()
+        return Bytes(ptr: block, count: 0)
+    var count = block_word(block: block, index: 1)
+    danger
+        var bytes = Bytes(ptr: block.stride(count: 48), count: count)
+        C::rf_invalidate(ptr: block.address())
+        return bytes
+
+### Gives the runtime's block back.
+### :param block: The block, or a hollow pointer.
+secret routine block_free(block: Hijacked[Byte])
+    if not block.is_hollow()
+        danger
+            C::rf_invalidate(ptr: block.address())
+    return
+
+### The runtime block's bytes as text. The block is given back.
+### :param block: The block.
 ### :returns: The text.
 ### :throws: {MalformedUtf8Error} if the bytes are not well-formed UTF-8.
-secret routine environment_text(ptr: Hijacked[Byte], len: U64) -> Text
-    if ptr.is_hollow() or len == 0
-        return ""
-    return Bytes(ptr: ptr, count: len).decode_as_utf8()
+secret routine environment_text(block: Hijacked[Byte]) -> Text
+    return block_bytes(block: block).decode_as_utf8()
 
-### The runtime byte buffer of `len` bytes as text, with U+FFFD in place of each malformed sequence.
-### :param ptr: The buffer.
-### :param len: Its length.
+### The runtime block's bytes as text, with U+FFFD in place of each malformed sequence. The block is given back.
+### :param block: The block.
 ### :returns: The text.
-secret routine environment_text_lossy(ptr: Hijacked[Byte], len: U64) -> Text
-    if ptr.is_hollow() or len == 0
-        return ""
-    return Bytes(ptr: ptr, count: len).decode_as_utf8_lossy()
+secret routine environment_text_lossy(block: Hijacked[Byte]) -> Text
+    return block_bytes(block: block).decode_as_utf8_lossy()
 
 ### The arguments the program was started with, its own name left out.
 ### :returns: The arguments, in order.
@@ -40,8 +72,7 @@ secret routine environment_text_lossy(ptr: Hijacked[Byte], len: U64) -> Text
 common routine Environment.arguments() -> List[Text]
     var result = List[Text]()
     for i in 0 til C::rf_env_argument_count()
-        var ptr = C::rf_env_argument(index: i)
-        result.add_last(value: environment_text(ptr: ptr, len: C::rf_get_result_len()))
+        result.add_last(value: environment_text(block: C::rf_env_argument(index: i)))
     return result
 
 ### The arguments the program was started with, its own name left out, with U+FFFD in place of each malformed UTF-8
@@ -50,8 +81,7 @@ common routine Environment.arguments() -> List[Text]
 common routine Environment.arguments_lossy() -> List[Text]
     var result = List[Text]()
     for i in 0 til C::rf_env_argument_count()
-        var ptr = C::rf_env_argument(index: i)
-        result.add_last(value: environment_text_lossy(ptr: ptr, len: C::rf_get_result_len()))
+        result.add_last(value: environment_text_lossy(block: C::rf_env_argument(index: i)))
     return result
 
 ### The value of the environment variable `name`, asked of the operating system now (on Windows the name's case
@@ -61,20 +91,22 @@ common routine Environment.arguments_lossy() -> List[Text]
 ### :throws: {MalformedUtf8Error} when the value is not UTF-8.
 common routine Environment.variable(name: Text) -> Text?
     var cstr = name.to[CStr]()
-    var ptr = C::rf_env_variable(name: cstr, len: cstr.count().to[S32]())
-    if ptr.is_hollow()
+    var block = C::rf_env_variable(name: cstr, len: cstr.count().to[S32]())
+    if block_failed(block: block)
+        block_free(block: block)
         return none
-    return environment_text(ptr: ptr, len: C::rf_get_result_len())
+    return environment_text(block: block)
 
 ### The value of the environment variable `name`, with U+FFFD in place of each malformed UTF-8 sequence.
 ### :param name: The variable's name.
 ### :returns: Its value, or `none` when it isn't set.
 common routine Environment.variable_lossy(name: Text) -> Text?
     var cstr = name.to[CStr]()
-    var ptr = C::rf_env_variable(name: cstr, len: cstr.count().to[S32]())
-    if ptr.is_hollow()
+    var block = C::rf_env_variable(name: cstr, len: cstr.count().to[S32]())
+    if block_failed(block: block)
+        block_free(block: block)
         return none
-    return environment_text_lossy(ptr: ptr, len: C::rf_get_result_len())
+    return environment_text_lossy(block: block)
 
 ### Every environment variable as the operating system has them now, as one text: each name and value ends with a
 ### NUL.
@@ -82,11 +114,10 @@ common routine Environment.variable_lossy(name: Text) -> Text?
 ### :returns: The text.
 ### :throws: {MalformedUtf8Error} when a name or value is not UTF-8 and `lossy` is false.
 secret routine environment_snapshot(lossy: Bool) -> Text
-    var ptr = C::rf_env_snapshot()
-    var len = C::rf_get_result_len()
+    var block = C::rf_env_snapshot()
     if lossy
-        return environment_text_lossy(ptr: ptr, len: len)
-    return environment_text(ptr: ptr, len: len)
+        return environment_text_lossy(block: block)
+    return environment_text(block: block)
 
 ### Every environment variable as the operating system has them now: each name followed by its value.
 ### :param lossy: Whether a malformed UTF-8 sequence becomes U+FFFD instead of failing.
@@ -126,24 +157,23 @@ common routine Environment.variables_lossy() -> Dict[Text, Text]
 ### :returns: The resulting `Directory`.
 ### :throws: {IOError} when the working directory cannot be read.
 common routine Environment.working_directory() -> Directory
-    var ptr = C::rf_fs_current_dir()
-    var len = C::rf_get_result_len()
-    if ptr.is_hollow()
+    var block = C::rf_fs_current_dir()
+    if block_failed(block: block)
+        block_free(block: block)
         throw IOError(description: "Cannot read the working directory")
-    return Directory(at: environment_text(ptr: ptr, len: len))
+    return Directory(at: environment_text(block: block))
 
 ### The current user's home directory.
 ### :returns: The resulting `Directory`.
 ### :throws: {NotFoundError} when the home directory cannot be told.
 common routine Environment.home_directory() -> Directory
-    var ptr = C::rf_fs_home_dir()
-    var len = C::rf_get_result_len()
-    if ptr.is_hollow()
+    var block = C::rf_fs_home_dir()
+    if block_failed(block: block)
+        block_free(block: block)
         throw NotFoundError(description: "Cannot tell the home directory")
-    return Directory(at: environment_text(ptr: ptr, len: len))
+    return Directory(at: environment_text(block: block))
 
 ### The platform's temporary directory. Honors the usual environment variables, never fails.
 ### :returns: The resulting `Directory`.
 common routine Environment.temp_directory() -> Directory
-    var ptr = C::rf_fs_temp_dir()
-    return Directory(at: environment_text(ptr: ptr, len: C::rf_get_result_len()))
+    return Directory(at: environment_text(block: C::rf_fs_temp_dir()))

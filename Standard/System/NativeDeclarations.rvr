@@ -2291,11 +2291,11 @@ routine C::rf_console_ask_bytes(count: U64) -> Hijacked[Byte]
 # ============================================================================
 # File I/O
 # ============================================================================
-
-### Returns the byte length associated with the most recent runtime buffer result.
-### This is used by higher-level wrappers after calls that return raw byte pointers.
-### :returns: The length of the current result buffer in bytes.
-routine C::rf_get_result_len() -> U64
+#
+# A routine that returns bytes returns a runtime block: six U64 words, then the bytes and a NUL. Word 0 is the reason
+# the call failed (0 when it didn't), word 1 the byte count, words 2 to 5 what else it hands back. The caller frees the
+# block with `rf_invalidate`. A routine that returns a status returns a failure as minus 16 minus the reason's code.
+# Nothing a call returns is kept in a global: the fiber that reads it may be on another thread by then.
 
 ### Opens a file and returns the runtime file descriptor.
 ### :param path: The null-terminated file path.
@@ -2335,34 +2335,25 @@ dangerous routine C::rf_file_unmap(ptr: Hijacked[Byte], len: U64)
 dangerous routine C::rf_file_map_flush(ptr: Hijacked[Byte], len: U64)
 
 ### Memory-maps a page-aligned WINDOW `[offset, offset+length)` of a file for a storage a block enters, clamped to the
-### file end: for writing when `write` is 1, for reading only when it is 0. Returns the mapping BASE (rounded down to
-### the platform mapping granularity), add `rf_file_map_delta()` to reach the requested offset, and
-### `rf_get_result_len()` gives the clamped length. None on a failure ({rf_fs_last_error} tells why: a file that can't
-### be written, mapped for writing, is "not allowed"), the empty-map marker (length 0) when the window is empty.
-### Release with `rf_file_unmap(base, delta + result_len)`.
+### file end: for writing when `write` is 1, for reading only when it is 0. Returns a block whose word 1 is the
+### clamped length, word 2 the offset from the mapping BASE (rounded down to the platform mapping granularity) to the
+### requested offset, and word 3 the base. A failure puts its reason in word 0 (a file that can't be written, mapped
+### for writing, is "not allowed"), and the empty-map marker (address 1, length 0) is the base when the window is empty.
+### Release with `rf_file_unmap(base, delta + length)`.
 ### :param path: The null-terminated file path.
 ### :param path_len: The path length in bytes.
 ### :param offset: The starting byte offset within the file.
 ### :param length: The requested window length in bytes (clamped to the file end), `U64_MAX` for the rest of it.
 ### :param write: 1 to map for writing, 0 for reading only.
-### :returns: A pointer to the mapped window base.
+### :returns: The block.
 routine C::rf_file_map(path: CStrView, path_len: S32, offset: U64, length: U64, write: U8) -> Hijacked[Byte]
-
-### The byte offset from a mapping's base to the caller-requested offset (see `rf_file_map`). Zero for a mapping
-### from the file's start.
-### :returns: The delta in bytes.
-routine C::rf_file_map_delta() -> U64
 
 ### Reads a whole file asynchronously on the runtime's I/O threads. Inside work a Work runs as a fiber the
 ### fiber parks while the read runs (its siblings keep progressing), anywhere else it reads inline.
 ### :param path: The null-terminated file path.
 ### :param path_len: The path length in bytes.
-### :returns: A pointer to the captured byte buffer (length via `rf_io_get_result_len`).
+### :returns: The block with the contents, or the reason it failed.
 routine C::rf_io_read_file_all(path: CStrView, path_len: S32) -> Hijacked[Byte]
-
-### Returns the byte length of the most recent async I/O buffer result.
-### :returns: The length of the current async result buffer in bytes.
-routine C::rf_io_get_result_len() -> U64
 
 ### Writes a whole existing file asynchronously on the runtime's I/O threads, truncating its contents. A
 ### missing file fails.
@@ -2517,7 +2508,7 @@ routine C::rf_fs_copy(src: CStrView, src_len: S32, dst: CStrView, dst_len: S32) 
 ### :param name_len: The name length in bytes.
 ### :param replacing: Whether something already called `name` there is replaced.
 ### :returns: `0` when renamed, `1` when something there has that name (and `replacing` is false), `2` when the name
-###     is not a name (empty, `.`, `..`, or holding a separator), `-1` on another error ({rf_fs_last_error}).
+###     is not a name (empty, `.`, `..`, or holding a separator), a failure status on another error.
 routine C::rf_fs_rename(path: CStrView, path_len: S32, name: CStrView, name_len: S32, replacing: Bool) -> S32
 
 ### Puts the path into the directory `into`, keeping its name: the OS renames it on the same partition, otherwise
@@ -2528,27 +2519,21 @@ routine C::rf_fs_rename(path: CStrView, path_len: S32, name: CStrView, name_len:
 ### :param into_len: The directory path length in bytes.
 ### :param replacing: Whether something of the same name in `into` is replaced.
 ### :returns: `0` when moved, `1` when something of that name is there (and `replacing` is false), `-2` when the copy
-###     was made but the original couldn't be deleted, `-1` on another error ({rf_fs_last_error} tells why for both).
+###     was made but the original couldn't be deleted, a failure status on another error.
 routine C::rf_fs_move_into(path: CStrView, path_len: S32, into: CStrView, into_len: S32, replacing: Bool) -> S32
 
-### Why this thread's last file system call failed: `0` it didn't, `1` another reason, `2` nothing is there, `3` not
-### allowed, `4` the device is full, `5` the device failed to read or write, `6` something is already there, `7` the
-### path or name isn't one the OS takes.
-### :returns: The reason code.
-routine C::rf_fs_last_error() -> S32
-
 ### The storage devices the OS reports, one per line: name, a tab, and the size in bytes (0 when unknown).
-### :returns: A runtime-managed byte buffer (length via `rf_get_result_len`), empty when the OS reports none.
+### :returns: A runtime-managed byte buffer (a block), empty when the OS reports none.
 routine C::rf_storage_list() -> Hijacked[Byte]
 
 ### The partitions the OS has mounted, one per line: name, device, root, file system and size, separated by tabs.
-### :returns: A runtime-managed byte buffer (length via `rf_get_result_len`), empty when the OS reports none.
+### :returns: A runtime-managed byte buffer (a block), empty when the OS reports none.
 routine C::rf_partition_list() -> Hijacked[Byte]
 
 ### The partition a path is on, as one line of `rf_partition_list`.
 ### :param path: The null-terminated path.
 ### :param len: The path length in bytes.
-### :returns: A runtime-managed byte buffer, or none on a failure ({rf_fs_last_error} tells why).
+### :returns: A runtime-managed byte buffer, or the reason in a block on a failure.
 routine C::rf_partition_of(path: CStrView, len: S32) -> Hijacked[Byte]
 
 ### The number of arguments the program was started with, its own name not counted.
@@ -2557,17 +2542,17 @@ routine C::rf_env_argument_count() -> U64
 
 ### One argument the program was started with (`0` is the first after its own name), UTF-8.
 ### :param index: The argument's position.
-### :returns: A runtime-managed byte buffer (length via `rf_get_result_len`), empty past the last one.
+### :returns: A runtime-managed byte buffer (a block), empty past the last one.
 routine C::rf_env_argument(index: U64) -> Hijacked[Byte]
 
 ### The value of an environment variable, asked of the OS (on Windows the name's case doesn't matter).
 ### :param name: The null-terminated name.
 ### :param len: The name length in bytes.
-### :returns: A runtime-managed byte buffer (length via `rf_get_result_len`), or none when it isn't set.
+### :returns: A runtime-managed byte buffer (a block), or none when it isn't set.
 routine C::rf_env_variable(name: CStrView, len: S32) -> Hijacked[Byte]
 
 ### The environment, as the OS has it now: each name and value followed by a NUL.
-### :returns: A runtime-managed byte buffer (length via `rf_get_result_len`), empty for no variables.
+### :returns: A runtime-managed byte buffer (a block), empty for no variables.
 routine C::rf_env_snapshot() -> Hijacked[Byte]
 
 ### Returns the file size for a regular file path.
@@ -2645,32 +2630,13 @@ routine C::rf_fs_can_execute(path: CStrView, len: S32) -> Bool
 ### :returns: A runtime status code.
 routine C::rf_fs_set_readonly(path: CStrView, len: S32, readonly_flag: Bool) -> S32
 
-### Reads filesystem metadata for a path in a single stat, caching the result.
-### Field accessors below read the cached values from the most recent successful call.
+### Reads filesystem metadata for a path in a single stat. The block's word 1 is 1 for a directory plus 2 for a
+### read-only path, word 2 the size in bytes, word 3 the modification time and word 4 the creation time as whole Unix
+### epoch seconds (a U64's bits).
 ### :param path: The null-terminated path to inspect.
 ### :param len: The path length in bytes.
-### :returns: `0` on success, or `-1` on error.
-routine C::rf_fs_metadata(path: CStrView, len: S32) -> S32
-
-### Returns the cached size in bytes from the last `rf_fs_metadata` call.
-### :returns: The file size in bytes.
-routine C::rf_fs_meta_size() -> S64
-
-### Returns the cached last-modification time as whole Unix epoch seconds.
-### :returns: Unix epoch seconds.
-routine C::rf_fs_meta_modified() -> S64
-
-### Returns the cached creation time as whole Unix epoch seconds.
-### :returns: Unix epoch seconds.
-routine C::rf_fs_meta_created() -> S64
-
-### Returns whether the cached metadata describes a directory.
-### :returns: `true` when the path is a directory.
-routine C::rf_fs_meta_is_directory() -> Bool
-
-### Returns whether the cached metadata marks the path readonly.
-### :returns: `true` when the path is readonly.
-routine C::rf_fs_meta_readonly() -> Bool
+### :returns: The block, or the reason in word 0.
+routine C::rf_fs_metadata(path: CStrView, len: S32) -> Hijacked[Byte]
 
 ### Lists the direct entries of a directory as newline-separated names.
 ### The returned buffer excludes `.` and `..`; an empty directory yields an empty buffer.
@@ -2703,7 +2669,7 @@ routine C::rf_fs_home_dir() -> Hijacked[Byte]
 ### :param path: The null-terminated file path.
 ### :param len: The path length in bytes.
 ### :param replacing: Whether an existing file is emptied.
-### :returns: `0` when made, `1` when it exists and `replacing` is false, or `-1` on any other error.
+### :returns: `0` when made, `1` when it exists and `replacing` is false, or a failure status on any other error.
 routine C::rf_fs_make_file(path: CStrView, len: S32, replacing: Bool) -> S32
 
 ### Copies a file unless the destination exists.
@@ -2711,17 +2677,13 @@ routine C::rf_fs_make_file(path: CStrView, len: S32, replacing: Bool) -> S32
 ### :param src_len: Its length.
 ### :param dst: The destination path.
 ### :param dst_len: Its length.
-### :returns: `0` when copied, `1` when the destination exists (nothing copied), or `-1` on an error.
+### :returns: `0` when copied, `1` when the destination exists (nothing copied), or a failure status on an error.
 routine C::rf_fs_copy_no_replace(src: CStrView, src_len: S32, dst: CStrView, dst_len: S32) -> S32
-
-### Whether this thread's last `rf_io_read_file_all` or `rf_io_write_file_all` failed.
-### :returns: True when it failed.
-routine C::rf_io_last_failed() -> Bool
 
 ### Sets an existing file's size to exactly `size` bytes (extending with zero bytes or truncating as
 ### needed). Enables writable mappings that produce output — mmap cannot grow a file. A missing file fails.
 ### :param path: The null-terminated file path.
 ### :param len: The path length in bytes.
 ### :param size: The exact size in bytes.
-### :returns: `0` on success, or `-1` on error.
+### :returns: `0` on success, or a failure status on error.
 routine C::rf_fs_set_size(path: CStrView, len: S32, size: U64) -> S32
