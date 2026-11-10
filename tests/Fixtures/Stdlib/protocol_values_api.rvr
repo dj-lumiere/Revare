@@ -253,6 +253,36 @@ routine changing()
     show(f"loops {plain[0].label} {cs[0].total()} {cs[1].total()}")
     return
 
+# A stored value is also a Dict value, a routine's result and an optional list element, read where it is under `try`.
+routine pick(big: Bool) -> Enemy
+    if big
+        return Boss(life: 90, rage: 4)
+    return Slime(life: 12)
+
+routine more_places()
+    var named = Dict[Text, Enemy]()
+    named["slime"] = Slime(life: 6)
+    named["boss"] = Boss(life: 40, rage: 8)
+    named["boss"].update()
+    named["slime"].update()
+    show(f"dict {named.count()}")
+    show(named["slime"].hp())
+    show(named["boss"].hp())
+    var counted = Dict[Text, Counting]()
+    counted["tally"] = Tally(label: "tally 0", n: 0)
+    counted["tally"].bump(by: 6)
+    show(f"dict record {counted["tally"].total()}")
+    var made = pick(big: true)
+    made.update()
+    show(f"made {made.hp()}")
+    var maybe = List[Enemy?]()
+    maybe.add_last(value: none)
+    maybe.add_last(value: pick(big: false))
+    show(try maybe[0].hp() ?? -1)
+    show(try maybe[1].hp() ?? -1)
+    show("more_places done")
+    return
+
 routine start()
     entities()
     show(f"ended {ENDED}")
@@ -263,5 +293,7 @@ routine start()
     records()
     party()
     changing()
+    show(f"ended {ENDED}")
+    more_places()
     show(f"ended {ENDED}")
     return

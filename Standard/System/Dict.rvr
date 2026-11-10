@@ -578,10 +578,25 @@ needs EntityType TValue
 ### Returns a read token on the entity stored at `key`, so one call through it reads the value without
 ### copying it: `groups["a"].count()` lowers to `groups.view_at(key: "a").count()`. A plain `getitem` hands
 ### back a copy, and a call on that copy would copy the whole value first. Like `T.view()`, the token lives
-### only for that one call (the builder keeps the container still meanwhile, RV-S639). Entity elements only.
+### only for that one call (the builder keeps the container still meanwhile, RV-S639).
 ### :param key: The key of the entry.
 ### :returns: A read token on the element.
 @readonly
+@overridable
+routine Dict[TKey, TValue].view_at(key: %TKey) -> %TValue
+needs AnyType TValue
+    var slot = me.find_slot(key)
+    if slot >= me.capacity
+        throw AbsentValueError()
+    # A record value's token is the address of its slot.
+    danger
+        return Viewing[TValue](me.vals.offset(TValue.data_size() * me.read_index(slot)))
+
+### `view_at` for a single-owner entity: the slot holds the entity's address, which is the token.
+### :param key: The key of the entry.
+### :returns: A read token on the element.
+@readonly
+@override
 routine Dict[TKey, TValue].view_at(key: %TKey) -> %TValue
 needs EntityType TValue
     var slot = me.find_slot(key)

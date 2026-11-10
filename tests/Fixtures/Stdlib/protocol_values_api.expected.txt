@@ -43,3 +43,16 @@ elements 2 11
 plain tally 4
 loops tally 5 3 21
 ended 11
+dict 2
+5
+32
+dict record 6
+made 86
+-1
+12
+more_places done
+slime ends at 12
+boss ends at 86
+slime ends at 5
+boss ends at 32
+ended 15
