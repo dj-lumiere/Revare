@@ -75,6 +75,13 @@ routine LLVM::reinterpret_bits[TFrom, TTo](value: TFrom) -> TTo
 @llvm_ir("{result} = extractvalue {T} {value}, 1")
 dangerous routine LLVM::routine_bound[T](value: T) -> Addr
 
+### The same routine value as another routine type: every routine value is laid out alike (`{ptr, ptr}`), so no bit
+### changes. Only `ErasedCallable` uses it, after checking the signature.
+### :param value: The routine value.
+### :returns: The routine value as a `TTo`.
+@llvm_ir("{result} = select i1 true, {TTo} {value}, {TTo} {value}")
+dangerous routine LLVM::routine_as[TFrom, TTo](value: TFrom) -> TTo
+
 ### Converts a pointer value to an integer value.
 ### :param value: The pointer to convert.
 ### :returns: The resulting `TTo` value.

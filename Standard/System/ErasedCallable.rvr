@@ -1,0 +1,51 @@
+module System
+
+import BuilderQuery
+
+### A routine value whose signature is known only at run time: the routine value and a hash of its signature (its
+### parameter and result types, each with its module). Values of different signatures fit in one place
+### (`List[ErasedCallable]`). `f.to[ErasedCallable]()` makes one, and `e.to[Callable[(S64,), S64]]()` gives the routine
+### value back when the signatures match. A copy is one more holder of what a lambda captured, as for a routine value.
+record ErasedCallable
+    ### The routine value, kept as a routine type of the same layout until it is given back.
+    secret held: Callable[(), None]
+    ### The signature hash of the routine value's own type.
+    secret signature: U64
+
+### Makes an `ErasedCallable` of a routine value. The routine value stays usable: what it captured gets one more
+### holder.
+### :returns: The routine value with its signature hash.
+routine T.to[ErasedCallable]() -> ErasedCallable
+needs RoutineType T
+    danger
+        closure_hold(bound: LLVM::routine_bound[T](me))
+        return ErasedCallable(held: LLVM::routine_as[T, Callable[(), None]](value: me), signature: T.type_id())
+
+### Gives the routine value back as the routine type `T` it was made from.
+### :returns: The routine value.
+### :throws: {RoutineSignatureError} if the routine value has another signature than `T`.
+routine ErasedCallable.to[T]() -> T
+needs RoutineType T
+    if me.signature != T.type_id()
+        throw RoutineSignatureError(asked: T.full_type_name())
+    danger
+        closure_hold(bound: LLVM::routine_bound[Callable[(), None]](me.held))
+        return LLVM::routine_as[Callable[(), None], T](value: me.held)
+
+### Whether the routine value has the signature of the routine type `T`.
+### :returns: True when `to[T]()` would give it back.
+@readonly
+routine ErasedCallable.fits[T]() -> Bool
+needs RoutineType T
+    return me.signature == T.type_id()
+
+### An `ErasedCallable` was asked for a routine type its routine value doesn't have.
+crashable RoutineSignatureError
+    ### The routine type that was asked for.
+    asked: Text
+
+### Returns the message naming the routine type that was asked for.
+### :returns: The message.
+@override
+routine RoutineSignatureError.crash_message() -> Text
+    return f"The erased routine value is not a {me.asked}."

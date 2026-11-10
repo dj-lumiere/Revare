@@ -1,0 +1,14 @@
+module Tests/ExitCode/ErasedCallableMismatch
+
+import IO/Console
+
+routine twice(n: S64) -> S64
+    return n * 2
+
+routine start()
+    var e = twice.to[ErasedCallable]()
+    show("asking for the wrong signature")
+    var wrong = e.to[Callable[(Text,), None]]()
+    wrong("not reached")
+    show("not reached")
+    return

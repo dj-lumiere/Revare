@@ -1,0 +1,72 @@
+module Tests/Stdlib/ErasedCallableApi
+
+import IO/Console
+
+# An `ErasedCallable` keeps a routine value whose signature is known only at run time: `f.to[ErasedCallable]()` makes
+# one, `e.to[Callable[(S64,), S64]]()` gives the routine value back when the signatures match, and under `try` a
+# mismatch gives none. A list of them holds routine values of different signatures (an event bus). What a lambda
+# captured ends once, when the last holder goes.
+
+entity Slime
+    life: S64
+
+dangerous routine Slime.destruct()
+    show(f"slime ends at {me.life}")
+    return
+
+routine twice(n: S64) -> S64
+    return n * 2
+
+routine shout(text: Text)
+    show(f"shout {text}")
+    return
+
+routine round_trip()
+    var f: Callable[(S64,), S64] = twice
+    var e = f.to[ErasedCallable]()
+    var back = e.to[Callable[(S64,), S64]]()
+    show(back(21))
+    show(e.fits[Callable[(S64,), S64]]())
+    show(e.fits[Callable[(Text,), None]]())
+    when try e.to[Callable[(Text,), None]]()
+        is None => show("not a Callable[(Text,), None]")
+        else as g => g("x")
+    when check e.to[Callable[(), S64]]()
+        is Callable[(), S64] as h => show(h())
+        is RoutineSignatureError as wrong => show(wrong.crash_message())
+        is Crashables => show("other")
+    return
+
+routine captured()
+    var r = Retained[Slime](from: Slime(life: 7))
+    var peek = () given r => r.life
+    drop r
+    var e = peek.to[ErasedCallable]()
+    var copy = e
+    drop peek
+    drop e
+    show(f"peek {copy.to[Callable[(), S64]]()()}")
+    show("captured done")
+    return
+
+routine event_bus()
+    var base: S64 = 100
+    var add = (n: S64) given base => n + base
+    var bus = List[ErasedCallable]()
+    bus.add_last(value: shout.to[ErasedCallable]())
+    bus.add_last(value: add.to[ErasedCallable]())
+    bus.add_last(value: twice.to[ErasedCallable]())
+    for e in bus
+        when try e.to[Callable[(Text,), None]]()
+            is None => nothing
+            else as said => said("hello")
+        if e.fits[Callable[(S64,), S64]]()
+            show(f"number {e.to[Callable[(S64,), S64]]()(5)}")
+    return
+
+routine start()
+    round_trip()
+    captured()
+    show("after captured")
+    event_bus()
+    return

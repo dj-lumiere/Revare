@@ -113,6 +113,12 @@ When unsure, consult ground truth in the repo/package:
    `try xs.select(transform: x => 10 // x).to[List]()` is received; with no keyword above it the routine value runs
    plainly and stops where it fails. Every `Callable[...]` takes any routine value. The handlers of
    `CpuEventManager` (`Callable[(), None]?`) run with nothing above them: a handler's failure stops the program.
+   **`ErasedCallable`** (System) holds a routine value whose signature is known only at run time: the routine value
+   and a signature hash (FNV-1a 64 of `Callable[(params), result]` written with full type names, the same hash as a
+   type id). `f.to[ErasedCallable]()` makes one (any routine value, a lambda with captures too), `e.to[Callable[(S64,),
+   S64]]()` gives it back and fails with `RoutineSignatureError` on another signature (`try` gives `none`, no keyword
+   crashes there), `e.fits[Callable[...]]()` asks without failing. A copy is one more holder of the lambda's captures,
+   so `List[ErasedCallable]` works as an event bus. There is no call through an `Addr`.
    **`todo`** is a statement for code not written yet (`routine parse(bytes: Bytes) -> Header` with the body
    `todo`): running it crashes with `NotImplementedError` naming the routine, even under `try`/`check`. It ends its
    path, so a body that is only `todo` needs no `return`. The build warns

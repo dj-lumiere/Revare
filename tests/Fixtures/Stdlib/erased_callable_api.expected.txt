@@ -1,0 +1,12 @@
+42
+true
+false
+not a Callable[(Text,), None]
+The erased routine value is not a Callable[(), S64].
+peek 7
+captured done
+slime ends at 7
+after captured
+shout hello
+number 105
+number 10

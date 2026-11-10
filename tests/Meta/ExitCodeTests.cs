@@ -112,6 +112,21 @@ public sealed class ExitCodeTests
         Assert.Contains(expectedSubstring: "Division by zero error", actualString: stdout + stderr);
     }
 
+    /// <summary>Asking an <c>ErasedCallable</c> for another signature than its routine value has, with no <c>try</c>
+    /// above, stops the program right there with status 82 and names the routine type asked for.</summary>
+    [Fact]
+    public void ErasedCallableMismatch_CrashesLoudly()
+    {
+        (int exit, string stdout, string stderr) = RunFixture(fixture: "erased_callable_mismatch.rvr");
+
+        Assert.True(condition: exit == 82,
+            userMessage: $"expected exit 82, got {exit}\n--- stdout ---\n{stdout}\n--- stderr ---\n{stderr}");
+        Assert.Contains(expectedSubstring: "asking for the wrong signature", actualString: stdout);
+        Assert.DoesNotContain(expectedSubstring: "not reached", actualString: stdout);
+        Assert.Contains(expectedSubstring: "Routine signature error: The erased routine value is not a Callable[(Text,), None].",
+            actualString: stdout + stderr);
+    }
+
     /// <summary>Every routine passes its failures on: <c>try</c> receives a lambda's failure handed through a
     /// <c>Callable</c> parameter and a routine's throw, but a division by zero inside an <c>infallible</c> routine
     /// stops the program there (status 82), even under <c>try</c>.</summary>
