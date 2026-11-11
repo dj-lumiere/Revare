@@ -616,6 +616,158 @@ public sealed class LspServerTests
         Assert.Equal(expected: "variable", actual: KindOf(line: 14, text: "total"));
     }
 
+    /// <summary>The inlay hints of <paramref name="text"/>: line (1-based), column (1-based) and label.</summary>
+    private static List<(int Line, int Column, string Label)> InlayHintsOf(string text)
+    {
+        (string uri, string folder) = OnDisk(text: text);
+        IReadOnlyList<JsonDocument> replies;
+        try
+        {
+            replies = LspTestHarness.Run(
+                Initialize(id: 1),
+                LspTestHarness.DidOpen(uri: uri, text: text),
+                JsonSerializer.Serialize(value: new
+                {
+                    jsonrpc = "2.0",
+                    id = 70,
+                    method = "textDocument/inlayHint",
+                    @params = new
+                    {
+                        textDocument = new { uri },
+                        range = new { start = new { line = 0, character = 0 }, end = new { line = 500, character = 0 } }
+                    }
+                }),
+                Exit);
+        }
+        finally
+        {
+            Directory.Delete(path: folder, recursive: true);
+        }
+
+        return LspTestHarness.ReplyWithId(replies: replies, id: 70)!.Value.GetProperty(propertyName: "result")
+                             .EnumerateArray()
+                             .Select(selector: h => (
+                                  h.GetProperty(propertyName: "position").GetProperty(propertyName: "line").GetInt32() + 1,
+                                  h.GetProperty(propertyName: "position").GetProperty(propertyName: "character").GetInt32() + 1,
+                                  h.GetProperty(propertyName: "label").GetString()!))
+                             .ToList();
+    }
+
+    private const string CallShapesSource =
+        "module Test/CallShapes\n" +
+        "import IO/Console\n" +
+        "\n" +
+        "record Counter\n" +
+        "    n: S64\n" +
+        "\n" +
+        "record Pair[A, B]\n" +
+        "needs RecordType A, RecordType B\n" +
+        "    first: A\n" +
+        "    second: B\n" +
+        "\n" +
+        "common routine Counter.start_at(n: S64) -> Counter\n" +
+        "    return Counter(n: n)\n" +
+        "\n" +
+        "routine Counter.bump() -> S64\n" +
+        "    return me.n + 1\n" +
+        "\n" +
+        "routine Counter.tag[U](v: U) -> U\n" +
+        "    return v\n" +
+        "\n" +
+        "common routine Pair[A, B].of(a: A, b: B) -> Pair[A, B]\n" +
+        "    return Pair(first: a, second: b)\n" +
+        "\n" +
+        "routine echo[T](v: T) -> T\n" +
+        "    return v\n" +
+        "\n" +
+        "routine start()\n" +
+        "    show(\"값\".count())\n" +
+        "    show[Bool](true)\n" +
+        "    var c = Counter.start_at(3)\n" +
+        "    show(c.bump())\n" +
+        "    show(echo(5))\n" +
+        "    show(c.tag(\"x\"))\n" +
+        "    show(c.tag[Text](\"x\"))\n" +
+        "    var xs = List[S64]()\n" +
+        "    var p = Pair(first: 1, second: \"x\")\n" +
+        "    var q = Pair.of(a: 1, b: \"x\")\n" +
+        "    show(xs.count())\n" +
+        "    return\n";
+
+    private const string ScriptSource =
+        "import IO/Console\n" +
+        "\n" +
+        "show(\"값\" == \"값\")\n" +
+        "show(\"값\".count())\n" +
+        "show(\"값\"[0].codepoint())\n";
+
+    [Fact]
+    public void SemanticTokens_ScriptCalls_AreFunctionsNotTypesOrProperties()
+    {
+        List<(int Line, int Column, string Text, string Kind, int Mods)> tokens = SemanticTokensOf(text: ScriptSource);
+
+        // The script's synthesized `start` has its `None` result on the first statement: it must not color `show`.
+        Assert.Equal(expected: "function", actual: tokens.Single(predicate: t => t.Line == 3 && t.Text == "show").Kind);
+        // `count` is a field of Text too, but here it is called.
+        Assert.Equal(expected: "function", actual: tokens.Single(predicate: t => t.Line == 4 && t.Text == "count").Kind);
+        Assert.Equal(expected: "function", actual: tokens.Single(predicate: t => t.Text == "codepoint").Kind);
+    }
+
+    [Fact]
+    public void SemanticTokens_EveryCallShape_ColorsTheRoutineAsAFunction()
+    {
+        List<(int Line, int Column, string Text, string Kind, int Mods)> tokens = SemanticTokensOf(text: CallShapesSource);
+        string KindOf(int line, string text)
+        {
+            return tokens.Single(predicate: t => t.Line == line && t.Text == text).Kind;
+        }
+
+        Assert.Equal(expected: "function", actual: KindOf(line: 28, text: "show"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 28, text: "count"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 29, text: "show"));
+        Assert.Equal(expected: "recordType", actual: KindOf(line: 29, text: "Bool"));
+        Assert.Equal(expected: "recordType", actual: KindOf(line: 30, text: "Counter"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 30, text: "start_at"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 31, text: "bump"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 32, text: "echo"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 33, text: "tag"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 34, text: "tag"));
+        Assert.Equal(expected: "recordType", actual: KindOf(line: 34, text: "Text"));
+        Assert.Equal(expected: "function", actual: KindOf(line: 37, text: "of"));
+        Assert.Equal(expected: "recordType", actual: KindOf(line: 37, text: "Pair"));
+    }
+
+    [Fact]
+    public void InlayHints_InferredTypeArguments_ShowAfterTheNameAndNotWhenWritten()
+    {
+        List<(int Line, int Column, string Label)> hints = InlayHintsOf(text: CallShapesSource)
+           .Where(predicate: h => h.Label.StartsWith(value: '[')).ToList();
+        string[] shown = hints.Select(selector: h => $"{h.Line}:{h.Column} {h.Label}").ToArray();
+
+        // A free generic routine, and the same one nested in a call.
+        Assert.Contains(expected: "28:9 [U64]", collection: shown);
+        Assert.Contains(expected: "31:9 [S64]", collection: shown);
+        Assert.Contains(expected: "32:9 [S64]", collection: shown);
+        Assert.Contains(expected: "32:14 [S64]", collection: shown);
+        // A member routine's own inferred argument, after the member name.
+        Assert.Contains(expected: "33:15 [Text]", collection: shown);
+        // Written arguments get no hint: `show[Bool]`, `tag[Text]`, `List[S64]()`.
+        Assert.DoesNotContain(collection: hints, filter: h => h.Line is 29 or 34 or 35);
+        // A generic type given its arguments by the analysis, in a creator and in front of a `common` routine.
+        Assert.Contains(expected: "36:17 [S64, Text]", collection: shown);
+        Assert.Contains(expected: "37:17 [S64, Text]", collection: shown);
+        // Inside a generic body the arguments are still parameters: no hint.
+        Assert.DoesNotContain(collection: hints, filter: h => h.Line is >= 20 and <= 22);
+    }
+
+    [Fact]
+    public void InlayHints_ScriptCall_ShowsTheInferredArgumentAfterShow()
+    {
+        List<(int Line, int Column, string Label)> hints = InlayHintsOf(text: ScriptSource);
+
+        Assert.Contains(expected: (3, 5, "[Bool]"), collection: hints);
+    }
+
     private const string BoundSource =
         "module Test/Bound\n" +
         "import IO/Console\n" +
