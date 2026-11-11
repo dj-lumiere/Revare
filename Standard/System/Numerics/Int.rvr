@@ -45,6 +45,58 @@ secret routine integer_of_bits(bits: S64) -> Int
     danger
         return Int(owner: Guarded[List[U64], ReadOnly].hollow(), meta: LLVM::reinterpret_bits[S64, U64](bits))
 
+# What the builder calls around a `for` over an `Int` range whose body holds no loop of its own. Before the first
+# round it asks whether the range can be counted in `S64`, and when it can, it counts a `Range[S64]` with the same
+# values and hands the body each value as an `Int` made from the bits.
+
+### Whether a range from this value to `end` by `step` can be counted in `S64`: all three are in the `S64` range,
+### and so is the step's size (`S64_MIN` has none). Counting a `Range[S64]` then gives the same values.
+### :param end: The range's end.
+### :param step: The range's step.
+### :returns: `true` when the range can be counted in `S64`.
+@readonly
+@inline
+secret infallible routine Int.counts_in_s64(end: Int, step: Int) -> Bool
+    return me.owner.is_hollow() and end.owner.is_hollow() and step.owner.is_hollow()
+        and integer_bits(v: step) != S64_MIN
+
+### Whether a range from this value to `end` by 1 can be counted in `S64`: both ends are in the `S64` range.
+### :param end: The range's end.
+### :returns: `true` when the range can be counted in `S64`.
+@readonly
+@inline
+secret infallible routine Int.counts_in_s64(end: Int) -> Bool
+    return me.owner.is_hollow() and end.owner.is_hollow()
+
+### The `S64` bits of a value `counts_in_s64` accepted.
+### :returns: The value as an `S64`.
+@readonly
+@inline
+secret infallible routine Int.counting_bits() -> S64
+    return integer_bits(v: me)
+
+### The range from this value to `end` by `step` over `S64`, for a range `counts_in_s64` accepted.
+### :param end: The range's end.
+### :param step: The range's step.
+### :param inclusive: Whether the range includes its end.
+### :param descending: Whether the range counts down.
+### :returns: The same range over `S64`.
+@readonly
+@inline
+secret infallible routine Int.s64_range(end: Int, step: Int, inclusive: Bool, descending: Bool) -> Range[S64]
+    return Range[S64](start: integer_bits(v: me),
+        end: integer_bits(v: end),
+        step: integer_bits(v: step),
+        inclusive: inclusive,
+        descending: descending)
+
+### The `Int` a loop that counts in `S64` hands its body.
+### :returns: This value as an `Int`.
+@readonly
+@inline
+secret infallible routine S64.counted_integer() -> Int
+    return integer_of_bits(bits: me)
+
 # The `S64` bits of a value in the `S64` range.
 ### Reads the inline 64-bit value of a small `Int`.
 ### :param v: A small `Int` with no limb storage.
