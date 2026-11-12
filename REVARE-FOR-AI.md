@@ -1199,6 +1199,9 @@ A member routine written outside a generic type names its parameters on the rece
   - `x.update()` calls a routine the builder writes for the protocol: it switches on the type hash over exactly the
     types the program puts into places of that protocol and calls that type's routine. A routine of the protocol that
     takes or gives `Me` can't be called on a stored value (RV-S715).
+  - The language server marks such a call with a gray `dispatch` inlay hint after the routine name. Its tooltip lists
+    the types that can be stored in places of that protocol in this build. A call made per type at buildtime (an
+    `e: Enemy` parameter, `needs T obeys`) gets none.
   - The place ends its value once: the entity's `destruct`, or the record copy torn down. Writing a new value over the
     place (`x = Boss(...)`, `arena.boss = ...`, `xs[0] = ...`) ends the old one first.
   - Passing a stored value to an `e: Enemy` parameter makes that routine's copy for the stored value (its calls

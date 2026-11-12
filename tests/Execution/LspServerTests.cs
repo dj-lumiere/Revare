@@ -619,6 +619,17 @@ public sealed class LspServerTests
     /// <summary>The inlay hints of <paramref name="text"/>: line (1-based), column (1-based) and label.</summary>
     private static List<(int Line, int Column, string Label)> InlayHintsOf(string text)
     {
+        return RawInlayHintsOf(text: text)
+              .Select(selector: h => (
+                   h.GetProperty(propertyName: "position").GetProperty(propertyName: "line").GetInt32() + 1,
+                   h.GetProperty(propertyName: "position").GetProperty(propertyName: "character").GetInt32() + 1,
+                   h.GetProperty(propertyName: "label").GetString()!))
+              .ToList();
+    }
+
+    /// <summary>The inlay hints of <paramref name="text"/> as the server sends them.</summary>
+    private static List<JsonElement> RawInlayHintsOf(string text)
+    {
         (string uri, string folder) = OnDisk(text: text);
         IReadOnlyList<JsonDocument> replies;
         try
@@ -646,11 +657,89 @@ public sealed class LspServerTests
 
         return LspTestHarness.ReplyWithId(replies: replies, id: 70)!.Value.GetProperty(propertyName: "result")
                              .EnumerateArray()
-                             .Select(selector: h => (
-                                  h.GetProperty(propertyName: "position").GetProperty(propertyName: "line").GetInt32() + 1,
-                                  h.GetProperty(propertyName: "position").GetProperty(propertyName: "character").GetInt32() + 1,
-                                  h.GetProperty(propertyName: "label").GetString()!))
                              .ToList();
+    }
+
+    private const string StoredProtocolSource =
+        "module Test/Stored\n" +
+        "import IO/Console\n" +
+        "\n" +
+        "protocol Enemy\n" +
+        "    @readonly\n" +
+        "    routine Me.hp() -> S64\n" +
+        "\n" +
+        "entity Slime\n" +
+        "obeys Enemy\n" +
+        "    life: S64\n" +
+        "\n" +
+        "@readonly\n" +
+        "routine Slime.hp() -> S64\n" +
+        "    return me.life\n" +
+        "\n" +
+        "entity Boss\n" +
+        "obeys Enemy\n" +
+        "    life: S64\n" +
+        "\n" +
+        "@readonly\n" +
+        "routine Boss.hp() -> S64\n" +
+        "    return me.life\n" +
+        "\n" +
+        "entity Arena\n" +
+        "    boss: Enemy\n" +
+        "\n" +
+        "routine finish(e: Enemy)\n" +
+        "    show(e.hp())\n" +
+        "    return\n" +
+        "\n" +
+        "routine strongest[T](e: T) -> S64\n" +
+        "needs T obeys Enemy\n" +
+        "    return e.hp()\n" +
+        "\n" +
+        "routine start()\n" +
+        "    var enemies = List[Enemy]()\n" +
+        "    enemies.add_last(value: Slime(life: 10))\n" +
+        "    enemies.add_last(value: Boss(life: 20))\n" +
+        "    for e in enemies\n" +
+        "        show(e.hp())\n" +
+        "    show(enemies[0].hp())\n" +
+        "    var arena = Arena(boss: Boss(life: 5))\n" +
+        "    show(arena.boss.hp())\n" +
+        "    var lone: Enemy = Slime(life: 3)\n" +
+        "    show(lone.hp())\n" +
+        "    finish(e: steal lone)\n" +
+        "    show(strongest(e: Slime(life: 4)))\n" +
+        "    show(pick().hp())\n" +
+        "    var maybe: Enemy? = Boss(life: 2)\n" +
+        "    show(try maybe.hp() ?? -1)\n" +
+        "    return\n" +
+        "\n" +
+        "routine pick() -> Enemy\n" +
+        "    return Slime(life: 1)\n";
+
+    [Fact]
+    public void InlayHints_CallOnAStoredProtocolValue_ShowsDispatchWithTheStoredTypes()
+    {
+        List<JsonElement> hints = RawInlayHintsOf(text: StoredProtocolSource)
+                                 .Where(predicate: h => h.GetProperty(propertyName: "label").GetString() == "dispatch")
+                                 .ToList();
+        List<(int Line, int Column)> at = hints.Select(selector: h => (
+                                                  h.GetProperty(propertyName: "position").GetProperty(propertyName: "line").GetInt32() + 1,
+                                                  h.GetProperty(propertyName: "position").GetProperty(propertyName: "character").GetInt32() + 1))
+                                              .ToList();
+
+        // A loop element, a list element, a member variable and a variable of the protocol: after the routine name.
+        Assert.Contains(expected: (40, 18), collection: at);
+        Assert.Contains(expected: (41, 23), collection: at);
+        Assert.Contains(expected: (43, 23), collection: at);
+        Assert.Contains(expected: (45, 17), collection: at);
+        // A result of the protocol and an optional of it.
+        Assert.Contains(expected: (48, 19), collection: at);
+        Assert.Contains(expected: (50, 22), collection: at);
+        // A parameter of the protocol and a `needs T obeys` parameter are chosen at buildtime: no hint.
+        Assert.DoesNotContain(collection: at, filter: h => h.Line is 28 or 33);
+        string tooltip = hints[index: 0].GetProperty(propertyName: "tooltip").GetString()!;
+        Assert.Contains(expectedSubstring: "while the program runs", actualString: tooltip);
+        Assert.Contains(expectedSubstring: "Types a place of Enemy holds in this build: Boss, Slime.", actualString: tooltip);
     }
 
     private const string CallShapesSource =
