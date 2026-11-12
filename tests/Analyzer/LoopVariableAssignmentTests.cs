@@ -55,4 +55,22 @@ public class LoopVariableAssignmentTests
         Assert.DoesNotContain(collection: result.Errors,
             filter: e => e.Code == SemanticDiagnosticCode.AssignmentToImmutable);
     }
+
+    /// <summary>The body of an innermost loop over an <c>Int</c> range is checked twice (its <c>S64</c> version is a
+    /// quiet copy), and a mistake in it is reported once, by the general version.</summary>
+    [Fact]
+    public void IntRangeLoopBody_Mistake_ReportedOnce()
+    {
+        string source = """
+                        routine test()
+                            var n: Int = 3
+                            for i in 0 til n
+                                nothing_here()
+                            return
+                        """;
+
+        AnalysisResult result = AnalyzeSa(source: source);
+        Assert.Single(collection: result.Errors,
+            predicate: e => e.Code == SemanticDiagnosticCode.UnknownIdentifier && e.Message.Contains(value: "nothing_here"));
+    }
 }
