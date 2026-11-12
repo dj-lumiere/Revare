@@ -258,9 +258,12 @@ Revare has its own idiom — do not import Rust/serde/C# vocabulary.
   A flags value combines with `and`, tests with `has` / `has_any` / `lacks` / `==` (`perms.has(READ and WRITE)`
   is all of them, `perms.has_any(READ and WRITE)` at least one, `perms.lacks(READ and WRITE)` none), and drops
   members with `without` (`perms.without(WRITE)`: where a value of the flags type goes, its members are named bare).
-  The flags value with no member on is `none` where the flags type is expected (`var marks: CellMarks = none`,
-  `marks == none`, a preset or record preset). A `CellMarks?` slot takes `none` as the absent Optional. There is no
-  `all_off()`. Choice values (`OK: 200`) and flags bits (`MINE: 0`, 0 to 63) are written on every member or on none
+  The flags value with no member on is `empty`, a contextual keyword where the flags type is expected (`var marks:
+  CellMarks = empty`, `marks == empty`, `empty == marks`, a parameter, a return, a preset or record preset) and in a
+  `CellMarks?` place or a generic `T` / `T?` place with T a flags type. Everywhere else `empty` is a name like any other,
+  and a visible value named `empty` keeps its meaning. `none` is the None value only: a `CellMarks?` slot takes it as
+  the absent Optional, and `none` where a flags value goes is RV-S016 saying to write `empty` (`migrate --step
+  flags-none` rewrites it). There is no `all_off()`. Choice values (`OK: 200`) and flags bits (`MINE: 0`, 0 to 63) are written on every member or on none
   (then 0, 1, 2, ... in order): some with and some without is RV-S417.
   A `choice` auto-provides `Equatable`/`Hashable` — no `obeys` and no
   method bodies needed. It has no ordering: `<` on a choice is RV-S418, cases compare with `==` / `!=`.
@@ -443,7 +446,7 @@ RV-S632). A module-level `var` is an error (RV-S435). Constants the build knows 
   walk it. An entity holding an entity moves with `steal` (no copy step). An element reference from `for` converts like
   its value (`w.to[S64]()`). `CpuEventManager.when_interrupted`/`when_terminated` link and run.
 - A bare number that fits two members of a variant (`S32` and `S64`) is RV-S201: state its type in a declaration.
-  An empty flags value shows as `none`, a one-item tuple as `(1,)`. A global record's member can't be assigned
+  An empty flags value shows as `empty`, an empty Optional as `none`, a one-item tuple as `(1,)`. A global record's member can't be assigned
   (RV-S257, like the global itself). `try sv.to[List[S64]]()` recovers a bad element too. Every collection reads
   back with `sv.to[T]()` (`Dict`, `Set`, `SortedDict`, `SortedList`, `SortedSet`, `RotatableList`), a dictionary's keys
   from their text. A type holding a `secret` member variable, at any depth, can't be read back: RV-S813.

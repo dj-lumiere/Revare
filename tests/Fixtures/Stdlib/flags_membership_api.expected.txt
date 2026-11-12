@@ -5,13 +5,18 @@ has_any(REVEALED): false
 lacks(REVEALED and FLAGGED): false
 lacks(REVEALED): true
 lacks(MINE and FLAGGED): false
-empty: none
-empty == none: true
-empty.lacks(MINE and REVEALED and FLAGGED): true
-after REVEALED: REVEALED, == none: false
-marks cleared: none
+blank: empty
+blank == empty: true
+empty != blank: false
+blank.lacks(MINE and REVEALED and FLAGGED): true
+after REVEALED: REVEALED, == empty: false
+marks cleared: empty
 absent Optional is none: true
-EMPTY_MARKS: none
-BLANK.marks: none, lacks(MINE): true
-COMPUTED_BLANK: none, 2
+present Optional: false, empty, absent: none
+return: empty, parameter: true
+generic: empty, MINE
+a name elsewhere: no items, some items
+EMPTY_MARKS: empty
+BLANK.marks: empty, lacks(MINE): true
+COMPUTED_BLANK: empty, 2
 MINED: MINE and FLAGGED, 6

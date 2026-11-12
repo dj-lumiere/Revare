@@ -143,7 +143,7 @@ needs ChoiceType T
             return me.full_type_name() + "(id: " + LLVM::reinterpret_bits[T, S32](me).represent() + ", " + nameof(c) + ")"
     throw LogicBreachedError()
 
-### Flags `represent()`: the ON members joined by `" and "` (`READ and WRITE`), or `none` if the
+### Flags `represent()`: the ON members joined by `" and "` (`READ and WRITE`), or `empty` if the
 ### bitmask is empty. A flags value is a COMBINATION, so `caseof` ACCUMULATES (no `when`): a SUBSET
 ### test per member (the bitmask `&` the member's value is not `0`) appends its name.
 ### :returns: The text form of `me`.
@@ -161,7 +161,7 @@ needs FlagsType T
                 result = result + " and " + nameof(c)
             first = false
     if first
-        result = "none"
+        result = "empty"
     return result
 
 ### Flags `diagnose()`: `Module.FlagsName(value: %<bits>, <members>)` — `<bits>` is LSB-first, one
@@ -185,7 +185,7 @@ needs FlagsType T
         else
             bits = bits + "0"
     if first
-        result = "none"
+        result = "empty"
     return me.full_type_name() + "(value: " + bits + ", " + result + ")"
 
 ### Choice `all_cases()`: every declared case value, in declaration order. `caseof` yields each case;

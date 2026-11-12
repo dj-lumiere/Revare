@@ -164,11 +164,12 @@ public class FlagsValidationTests
             filter: e => e.Code == SemanticDiagnosticCode.LogicalOperatorRequiresBool);
     }
     /// <summary>
-    /// Verifies that `all_on()` and the `none` literal give a flags value, and `none` stays the absent `Optional` in a
-    /// `Permissions?` slot.
+    /// Verifies that `all_on()` and `empty` give a flags value in every place a flags value goes (a typed binding, an
+    /// assignment, `==`, a parameter, a return, a field, a `Permissions?` slot), and that `none` stays the absent
+    /// `Optional` in a `Permissions?` slot.
     /// </summary>
     [Fact]
-    public void Flags_AllOnAndNone_NoErrors()
+    public void Flags_AllOnAndEmpty_NoErrors()
     {
         string source = """
                         flags Permissions
@@ -176,12 +177,25 @@ public class FlagsValidationTests
                             WRITE
                             EXECUTE
 
+                        record Door
+                            locks: Permissions
+
+                        routine open(perms: Permissions) -> Bool
+                            return perms.lacks(READ)
+
+                        routine cleared() -> Permissions
+                            return empty
+
                         routine test()
                             var all = Permissions.all_on()
-                            var empty: Permissions = none
+                            var blank: Permissions = empty
                             var maybe: Permissions? = none
-                            var same = empty == none
-                            empty = none
+                            var present: Permissions? = empty
+                            var same = blank == empty
+                            blank = empty
+                            var door = Door(locks: empty)
+                            var opened = open(perms: empty)
+                            var again = cleared()
                             return
                         """;
 
@@ -190,10 +204,10 @@ public class FlagsValidationTests
     }
 
     /// <summary>
-    /// Verifies that the removed <c>all_off()</c> points to <c>none</c>.
+    /// Verifies that `none` where a flags value goes is a build error that says to write `empty`.
     /// </summary>
     [Fact]
-    public void Flags_AllOff_PointsToNone()
+    public void Flags_NoneWhereFlagsGoes_PointsToEmpty()
     {
         string source = """
                         flags Permissions
@@ -201,12 +215,55 @@ public class FlagsValidationTests
                             WRITE
 
                         routine test()
-                            var empty = Permissions.all_off()
+                            var blank: Permissions = none
                             return
                         """;
 
         AnalysisResult result = AnalyzeSa(source: source);
-        Assert.Contains(collection: result.Errors, filter: e => e.Message.Contains(value: "'none'"));
+        Assert.Contains(collection: result.Errors,
+            filter: e => e.Code == SemanticDiagnosticCode.NoneOutsideCarrierSlot && e.Message.Contains(value: "'empty'"));
+    }
+
+    /// <summary>
+    /// Verifies that `empty` is a name like any other where no flags value goes, and that a visible value named
+    /// `empty` keeps its meaning where one does.
+    /// </summary>
+    [Fact]
+    public void Flags_EmptyElsewhere_IsAName()
+    {
+        string source = """
+                        flags Permissions
+                            READ
+                            WRITE
+
+                        routine test()
+                            var empty = 3
+                            var twice = empty + empty
+                            return
+                        """;
+
+        AnalysisResult result = AnalyzeSa(source: source);
+        Assert.Empty(collection: result.Errors);
+    }
+
+    /// <summary>
+    /// Verifies that the removed <c>all_off()</c> points to <c>empty</c>.
+    /// </summary>
+    [Fact]
+    public void Flags_AllOff_PointsToEmpty()
+    {
+        string source = """
+                        flags Permissions
+                            READ
+                            WRITE
+
+                        routine test()
+                            var blank = Permissions.all_off()
+                            return
+                        """;
+
+        AnalysisResult result = AnalyzeSa(source: source);
+        Assert.Contains(collection: result.Errors, filter: e => e.Message.Contains(value: "'empty'"));
     }
 
     #endregion

@@ -64,7 +64,7 @@ infallible routine T.preset_literal() -> Text
 needs ChoiceType T
     return me.type_name() + "." + me.represent()
 
-### A flags value as its members joined with `and` (`Perms.READ and Perms.WRITE`), or `none` when no member is on.
+### A flags value as its members joined with `and` (`Perms.READ and Perms.WRITE`), or `empty` when no member is on.
 ### :returns: The source text.
 @readonly
 @override
@@ -79,7 +79,7 @@ needs FlagsType T
             result = result + me.type_name() + "." + nameof(c)
             first = false
     if first
-        result = "none"
+        result = "empty"
     return result
 
 ### A variant has no spelling made of literals here.
