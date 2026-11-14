@@ -178,4 +178,14 @@ public class ExpectedTypeFlowTests
         Assert.Contains(expectedSubstring: "'B64.add' fits more than one way here (add(you: B64) -> B64, add(you: C128) -> C128)",
             actualString: error.Message);
     }
+
+    /// <summary>An argument that failed while the overload was looked for (`show` has a Text overload and a generic
+    /// one) is reported once, not again against the Text parameter.</summary>
+    [Fact]
+    public void Analyze_FailedArgument_ReportedOnce()
+    {
+        AnalysisResult result = AnalyzeSa(source: Program(body: "show(n.to())"));
+        SemanticError error = Assert.Single(collection: result.Errors);
+        Assert.Equal(expected: SemanticDiagnosticCode.ResultTypeArgumentUnknown, actual: error.Code);
+    }
 }
