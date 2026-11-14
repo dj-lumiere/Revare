@@ -627,8 +627,12 @@ with -1.
   the routine's return type (`return count.to()`), a parameter (`takes(n: x.to())`), `try`/`check`; from there into
   each operand of an operator whose routine takes and gives `Me` (`var r: B128 = i.to() * x`, chosen among the
   routines that give the expected type, so `B64.add(you: C128) -> C128` doesn't count), the other side of a
-  comparison (`if n.to() < limit`), the right operand from the left one's operator parameter (`x * n.to()`), and the
-  receiver of a member call that gives `Me` back, or `Me?` where a `T?` goes (`var s: B64 = n.to().sqrt().sin()`).
+  comparison (`if n.to() < limit`, chained too: `0.0 <= n.to() <= limit`), and the receiver of a member call that
+  gives `Me` back, or `Me?` where a `T?` goes (`var s: B64 = n.to().sqrt().sin()`). With nothing expected of an
+  operator, one side takes the other's: the right side the one parameter type of the left side's operator routine
+  (`x * n.to()`), the left side the right side's type when its operator routine takes it (`n.to() * x`,
+  `n.to().sqrt() + x`). A bare number gives no type. An operator routine that fits more than one way
+  (`B64.add(you: B64)` and `B64.add(you: C128)` for `a + n.to()`) gives none, and the message names its routines.
   The same holds for every generic call whose type argument only the result names (`ask()`, a user `zero[T]() ->
   T`). Arguments bind a type parameter before the expected type does (`var e: B64 = pick(x: n)` with `n: S64` is a
   mismatch). Where nothing gives it (`var n = count.to()`, `n.to() < 5`, `count.to().count()`) it is RV-S645 (RV-S161

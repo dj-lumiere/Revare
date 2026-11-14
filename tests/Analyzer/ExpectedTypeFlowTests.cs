@@ -25,6 +25,11 @@ public class ExpectedTypeFlowTests
                                                    routine pick[T](x: T) -> T
                                                        return x
 
+                                                   routine B64.positive() -> B64?
+                                                       if me > 0.0
+                                                           return me
+                                                       return none
+
                                                    routine start()
                                                        var n: S64 = 9
                                                        var a: B64 = 0.0
@@ -138,5 +143,39 @@ public class ExpectedTypeFlowTests
     public void Analyze_ArgumentsWinOverExpectedType()
     {
         SingleError(body: "var e: B64 = pick(x: n)", code: SemanticDiagnosticCode.VariableInitializerTypeMismatch);
+    }
+
+    /// <summary>With nothing expected of the whole, the left operand takes the right one's type when its operator
+    /// routine takes that type.</summary>
+    [Fact]
+    public void Analyze_LeftOperandFromRight_Builds() => AssertBuilds(body: "var x: B128 = 2.0\nshow(n.to() * x)");
+
+    /// <summary>A chain whose receiver takes the right operand's type.</summary>
+    [Fact]
+    public void Analyze_LeftChainFromRight_Builds() => AssertBuilds(body: "var x: B128 = 2.0\nshow(n.to().sqrt() + x)");
+
+    [Fact]
+    public void Analyze_ChainedComparison_Builds() =>
+        AssertBuilds(body: "var b: B64 = 10.0\nif 0.0 <= n.to() <= b\n    show(\"inside\")");
+
+    /// <summary>A bare number gives a chained comparison no type.</summary>
+    [Fact]
+    public void Analyze_ChainedComparisonOfNumbers_StaysAmbiguous()
+    {
+        SingleError(body: "if 0 <= n.to() <= 10\n    show(\"x\")", code: SemanticDiagnosticCode.ResultTypeArgumentUnknown);
+    }
+
+    /// <summary>A call that gives `Me?` hands a `T?` expectation on to its receiver as `T`.</summary>
+    [Fact]
+    public void Analyze_MaybeChain_Builds() => AssertBuilds(body: "var p: B64? = n.to().positive()\nshow(p)");
+
+    /// <summary>An operator routine that fits more than one way gives no type, and the message names its
+    /// routines.</summary>
+    [Fact]
+    public void Analyze_SeveralOperatorRoutines_NamesThem()
+    {
+        SemanticError error = SingleError(body: "show(a + n.to())", code: SemanticDiagnosticCode.ResultTypeArgumentUnknown);
+        Assert.Contains(expectedSubstring: "'B64.add' fits more than one way here (add(you: B64) -> B64, add(you: C128) -> C128)",
+            actualString: error.Message);
     }
 }

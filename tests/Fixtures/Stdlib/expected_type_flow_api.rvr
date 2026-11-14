@@ -3,13 +3,19 @@ module Tests/Stdlib/ExpectedTypeFlowApi
 import IO/Console
 # A conversion left without its type takes it from where the value goes, and that type flows inward: into an
 # assignment and a compound assignment, both sides of an operator whose routine takes and gives the same type, the
-# other side of a comparison, a chain of routines that give back their own type, an argument and a return.
+# other side of a comparison, a chain of routines that give back their own type, an argument and a return. With nothing
+# expected of an operator, a side takes the other side's type, and a chained comparison takes its typed operand's.
 
 routine half(x: B64) -> B64
     return x / 2.0
 
 routine widened(n: S64) -> B64
     return n.to()
+
+routine B64.positive() -> B64?
+    if me > 0.0
+        return me
+    return none
 
 routine start()
     var n: S64 = 9
@@ -30,4 +36,11 @@ routine start()
     show(f"{half(x: n.to())} {widened(n: n)} {a * n.to()}")
     var w: S64 = "12".to() + 1
     show(w)
+    var x: B128 = 2.0
+    show(n.to() * x)
+    show(n.to().sqrt() + x)
+    if 0.0 <= n.to() <= b
+        show("inside")
+    var p: B64? = n.to().positive()
+    show(p)
     return
