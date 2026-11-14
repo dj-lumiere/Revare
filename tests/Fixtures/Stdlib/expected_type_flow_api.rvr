@@ -1,0 +1,33 @@
+module Tests/Stdlib/ExpectedTypeFlowApi
+
+import IO/Console
+# A conversion left without its type takes it from where the value goes, and that type flows inward: into an
+# assignment and a compound assignment, both sides of an operator whose routine takes and gives the same type, the
+# other side of a comparison, a chain of routines that give back their own type, an argument and a return.
+
+routine half(x: B64) -> B64
+    return x / 2.0
+
+routine widened(n: S64) -> B64
+    return n.to()
+
+routine start()
+    var n: S64 = 9
+    var a: B64 = n.to()
+    a = n.to()
+    a += n.to()
+    var b: B64 = n.to() * n.to() + a
+    var c: B64 = n.to().sqrt()
+    var d: B64 = -n.to()
+    var e: B128 = 0.0
+    for i in S64(1) to 3
+        e += i.to() * i.to().sqrt().sin()
+    if n.to() < a
+        show("less")
+    if a == n.to()
+        show("equal")
+    show(f"{a} {b} {c} {d} {e}")
+    show(f"{half(x: n.to())} {widened(n: n)} {a * n.to()}")
+    var w: S64 = "12".to() + 1
+    show(w)
+    return

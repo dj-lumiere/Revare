@@ -622,10 +622,17 @@ with -1.
   (`S32`..`U256` to `B16`, `U128`/`S256`/`U256` to `B32`). An infinity stays infinite and a NaN stays a NaN.
   Each has `to_unchecked[T]()`, the raw rounded value (an infinity past the range); a value in range is the
   same in both. `try big.to[B32]()` recovers. A conversion that can't overflow has only `to[T]()`.
-- `[T]` may be left out where the surrounding code says the type: a declared variable type, the
-  routine's return type (`return count.to()`), a parameter (`takes(n: x.to())`), and through
-  `try`/`check`. Where nothing gives it (`var n = count.to()`, mid-chain `count.to().add(1)`) it is
-  RV-S645: write `.to[S64]()`.
+- `[T]` may be left out where the surrounding code says the type. The expected type flows inward, never from later
+  uses of a variable: a declared variable type, an assignment or compound assignment target (`total += n.to()`),
+  the routine's return type (`return count.to()`), a parameter (`takes(n: x.to())`), `try`/`check`; from there into
+  each operand of an operator whose routine takes and gives `Me` (`var r: B128 = i.to() * x`, chosen among the
+  routines that give the expected type, so `B64.add(you: C128) -> C128` doesn't count), the other side of a
+  comparison (`if n.to() < limit`), the right operand from the left one's operator parameter (`x * n.to()`), and the
+  receiver of a member call that gives `Me` back, or `Me?` where a `T?` goes (`var s: B64 = n.to().sqrt().sin()`).
+  The same holds for every generic call whose type argument only the result names (`ask()`, a user `zero[T]() ->
+  T`). Arguments bind a type parameter before the expected type does (`var e: B64 = pick(x: n)` with `n: S64` is a
+  mismatch). Where nothing gives it (`var n = count.to()`, `n.to() < 5`, `count.to().count()`) it is RV-S645 (RV-S161
+  for a free routine), and the message lists the places looked at: write `.to[S64]()`.
 - A pair with no conversion is RV-S646 at the call ("There is no conversion from 'Text' to 'Bool'.").
   Converting a value to its own type is RV-S646 too (use the value as it is), and so is `.to[...]()` on a
   value of a type parameter: conversions are written per concrete type, so take the parameter as the
@@ -1659,7 +1666,7 @@ warning. A diagnostic in a Mielia file spells the same number with `ME-`
 | RV-S651      | a target the block can't open that way | the verb its policy has, `as` for a nameless target |
 | RV-S652      | a Guarded's `g.view()` / `g.modify()` written (with RV-S659) | open a block |
 | RV-S642      | `to[Work]` on something that is not a routine, or over generic-parameter-typed values | convert a routine, with concrete types |
-| RV-S645      | `x.to()` with nothing that gives the target type | write it: `.to[S64]()`, or give the variable a type |
+| RV-S645      | `x.to()` with nothing that gives the target type (the message lists the places looked at) | write it: `.to[S64]()`, or give the variable a type |
 | RV-S646      | no conversion between the two types (or to its own type) | convert to a type that has one, or drop the `.to` |
 | RV-S647      | `steal place as old` leaves a non-optional place empty | add `inject <new value>` |
 | RV-S649      | value of a `MultiRead`/`Exclusive` `Guarded` reached on the handle | `modifying g as v` / `viewing g as v`, or the `ReadOnly` policy |
