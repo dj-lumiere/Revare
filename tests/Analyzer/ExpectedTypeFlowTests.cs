@@ -142,7 +142,8 @@ public class ExpectedTypeFlowTests
     [Fact]
     public void Analyze_ArgumentsWinOverExpectedType()
     {
-        SingleError(body: "var e: B64 = pick(x: n)", code: SemanticDiagnosticCode.VariableInitializerTypeMismatch);
+        var error = SingleError(body: "var e: B64 = pick(x: n)", code: SemanticDiagnosticCode.VariableInitializerTypeMismatch);
+        Assert.Equal(expected: SemanticDiagnosticCode.VariableInitializerTypeMismatch, actual: error.Code);
     }
 
     /// <summary>With nothing expected of the whole, the left operand takes the right one's type when its operator
@@ -162,7 +163,8 @@ public class ExpectedTypeFlowTests
     [Fact]
     public void Analyze_ChainedComparisonOfNumbers_StaysAmbiguous()
     {
-        SingleError(body: "if 0 <= n.to() <= 10\n    show(\"x\")", code: SemanticDiagnosticCode.ResultTypeArgumentUnknown);
+        var error = SingleError(body: "if 0 <= n.to() <= 10\n    show(\"x\")", code: SemanticDiagnosticCode.ResultTypeArgumentUnknown);
+        Assert.Equal(expected: SemanticDiagnosticCode.ResultTypeArgumentUnknown, actual: error.Code);
     }
 
     /// <summary>A call that gives `Me?` hands a `T?` expectation on to its receiver as `T`.</summary>

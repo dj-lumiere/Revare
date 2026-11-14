@@ -19,6 +19,7 @@ public sealed partial class AssertionPresenceTests
         "AssertParsesMielia",
         "AssertParseError",
         "AssertAnalyzes",
+        "AssertBuilds",
         "AssertAnalyzesMielia",
         "AssertHasError",
         "AssertHasErrorMielia",
