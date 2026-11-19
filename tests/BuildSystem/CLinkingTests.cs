@@ -178,7 +178,7 @@ public sealed class CLinkingTests
     private static string CreateTempProject(Dictionary<string, string> files)
     {
         string root = Path.Combine(path1: Path.GetTempPath(),
-            path2: "rf_clink_" + Guid.NewGuid()
+            path2: "anv_clink_" + Guid.NewGuid()
                                      .ToString(format: "N"));
         Directory.CreateDirectory(path: root);
         foreach ((string relPath, string content) in files)

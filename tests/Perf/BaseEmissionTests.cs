@@ -279,7 +279,7 @@ public sealed class BaseEmissionTests
     public void BaseSeed_Builds_WithoutDiagnostics()
     {
         (string source, string fileName) = Builder.Execution.BaseObjectCache.SeedFor(language: Language.Revare);
-        string dir = Path.Combine(path1: Path.GetTempPath(), path2: "rf_seed_test_" + Guid.NewGuid().ToString("N"));
+        string dir = Path.Combine(path1: Path.GetTempPath(), path2: "anv_seed_test_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path: dir);
         // The seed build's own diagnostics, not the shared console: tests running in parallel write their
         // diagnostics to the console too.
@@ -340,7 +340,7 @@ public sealed class BaseEmissionTests
         (string baseIr, IReadOnlyCollection<string> baseSyms) = baseGen.GenerateBase();
 
         var cache = new Builder.Execution.BaseObjectCache(
-            dir: Path.Combine(path1: Path.GetTempPath(), path2: "rf_base_cache_test"));
+            dir: Path.Combine(path1: Path.GetTempPath(), path2: "anv_base_cache_test"));
         // Fresh fingerprint per run so we always exercise the compile (not a stale hit).
         string fp = "test-" + baseIr.Length;
         File.Delete(path: cache.ObjectPath(fingerprint: fp));

@@ -23,11 +23,11 @@ public class PositionalGenericCreatorTests
 
                               dangerous routine alloc_nested(count: U64) -> Hijacked[Header]
                                   var header = Header.data_size()
-                                  var ctrl = Hijacked[Header](ig_allocate_dynamic(size: header + U32.data_size() * count))
+                                  var ctrl = Hijacked[Header](allocate_dynamic(size: header + U32.data_size() * count))
                                   return ctrl
 
                               dangerous routine alloc_split(count: U64) -> Hijacked[Header]
-                                  var raw = ig_allocate_dynamic(size: U32.data_size() * count)
+                                  var raw = allocate_dynamic(size: U32.data_size() * count)
                                   var ctrl = Hijacked[Header](raw)
                                   return ctrl
 

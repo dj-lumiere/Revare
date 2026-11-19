@@ -271,7 +271,7 @@ routine List[T].add_at(index: U64, value: T)
             var elem_size = T.data_size()
             var src_ptr: Hijacked[T] = me.data.offset(elem_size * index)
             var dst_ptr: Hijacked[T] = me.data.offset(elem_size * (index + 1))
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: dst_ptr.get_address(),
                 src: src_ptr.get_address(),
                 size: elem_size * (me.count - index),
@@ -309,7 +309,7 @@ routine List[T].remove_at(index: U64) -> T
             var elem_size = T.data_size()
             var src_ptr = me.data.offset(elem_size * (index + 1))
             var dst_ptr = me.data.offset(elem_size * index)
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: dst_ptr.get_address(),
                 src: src_ptr.get_address(),
                 size: elem_size * (me.count - 1 - index),

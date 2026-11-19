@@ -40,7 +40,7 @@ public sealed class ClosedStandardDescriptorTests
         }
 
         string dir = Path.Combine(path1: Path.GetTempPath(),
-            path2: "rf-closed-fd-" + Guid.NewGuid().ToString(format: "N"));
+            path2: "anv-closed-fd-" + Guid.NewGuid().ToString(format: "N"));
         Directory.CreateDirectory(path: dir);
         try
         {

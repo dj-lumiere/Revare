@@ -110,9 +110,9 @@ routine Dict[TKey, TValue](key: SecureHashKey) -> Dict[TKey, TValue]
             value: CTRL_EMPTY,
             size: cap,
         )
-        dict.indices = Hijacked[U64](ig_allocate_dynamic_uninit(U64.data_size() * cap))
-        dict.keys = hijacked_from[TKey](ig_allocate_dynamic_uninit(TKey.data_size() * ecap))
-        dict.vals = hijacked_from[TValue](ig_allocate_dynamic_uninit(TValue.data_size() * ecap))
+        dict.indices = Hijacked[U64](allocate_dynamic_uninit(U64.data_size() * cap))
+        dict.keys = hijacked_from[TKey](allocate_dynamic_uninit(TKey.data_size() * ecap))
+        dict.vals = hijacked_from[TValue](allocate_dynamic_uninit(TValue.data_size() * ecap))
         dict.entry_live = Hijacked[U8](C::ig_allocate_dynamic_uninit(ecap))
         return dict
 
@@ -329,9 +329,9 @@ routine Dict[TKey, TValue].rehash()
             value: CTRL_EMPTY,
             size: new_cap,
         )
-        me.indices = Hijacked[U64](ig_allocate_dynamic_uninit(U64.data_size() * new_cap))
-        me.keys = hijacked_from[TKey](ig_allocate_dynamic_uninit(TKey.data_size() * new_ecap))
-        me.vals = hijacked_from[TValue](ig_allocate_dynamic_uninit(TValue.data_size() * new_ecap))
+        me.indices = Hijacked[U64](allocate_dynamic_uninit(U64.data_size() * new_cap))
+        me.keys = hijacked_from[TKey](allocate_dynamic_uninit(TKey.data_size() * new_ecap))
+        me.vals = hijacked_from[TValue](allocate_dynamic_uninit(TValue.data_size() * new_ecap))
         me.entry_live = Hijacked[U8](C::ig_allocate_dynamic_uninit(new_ecap))
     me.capacity = new_cap
     me.entries_cap = new_ecap

@@ -246,14 +246,14 @@ routine Text.concat(other: Text) -> Text
     var result = text_alloc(count: n)
     danger
         if me.count > 0
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: result.data.address(),
                 src: me.data.address(),
                 size: Char.data_size() * me.count,
             )
         var other_count = other.count()
         if other_count > 0
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: result.data.stride(count: me.count.to[S64]()).address(),
                 src: other.data.address(),
                 size: Char.data_size() * other_count,
@@ -285,7 +285,7 @@ routine Text.mul(count: U64) -> Text
             if t >= times
                 break
             var dest = result.data.stride(count: (t * me.count).to[S64]())
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: dest.address(),
                 src: me.data.address(),
                 size: Char.data_size() * me.count,

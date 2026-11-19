@@ -651,7 +651,7 @@ public class CompilerPipelineLoweringTests
         string source = """
                         routine start()
                             danger
-                                drop ig_allocate_dynamic_uninit(size: 64b)
+                                drop allocate_dynamic_uninit(size: 64b)
                             return
                         """;
 

@@ -865,7 +865,7 @@ public sealed class MultiFileModuleImportTests
         string entryRelPath = "ImportProbe.rvr")
     {
         string root = Path.Combine(path1: Path.GetTempPath(),
-            path2: "rf_mfimport_" + Guid.NewGuid()
+            path2: "anv_mfimport_" + Guid.NewGuid()
                                         .ToString(format: "N"));
         Directory.CreateDirectory(path: root);
         try

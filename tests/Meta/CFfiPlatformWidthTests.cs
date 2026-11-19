@@ -196,7 +196,7 @@ public sealed class CFfiPlatformWidthTests
         // Isolated dir: run compiles EVERY .rvr in the entry file's directory, so a shared temp
         // dir would pull sibling probes in and collide on `routine start` (RV-S406).
         string tempDir = Path.Combine(path1: Path.GetTempPath(),
-            path2: "rf-cffi-" + Guid.NewGuid()
+            path2: "anv-cffi-" + Guid.NewGuid()
                                     .ToString(format: "N"));
         Directory.CreateDirectory(path: tempDir);
         string probe = Path.Combine(path1: tempDir, path2: "probe.rvr");

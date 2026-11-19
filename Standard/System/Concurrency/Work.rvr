@@ -72,7 +72,7 @@ routine recipe_slot_size() -> ByteSize
 ### :param slots: The number of slots.
 ### :returns: the recipe's address.
 dangerous routine recipe_new(slots: U64) -> Addr
-    return ig_allocate_dynamic(size: recipe_slot_size() * slots)
+    return allocate_dynamic(size: recipe_slot_size() * slots)
 
 ### Moves `value` into its own heap cell and stores the cell in recipe slot `slot` (like
 ### `List.add_last` storing an element). Builder plumbing for `to[Work]` conversions.
@@ -80,7 +80,7 @@ dangerous routine recipe_new(slots: U64) -> Addr
 ### :param slot: The slot to store into.
 ### :param value: The argument to store.
 dangerous routine recipe_put[T](recipe: Addr, slot: U64, value: T)
-    var cell = Hijacked[T](ig_allocate_dynamic(size: T.data_size()))
+    var cell = Hijacked[T](allocate_dynamic(size: T.data_size()))
     cell.poke(value)
     Hijacked[Addr](recipe).poke_at_offset(at: recipe_slot_size() * slot, value: cell.address())
     return
@@ -125,7 +125,7 @@ dangerous routine work_recipe[T](entry: Addr, recipe: Addr) -> Work[T]
 ### :param recipe: The recipe that holds the arguments.
 ### :returns: the work.
 dangerous routine work_state[T](entry: Addr, recipe: Addr) -> WorkState[T]
-    var cell = ig_allocate_dynamic(size: recipe_slot_size() * 6)
+    var cell = allocate_dynamic(size: recipe_slot_size() * 6)
     var words = Hijacked[U64](cell)
     words.poke_at_offset(at: recipe_slot_size() * 0, value: 0)
     words.poke_at_offset(at: recipe_slot_size() * 1, value: 0)
@@ -146,8 +146,8 @@ dangerous routine work_finish[T](recipe: Addr, outcome: Hijacked[Check[T]])
     var task = recipe_task(recipe: recipe)
     C::ig_invalidate(ptr: recipe)
     var size = Check[T].data_size()
-    var cell = ig_allocate_dynamic(size: size)
-    ig_copy_bytes_at(dest: cell, src: outcome.address(), size: size)
+    var cell = allocate_dynamic(size: size)
+    copy_bytes_at(dest: cell, src: outcome.address(), size: size)
     Hijacked[U64](outcome.address()).poke(value: 0)
     C::ig_task_complete_value(task: task, result: cell)
     return

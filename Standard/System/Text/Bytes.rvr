@@ -109,7 +109,7 @@ routine Bytes(from_list: List[Byte]) -> Bytes
 ### :returns: The resulting `Bytes` value.
 routine Bytes(from_byte: Byte) -> Bytes
     danger
-        var buf = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size()))
+        var buf = Hijacked[Byte](allocate_dynamic(size: Byte.data_size()))
         buf.poke(value: from_byte)
         return bytes_over(data: buf, count: 1)
 
@@ -126,8 +126,8 @@ routine Bytes(ptr: Hijacked[Byte]) -> Bytes
             len += 1
         if len == 0
             return Bytes()
-        var buf = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size() * len))
-        ig_copy_bytes_at(dest: buf.address(), src: ptr.address(), size: Byte.data_size() * len)
+        var buf = Hijacked[Byte](allocate_dynamic(size: Byte.data_size() * len))
+        copy_bytes_at(dest: buf.address(), src: ptr.address(), size: Byte.data_size() * len)
         return bytes_over(data: buf, count: len)
 
 ### Creates a byte sequence by copying a null-terminated C string as raw bytes.
@@ -139,8 +139,8 @@ routine Bytes(ptr: CStrView) -> Bytes
     if len == 0
         return Bytes()
     danger
-        var buf = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size() * len))
-        ig_copy_bytes_at(
+        var buf = Hijacked[Byte](allocate_dynamic(size: Byte.data_size() * len))
+        copy_bytes_at(
             dest: buf.address(),
             src: ptr.ptr().address(),
             size: Byte.data_size() * len,
@@ -155,8 +155,8 @@ routine Bytes(ptr: Addr, count: U64) -> Bytes
     if count == 0
         return Bytes()
     danger
-        var buf = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size() * count))
-        ig_copy_bytes_at(dest: buf.address(), src: ptr, size: Byte.data_size() * count)
+        var buf = Hijacked[Byte](allocate_dynamic(size: Byte.data_size() * count))
+        copy_bytes_at(dest: buf.address(), src: ptr, size: Byte.data_size() * count)
         return bytes_over(data: buf, count: count)
 
 ### Creates a byte sequence by copying `count` bytes from a hijacked pointer.
@@ -167,8 +167,8 @@ routine Bytes(ptr: Hijacked[Byte], count: U64) -> Bytes
     if count == 0
         return Bytes()
     danger
-        var buf = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size() * count))
-        ig_copy_bytes_at(dest: buf.address(), src: ptr.address(), size: Byte.data_size() * count)
+        var buf = Hijacked[Byte](allocate_dynamic(size: Byte.data_size() * count))
+        copy_bytes_at(dest: buf.address(), src: ptr.address(), size: Byte.data_size() * count)
         return bytes_over(data: buf, count: count)
 
 # Core operations
@@ -249,16 +249,16 @@ routine Bytes.concat(other: Bytes) -> Bytes
     if n == 0
         return Bytes()
     danger
-        var buf = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size() * n))
+        var buf = Hijacked[Byte](allocate_dynamic(size: Byte.data_size() * n))
         if me.count > 0
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: buf.address(),
                 src: me.data.address(),
                 size: Byte.data_size() * me.count,
             )
         if other.count > 0
             var dest = buf.stride(count: me.count.to[S64]())
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: dest.address(),
                 src: other.data.address(),
                 size: Byte.data_size() * other.count,
@@ -502,13 +502,13 @@ routine Bytes.repeat(times: U64) -> Bytes
         return Bytes()
     var n = me.count * times
     danger
-        var buf = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size() * n))
+        var buf = Hijacked[Byte](allocate_dynamic(size: Byte.data_size() * n))
         var t: U64 = 0
         loop
             if t >= times
                 break
             var dest = buf.stride(count: (t * me.count).to[S64]())
-            ig_copy_bytes_at(
+            copy_bytes_at(
                 dest: dest.address(),
                 src: me.data.address(),
                 size: Byte.data_size() * me.count,

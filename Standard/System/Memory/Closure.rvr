@@ -19,7 +19,7 @@ import BuilderQuery
 ### :param slots: The number of captured values.
 ### :returns: The slot table.
 dangerous routine closure_new(slots: U64) -> Addr
-    return ig_allocate_dynamic(size: Addr.data_size() * slots)
+    return allocate_dynamic(size: Addr.data_size() * slots)
 
 ### Copies a captured value into its own heap cell (like `List.add_last` storing an element) and stores
 ### the cell in slot `slot` of the table.
@@ -28,7 +28,7 @@ dangerous routine closure_new(slots: U64) -> Addr
 ### :param value: The captured value.
 ### :returns: The slot table, so the captures of one lambda chain in a single expression.
 dangerous routine closure_put[T](bound: Addr, slot: U64, value: T) -> Addr
-    var cell = Hijacked[T](ig_allocate_dynamic(size: T.data_size()))
+    var cell = Hijacked[T](allocate_dynamic(size: T.data_size()))
     cell.poke(value)
     Hijacked[Addr](bound).poke_at_offset(
         at: Addr.data_size() * slot,

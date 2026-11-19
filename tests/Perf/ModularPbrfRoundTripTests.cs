@@ -86,7 +86,7 @@ public sealed partial class ModularPbrfRoundTripTests
             SemanticVerifier.CaptureCompiledStdlib(language: Language.Revare);
 
         string dir = Path.Combine(path1: Path.GetTempPath(),
-            path2: "rf_modular_pbrf_" + Guid.NewGuid()
+            path2: "anv_modular_pbrf_" + Guid.NewGuid()
                                             .ToString(format: "N"));
         try
         {

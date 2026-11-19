@@ -257,7 +257,7 @@ secret routine BTreeSetNode[T].keys_add_at(i: U64, value: T)
             var shift_count = me.key_count -% i
             var src_addr = base.stride(count: i.to[S64]()).get_address()
             var dst_addr = base.stride(count: (i +% 1).to[S64]()).get_address()
-            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
+            copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
         base.stride(count: i.to[S64]()).poke(value: value)
     me.key_count = me.key_count +% 1
     return
@@ -273,7 +273,7 @@ secret routine BTreeSetNode[T].children_add_at(i: U64, value: Hijacked[BTreeSetN
             var shift_count = me.child_count -% i
             var src_addr = base.stride(count: i.to[S64]()).get_address()
             var dst_addr = base.stride(count: (i +% 1).to[S64]()).get_address()
-            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
+            copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
         base.stride(count: i.to[S64]()).poke(value: value)
     me.child_count = me.child_count +% 1
     return
@@ -288,7 +288,7 @@ secret routine BTreeSetNode[T].keys_remove_at(i: U64)
             var shift_count = me.key_count -% i -% 1
             var src_addr = base.stride(count: (i +% 1).to[S64]()).get_address()
             var dst_addr = base.stride(count: i.to[S64]()).get_address()
-            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
+            copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
     me.key_count = me.key_count -% 1
     return
 
@@ -302,7 +302,7 @@ secret routine BTreeSetNode[T].children_remove_at(i: U64)
             var shift_count = me.child_count -% i -% 1
             var src_addr = base.stride(count: (i +% 1).to[S64]()).get_address()
             var dst_addr = base.stride(count: i.to[S64]()).get_address()
-            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
+            copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
     me.child_count = me.child_count -% 1
     return
 
@@ -345,7 +345,7 @@ secret routine BTreeSetNode[T].keys_add_range_from(you: %BTreeSetNode[T], start:
                 .keys_base()
                 .stride(count: me.key_count.to[S64]())
                 .get_address()
-            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * count)
+            copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * count)
     me.key_count = me.key_count +% count
     return
 
@@ -370,7 +370,7 @@ secret routine BTreeSetNode[T].children_add_range_from(
                 .children_base()
                 .stride(count: me.child_count.to[S64]())
                 .get_address()
-            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * count)
+            copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * count)
     me.child_count = me.child_count +% count
     return
 

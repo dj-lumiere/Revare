@@ -119,15 +119,37 @@ public sealed partial class DebugJitRunTests
         }
     }
 
+    /// <summary>A run that starts the daemon gives back its output pipes when the program ends (`run ... | cat`
+    /// returns), while the daemon keeps running for the next run.</summary>
+    [Fact]
+    public void DaemonStartedByRun_LeavesTheOutputPipes()
+    {
+        using var project = new JitProject(incremental: true, useDaemon: true);
+        try
+        {
+            Run run = project.BuildAndRun();
+            AssertRan(run: run);
+            Assert.Contains(expectedSubstring: "started one (pid", actualString: run.Stderr);
+            int pid = int.Parse(s: SpawnedDaemonPidRegex().Match(input: run.Stderr).Groups[groupnum: 1].Value);
+            using var daemon = Process.GetProcessById(processId: pid);
+            Assert.False(condition: daemon.HasExited, userMessage: "the daemon should keep running after the run");
+        }
+        finally
+        {
+            project.StopDaemon();
+        }
+    }
+
     private static void AssertRan(Run run)
     {
         string all = $"exit {run.Exit}\n--- stdout ---\n{run.Stdout}\n--- stderr ---\n{run.Stderr}";
         Assert.True(condition: run.Exit == 0, userMessage: all);
+        Assert.True(condition: run.PipesEnded, userMessage: $"the output pipes stayed open after the run\n{all}");
         Assert.Contains(expectedSubstring: ExpectedLine, actualString: run.Stdout);
         Assert.DoesNotContain(expectedSubstring: "falling back to AOT", actualString: run.Stderr);
     }
 
-    private sealed record Run(int Exit, string Stdout, string Stderr);
+    private sealed record Run(int Exit, string Stdout, string Stderr, bool PipesEnded = true);
 
     /// <summary>A temporary project folder with a <c>config.toml</c> in <c>debug-jit</c> mode and the probe program.
     /// With <c>use-daemon</c> it names a daemon pipe of its own, so it never reaches a developer's running daemon.</summary>
@@ -144,7 +166,7 @@ public sealed partial class DebugJitRunTests
             _useDaemon = useDaemon;
             // Short, because on Linux and macOS the pipe is a socket file in the temp folder and the system limits
             // the length of its path: macOS's temp folder is about 50 characters long and allows 103 in all.
-            _pipe = "rf-jit-" + Guid.NewGuid().ToString(format: "N")[..12];
+            _pipe = "anv-jit-" + Guid.NewGuid().ToString(format: "N")[..12];
             _dir = Path.Combine(path1: Path.GetTempPath(), path2: _pipe);
             Directory.CreateDirectory(path: _dir);
             _entry = Path.Combine(path1: _dir, path2: "probe.rvr");
@@ -297,30 +319,16 @@ public sealed partial class DebugJitRunTests
                 Assert.Fail(message: $"{verb} did not finish.\n{stderr}");
             }
 
-            if (_useDaemon && withEntry)
-            {
-                // A daemon this run started holds the output pipes open, so their end never comes. Wait for the
-                // run's last lines instead: the program's output and the client's JIT timing line.
-                SpinWait.SpinUntil(condition: () =>
-                {
-                    lock (stdout)
-                    lock (stderr)
-                    {
-                        return stdout.ToString().Contains(value: ExpectedLine) &&
-                               stderr.ToString().Contains(value: "[timing] JIT compile + run");
-                    }
-                }, millisecondsTimeout: 10_000);
-            }
-            else
-            {
-                // Waits for the reader threads to reach the end of both pipes.
-                p.WaitForExit();
-            }
+            // Waits for the reader threads to reach the end of both pipes. A daemon this run started must not hold
+            // them open: it lets go of the handles it inherited, so the pipes end with the run.
+            bool pipesEnded = Task.Run(action: () => p.WaitForExit())
+                                  .Wait(millisecondsTimeout: 20_000);
 
             lock (stdout)
             lock (stderr)
             {
-                return new Run(Exit: p.ExitCode, Stdout: stdout.ToString(), Stderr: stderr.ToString());
+                return new Run(Exit: p.ExitCode, Stdout: stdout.ToString(), Stderr: stderr.ToString(),
+                    PipesEnded: pipesEnded);
             }
         }
 

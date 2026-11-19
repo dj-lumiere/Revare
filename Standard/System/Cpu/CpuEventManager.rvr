@@ -71,6 +71,6 @@ secret record HandlerCell
 ### :returns: The cell's address.
 secret routine handler_cell(handler: Callable[(), None]) -> Addr
     danger
-        var cell = Hijacked[HandlerCell](ig_allocate_dynamic(size: HandlerCell.data_size()))
+        var cell = Hijacked[HandlerCell](allocate_dynamic(size: HandlerCell.data_size()))
         cell.poke(HandlerCell(handler))
         return cell.address()

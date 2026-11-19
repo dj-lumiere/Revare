@@ -19,7 +19,7 @@ routine Text.to[CWStr]() -> CWStr
     var n = units.count()
     var size = CWChar.data_size() * (n + 1)
     danger
-        var address = ig_allocate_dynamic(size: size)
+        var address = allocate_dynamic(size: size)
         var wide = Hijacked[CWChar](address)
         var i: U64 = 0
         until i >= n

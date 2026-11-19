@@ -94,7 +94,7 @@ routine make_shared_channel[T](capacity: U64) -> (Transmitter[T], SharedReceiver
 ### :param item: The value to transmit (ownership transfers in).
 routine Transmitter[T].transmit(item: T)
     danger
-        var box = hijacked_from[T](ig_allocate_dynamic_uninit(T.data_size()))
+        var box = hijacked_from[T](allocate_dynamic_uninit(T.data_size()))
         box.poke(value: item)
         var ok = C::ig_channel_feed(chan: me.chan, payload: box.address())
         if ok == 0
@@ -112,7 +112,7 @@ routine Transmitter[T].transmit(item: T)
 ### :throws: {ChannelClosedError} if the channel is already closed or has no consumers left.
 routine Transmitter[T].transmit_if_room(item: T) -> Bool
     danger
-        var box = hijacked_from[T](ig_allocate_dynamic_uninit(T.data_size()))
+        var box = hijacked_from[T](allocate_dynamic_uninit(T.data_size()))
         box.poke(value: item)
         var outcome = C::ig_channel_offer(chan: me.chan, payload: box.address())
         if outcome == 1

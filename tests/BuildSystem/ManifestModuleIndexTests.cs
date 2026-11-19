@@ -140,7 +140,7 @@ public sealed class ManifestModuleIndexTests
     private static string CreateTempProject(Dictionary<string, string> files)
     {
         string root = Path.Combine(path1: Path.GetTempPath(),
-            path2: "rf_manifest_" + Guid.NewGuid()
+            path2: "anv_manifest_" + Guid.NewGuid()
                                         .ToString(format: "N"));
         Directory.CreateDirectory(path: root);
         foreach ((string relPath, string content) in files)

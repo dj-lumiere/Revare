@@ -227,7 +227,7 @@ infallible dangerous routine Hijacked[T].roam_free()
 
 ### Zeroes out the pointed-to memory without deallocating it.
 dangerous routine Hijacked[T].detonate()
-    ig_set_bytes_at(dest: me.address(), value: 0, size: T.data_size())
+    set_bytes_at(dest: me.address(), value: 0, size: T.data_size())
     return
 
 ### Constructs a {Hijacked[T]} from a raw address. Use this instead of

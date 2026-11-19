@@ -10,7 +10,7 @@ namespace Revare.Tests.Meta;
 public sealed class ToolCommandTests : IDisposable
 {
     private readonly string _dir = Path.Combine(path1: Path.GetTempPath(),
-        path2: "rf-tool-" + Guid.NewGuid().ToString(format: "N"));
+        path2: "anv-tool-" + Guid.NewGuid().ToString(format: "N"));
 
     public ToolCommandTests()
     {

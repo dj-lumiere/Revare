@@ -176,7 +176,7 @@ Copy-Item "$PSScriptRoot\package-assets\install.cmd" $Out
 Write-Host '=== smoke test: self-contained run (system toolchain hidden) ==='
 & "$Out\Revare.exe" version
 if ($LASTEXITCODE -ne 0) { throw 'smoke version failed' }
-$smokeDir = Join-Path ([System.IO.Path]::GetTempPath()) "rf_pkg_smoke_$PID"
+$smokeDir = Join-Path ([System.IO.Path]::GetTempPath()) "revare_pkg_smoke_$PID"
 New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
 @'
 module PackageSmoke
@@ -191,7 +191,7 @@ routine start()
 # detection walks up from the exe and would find the repo's native/build tree
 # from dist\), strip PATH down to the OS so the bundled toolchain is the only
 # one visible, and run from the smoke directory — exactly an end user's setup.
-$stageDir = Join-Path ([System.IO.Path]::GetTempPath()) "rf_pkg_stage_$PID"
+$stageDir = Join-Path ([System.IO.Path]::GetTempPath()) "revare_pkg_stage_$PID"
 if (Test-Path $stageDir) { Remove-Item -Recurse -Force $stageDir }
 Copy-Item -Recurse $Out $stageDir
 $rvExe = Join-Path $stageDir 'Revare.exe'

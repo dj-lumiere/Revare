@@ -23,7 +23,7 @@ public sealed class ProgramCliTests : IDisposable
     public ProgramCliTests()
     {
         _dir = Path.Combine(path1: Path.GetTempPath(),
-            path2: "rf-cli-tests-" + Guid.NewGuid().ToString(format: "N"));
+            path2: "anv-cli-tests-" + Guid.NewGuid().ToString(format: "N"));
         Directory.CreateDirectory(path: _dir);
         _rf = Path.Combine(path1: _dir, path2: "sample.rvr");
         File.WriteAllText(path: _rf,

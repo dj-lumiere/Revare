@@ -19,7 +19,7 @@ routine roundtrip[T](value: T) -> Text
         if orderof(m) > 0
             out = out + ", "
         danger
-            var buf = hijacked_from[$typeof(m)](ig_allocate_dynamic_uninit($typeof(m).data_size()))
+            var buf = hijacked_from[$typeof(m)](allocate_dynamic_uninit($typeof(m).data_size()))
             buf.poke(value.$nameof(m))
             out = out + nameof(m) + "=" + buf.peek().represent()
     return out

@@ -43,7 +43,7 @@ dangerous routine C::ig_allocate_dynamic(size: U64) -> Addr
 ### Allocates zero-initialized dynamic memory.
 ### :param size: The number of bytes to allocate.
 ### :returns: The resulting `Addr` value.
-dangerous routine ig_allocate_dynamic(size: ByteSize) -> Addr
+dangerous routine allocate_dynamic(size: ByteSize) -> Addr
     return C::ig_allocate_dynamic(size: size.byte_size())
 
 ### Returns uninitialized dynamic memory — caller must write before reading.
@@ -54,7 +54,7 @@ dangerous routine C::ig_allocate_dynamic_uninit(size: U64) -> Addr
 ### Returns uninitialized dynamic memory — caller must write before reading.
 ### :param size: The byte count to allocate.
 ### :returns: The resulting `Addr` value.
-dangerous routine ig_allocate_dynamic_uninit(size: ByteSize) -> Addr
+dangerous routine allocate_dynamic_uninit(size: ByteSize) -> Addr
     return C::ig_allocate_dynamic_uninit(size: size.byte_size())
 
 ### Reallocates a dynamic memory block to a new size.
@@ -67,7 +67,7 @@ dangerous routine C::ig_reallocate_dynamic(ptr: Addr, size: U64) -> Addr
 ### :param ptr: The existing allocation to resize.
 ### :param size: The new allocation size.
 ### :returns: The resulting `Addr` value.
-dangerous routine ig_reallocate_dynamic(ptr: Addr, size: ByteSize) -> Addr
+dangerous routine reallocate_dynamic(ptr: Addr, size: ByteSize) -> Addr
     return C::ig_reallocate_dynamic(ptr: ptr, size: size.byte_size())
 
 ### Frees a dynamic memory block previously returned by the runtime allocator.
@@ -426,7 +426,7 @@ dangerous routine C::ig_copy_bytes_at(dest: Addr, src: Addr, size: U64)
 ### :param dest: The destination location.
 ### :param src: The source location.
 ### :param size: The number of bytes to copy.
-dangerous routine ig_copy_bytes_at(dest: Addr, src: Addr, size: ByteSize)
+dangerous routine copy_bytes_at(dest: Addr, src: Addr, size: ByteSize)
     C::ig_copy_bytes_at(dest: dest, src: src, size: size.byte_size())
     return
 
@@ -440,7 +440,7 @@ dangerous routine C::ig_set_bytes_at(dest: Addr, value: U8, size: U64)
 ### :param dest: The destination location.
 ### :param value: The byte value to write.
 ### :param size: The number of bytes to set.
-dangerous routine ig_set_bytes_at(dest: Addr, value: U8, size: ByteSize)
+dangerous routine set_bytes_at(dest: Addr, value: U8, size: ByteSize)
     C::ig_set_bytes_at(dest: dest, value: value, size: size.byte_size())
     return
 
