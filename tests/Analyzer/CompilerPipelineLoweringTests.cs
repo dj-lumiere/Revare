@@ -651,7 +651,7 @@ public class CompilerPipelineLoweringTests
         string source = """
                         routine start()
                             danger
-                                drop rf_allocate_dynamic_uninit(size: 64b)
+                                drop ig_allocate_dynamic_uninit(size: 64b)
                             return
                         """;
 
@@ -674,12 +674,12 @@ public class CompilerPipelineLoweringTests
         // dev-loop LTO; the test's concern is unchanged — the ByteSize argument is passed as a
         // scalar `i64`, never as a `{ i64 }` aggregate or a `%Record.System.ByteSize` by-value struct.
         string llvmIr = generator.Generate();
-        Assert.Contains(expectedSubstring: "call ptr @rf_allocate_dynamic_uninit(i64 ",
+        Assert.Contains(expectedSubstring: "call ptr @ig_allocate_dynamic_uninit(i64 ",
             actualString: llvmIr);
-        Assert.DoesNotContain(expectedSubstring: "call ptr @rf_allocate_dynamic_uninit({ i64 }",
+        Assert.DoesNotContain(expectedSubstring: "call ptr @ig_allocate_dynamic_uninit({ i64 }",
             actualString: llvmIr);
         Assert.DoesNotContain(
-            expectedSubstring: "call ptr @rf_allocate_dynamic_uninit(%Record.System.ByteSize",
+            expectedSubstring: "call ptr @ig_allocate_dynamic_uninit(%Record.System.ByteSize",
             actualString: llvmIr);
     }
 

@@ -13,7 +13,7 @@ routine make_wstr(a: U32, b: U32, c: U32) -> CWStrView
     danger
         var elem = CWChar.data_size().byte_size()
         var nbytes = 4 * elem
-        var raw = Hijacked[Byte](from: C::rf_allocate_dynamic(nbytes))
+        var raw = Hijacked[Byte](from: C::ig_allocate_dynamic(nbytes))
         var buf = raw.recast_as[CWChar]()
         buf.stride(count: 0).poke(value: a.to[CWChar]())
         buf.stride(count: 1).poke(value: b.to[CWChar]())

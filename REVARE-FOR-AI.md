@@ -580,7 +580,7 @@ declare their own `i`.
   they were built. `D32`/`D64`/`D128` are `Hashable` too and hash the value, not the digits they keep: `1.0` and
   `1.00`, `+0` and `-0` hash the same, and every NaN hashes the same. An optional `T?` has `==` and a hash when `T` does (two absent ones are equal, an absent and
   a present one differ). An entity's builder-written `==` keeps the pairs it is comparing for the running task
-  (`rf_eq_enter`), and meeting one again counts as equal, so structures that lead back to themselves compare by
+  (`ig_eq_enter`), and meeting one again counts as equal, so structures that lead back to themselves compare by
   shape and end, and its hash stops at an entity it is already inside of. `Comparable` (`<`, sorting) still needs
   `obeys Comparable`.
 

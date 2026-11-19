@@ -1,7 +1,7 @@
 module Tests/Stdlib/CoroSuspendedApi
 
 # `f.to[Work](...)` over a plain routine yields a Work[T]. `retrieve()` starts it as a fiber
-# (`start_now()`), drives it to completion (through every rf_coro_yield) and returns its value.
+# (`start_now()`), drives it to completion (through every ig_coro_yield) and returns its value.
 # Dropping a never-retrieved handle abandons it.
 
 import IO/Console
@@ -10,9 +10,9 @@ routine compute(x: S64) -> S64
 
 routine counter() -> S64
     var n = 10
-    C::rf_coro_yield()
+    C::ig_coro_yield()
     n = n + 5
-    C::rf_coro_yield()
+    C::ig_coro_yield()
     n = n + 5
     return n
 

@@ -149,7 +149,7 @@ public sealed class CFfiPlatformWidthTests
                               routine start()
                                   danger
                                       var elem = CWChar.data_size().byte_size()
-                                      var raw = Hijacked[Byte](from: C::rf_allocate_dynamic(2 * elem))
+                                      var raw = Hijacked[Byte](from: C::ig_allocate_dynamic(2 * elem))
                                       var buf = raw.recast_as[CWChar]()
                                       var supplementary: U32 = 65536
                                       var terminator: U32 = 0

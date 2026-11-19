@@ -18,7 +18,7 @@ dangerous routine Res.destruct()
 
 routine holds(r: Res)
     var own = Res(tag: r.tag * 10)
-    C::rf_coro_yield()
+    C::ig_coro_yield()
     show("holds resumed")
     return
 
@@ -29,14 +29,14 @@ routine consume(r: Res)
 routine hands_on(r: Res, second: Res)
     var own = Res(tag: 60)
     consume(r: steal r)
-    C::rf_coro_yield()
+    C::ig_coro_yield()
     show(f"hands_on resumed {second.tag} {own.tag}")
     return
 
 routine replaces()
     var own = Res(tag: 70)
     own = Res(tag: 71)
-    C::rf_coro_yield()
+    C::ig_coro_yield()
     show("replaces resumed")
     return
 
@@ -48,12 +48,12 @@ routine gives_back(r: Res, keep: Bool) -> Res
     if keep
         return r
     if r.tag < 0
-        C::rf_coro_yield()
+        C::ig_coro_yield()
     return Res(tag: 0)
 
 routine gives_back_body(ud: Addr)
     var back = gives_back(r: Res(tag: 9), keep: true)
-    C::rf_coro_yield()
+    C::ig_coro_yield()
     show(f"gives_back resumed {back.tag}")
     return
 
@@ -75,30 +75,30 @@ routine parked(r: Res) -> S64
 
 routine start()
     danger
-        var c1 = C::rf_coro_create(entry: holds_body, userdata: Addr.hollow(), stack_size: 0)
-        drop C::rf_coro_resume(coro: c1)
-        C::rf_coro_abandon(coro: c1)
+        var c1 = C::ig_coro_create(entry: holds_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::ig_coro_resume(coro: c1)
+        C::ig_coro_abandon(coro: c1)
     show("---")
     danger
-        var c2 = C::rf_coro_create(entry: holds_body, userdata: Addr.hollow(), stack_size: 0)
-        drop C::rf_coro_resume(coro: c2)
-        drop C::rf_coro_resume(coro: c2)
-        C::rf_coro_delete(coro: c2)
+        var c2 = C::ig_coro_create(entry: holds_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::ig_coro_resume(coro: c2)
+        drop C::ig_coro_resume(coro: c2)
+        C::ig_coro_delete(coro: c2)
     show("---")
     danger
-        var c3 = C::rf_coro_create(entry: hands_on_body, userdata: Addr.hollow(), stack_size: 0)
-        drop C::rf_coro_resume(coro: c3)
-        C::rf_coro_abandon(coro: c3)
+        var c3 = C::ig_coro_create(entry: hands_on_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::ig_coro_resume(coro: c3)
+        C::ig_coro_abandon(coro: c3)
     show("---")
     danger
-        var c4 = C::rf_coro_create(entry: replaces_body, userdata: Addr.hollow(), stack_size: 0)
-        drop C::rf_coro_resume(coro: c4)
-        C::rf_coro_abandon(coro: c4)
+        var c4 = C::ig_coro_create(entry: replaces_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::ig_coro_resume(coro: c4)
+        C::ig_coro_abandon(coro: c4)
     show("---")
     danger
-        var c5 = C::rf_coro_create(entry: gives_back_body, userdata: Addr.hollow(), stack_size: 0)
-        drop C::rf_coro_resume(coro: c5)
-        C::rf_coro_abandon(coro: c5)
+        var c5 = C::ig_coro_create(entry: gives_back_body, userdata: Addr.hollow(), stack_size: 0)
+        drop C::ig_coro_resume(coro: c5)
+        C::ig_coro_abandon(coro: c5)
     show("---")
     var job = parked.to[Work](r: Res(tag: 5))
     job.start_now()

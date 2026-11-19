@@ -18,13 +18,13 @@ infallible routine T.begin_shape_use() -> ShapeUse
 needs EntityType T
     danger
         var at = me.get_address()
-        C::rf_shape_use_begin(at: at)
+        C::ig_shape_use_begin(at: at)
         return ShapeUse(at: at)
 
 ### Ends the use of the container's shape.
 @override
 infallible dangerous routine ShapeUse.destruct()
-    C::rf_shape_use_end(at: me.at)
+    C::ig_shape_use_end(at: me.at)
     return
 
 ### Checks that no use of this container's shape is open, before a change that adds to or removes from it. Only the
@@ -34,6 +34,6 @@ infallible dangerous routine ShapeUse.destruct()
 routine T.require_shape_free()
 needs EntityType T
     danger
-        if C::rf_shape_in_use(at: me.get_address()) != 0
+        if C::ig_shape_in_use(at: me.get_address()) != 0
             throw ReshapingWhileInUseError(container: T.type_name())
     return

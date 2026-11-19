@@ -34,7 +34,7 @@ obeys Sink
 routine show(value: Text, end: Text = "\n")
     # One write for the value and its end, so two threads writing at once don't mix their lines.
     var line_cstr = f"{value}{end}".to[CStr]()
-    C::rf_console_show(ptr: line_cstr.view().ptr(), len: line_cstr.count())
+    C::ig_console_show(ptr: line_cstr.view().ptr(), len: line_cstr.count())
     return
 
 ### Writes a single value to standard output using its representable form.
@@ -43,7 +43,7 @@ routine show(value: Text, end: Text = "\n")
 routine show[T](value: T, end: Text = "\n")
     # One write for the value and its end, so two threads writing at once don't mix their lines.
     var line_cstr = f"{value.represent()}{end}".to[CStr]()
-    C::rf_console_show(ptr: line_cstr.view().ptr(), len: line_cstr.count())
+    C::ig_console_show(ptr: line_cstr.view().ptr(), len: line_cstr.count())
     return
 
 # ============================================================================
@@ -56,7 +56,7 @@ routine show[T](value: T, end: Text = "\n")
 routine alert(value: Text, end: Text = "\n")
     # One write for the value and its end, so two threads writing at once don't mix their lines.
     var line_cstr = f"{value}{end}".to[CStr]()
-    C::rf_console_alert(ptr: line_cstr.view().ptr(), len: line_cstr.count())
+    C::ig_console_alert(ptr: line_cstr.view().ptr(), len: line_cstr.count())
     return
 
 ### Writes a single value to standard error using its diagnostic form.
@@ -65,7 +65,7 @@ routine alert(value: Text, end: Text = "\n")
 routine alert[T](value: T, end: Text = "\n")
     # One write for the value and its end, so two threads writing at once don't mix their lines.
     var line_cstr = f"{value.diagnose()}{end}".to[CStr]()
-    C::rf_console_alert(ptr: line_cstr.view().ptr(), len: line_cstr.count())
+    C::ig_console_alert(ptr: line_cstr.view().ptr(), len: line_cstr.count())
     return
 
 # ============================================================================
@@ -78,7 +78,7 @@ routine alert[T](value: T, end: Text = "\n")
 ### :returns: The resulting `Text` value.
 ### :throws: {EndOfInputError} when the input has ended, {MalformedUtf8Error} when the line is not well-formed UTF-8.
 routine ask_line() -> Text
-    var ptr = C::rf_console_ask_line()
+    var ptr = C::ig_console_ask_line()
     if ptr.is_hollow()
         throw EndOfInputError(reader: "ask_line")
     return input_text(ptr: ptr)
@@ -88,7 +88,7 @@ routine ask_line() -> Text
 ### :returns: The resulting `Text` value.
 ### :throws: {EndOfInputError} when the input has ended.
 routine ask_line_lossy() -> Text
-    var ptr = C::rf_console_ask_line()
+    var ptr = C::ig_console_ask_line()
     if ptr.is_hollow()
         throw EndOfInputError(reader: "ask_line_lossy")
     return input_text_lossy(ptr: ptr)
@@ -107,7 +107,7 @@ secret routine input_text(ptr: Hijacked[Byte]) -> Text
 secret routine input_text_lossy(ptr: Hijacked[Byte]) -> Text
     danger
         var text = Text(from_utf8_lossy: ptr.stride(count: 8), count: input_count(ptr: ptr))
-        C::rf_invalidate(ptr: ptr.address())
+        C::ig_invalidate(ptr: ptr.address())
         return text
 
 ### The bytes the runtime read from standard input, copied once. The runtime's block is given back.
@@ -116,7 +116,7 @@ secret routine input_text_lossy(ptr: Hijacked[Byte]) -> Text
 secret routine input_bytes(ptr: Hijacked[Byte]) -> Bytes
     danger
         var bytes = Bytes(ptr: ptr.stride(count: 8), count: input_count(ptr: ptr))
-        C::rf_invalidate(ptr: ptr.address())
+        C::ig_invalidate(ptr: ptr.address())
         return bytes
 
 ### The count at the front of a block the runtime read from standard input.
@@ -140,7 +140,7 @@ routine ask[T]() -> T
 ### :throws: {EndOfInputError} when the input has ended before another word, {MalformedUtf8Error} when the word is not
 ### well-formed UTF-8.
 routine ask_word() -> Text
-    var ptr = C::rf_console_ask_word()
+    var ptr = C::ig_console_ask_word()
     if ptr.is_hollow()
         throw EndOfInputError(reader: "ask_word")
     return input_text(ptr: ptr)
@@ -149,7 +149,7 @@ routine ask_word() -> Text
 ### :returns: The resulting `Text` value.
 ### :throws: {EndOfInputError} when the input has ended before another word.
 routine ask_word_lossy() -> Text
-    var ptr = C::rf_console_ask_word()
+    var ptr = C::ig_console_ask_word()
     if ptr.is_hollow()
         throw EndOfInputError(reader: "ask_word_lossy")
     return input_text_lossy(ptr: ptr)
@@ -158,7 +158,7 @@ routine ask_word_lossy() -> Text
 ### :returns: The resulting `Text` value.
 ### :throws: {MalformedUtf8Error} when the input is not well-formed UTF-8.
 routine ask_all() -> Text
-    var ptr = C::rf_console_ask_all()
+    var ptr = C::ig_console_ask_all()
     if ptr.is_hollow()
         return ""
     return input_text(ptr: ptr)
@@ -166,7 +166,7 @@ routine ask_all() -> Text
 ### Reads all remaining text from standard input, replacing malformed UTF-8 with U+FFFD.
 ### :returns: The resulting `Text` value.
 routine ask_all_lossy() -> Text
-    var ptr = C::rf_console_ask_all()
+    var ptr = C::ig_console_ask_all()
     if ptr.is_hollow()
         return ""
     return input_text_lossy(ptr: ptr)
@@ -203,7 +203,7 @@ routine ask_words_lossy() -> List[Text]
 ### Reads all remaining standard input as raw bytes.
 ### :returns: The resulting `Bytes` value.
 routine ask_raw() -> Bytes
-    var ptr = C::rf_console_ask_all()
+    var ptr = C::ig_console_ask_all()
     if ptr.is_hollow()
         return Bytes()
     return input_bytes(ptr: ptr)
@@ -212,7 +212,7 @@ routine ask_raw() -> Bytes
 ### :param count: The maximum number of bytes to read.
 ### :returns: The resulting `Bytes` value.
 routine ask_bytes(count: U64) -> Bytes
-    var ptr = C::rf_console_ask_bytes(count)
+    var ptr = C::ig_console_ask_bytes(count)
     if ptr.is_hollow()
         return Bytes()
     return input_bytes(ptr: ptr)
@@ -236,7 +236,7 @@ routine stderr() -> ConsoleOut
 ### :param max: The maximum byte count to pull.
 ### :returns: The bytes pulled, or empty at EOF.
 routine ConsoleIn.pull(max: U64) -> Bytes
-    var ptr = C::rf_console_ask_bytes(max)
+    var ptr = C::ig_console_ask_bytes(max)
     if ptr.is_hollow()
         return Bytes()
     return input_bytes(ptr: ptr)
@@ -247,9 +247,9 @@ routine ConsoleIn.pull(max: U64) -> Bytes
 routine ConsoleOut.push(data: Bytes) -> U64
     danger
         if me.fd == 2
-            C::rf_console_alert(ptr: data.raw_buffer(), len: data.count())
+            C::ig_console_alert(ptr: data.raw_buffer(), len: data.count())
         else
-            C::rf_console_show(ptr: data.raw_buffer(), len: data.count())
+            C::ig_console_show(ptr: data.raw_buffer(), len: data.count())
     return data.count()
 
 ### Flushes the standard stream. No-op — the runtime flushes stdout/stderr for you.

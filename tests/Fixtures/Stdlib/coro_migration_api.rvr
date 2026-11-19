@@ -2,7 +2,7 @@ module Tests/Stdlib/CoroMigrationApi
 
 # v0.3.x M:N scheduler (step 2b) — proves coroutines MIGRATE across the worker pool. A coroutine is no
 # longer pinned to the OS thread that started it: it may park on one worker and resume on another. Each
-# probe records its BIRTH worker's OS thread id (rf_current_thread_id), then repeatedly parks + yields
+# probe records its BIRTH worker's OS thread id (ig_current_thread_id), then repeatedly parks + yields
 # MANY times, checking after each whether it resumed on a different worker; if it EVER did, that
 # coroutine migrated. The many-cycle sweep is what makes the verdict robust to scheduler timing: a
 # single park can, by luck (or under a loaded few-core CI runner), always be picked back up by the birth
@@ -16,19 +16,19 @@ import IO/Console
 # Returns 1 if this coroutine EVER resumed on a different worker than it was born on, else 0.
 # Sweeps many park (waitfor) + yield cycles so a working pool reliably migrates it at least once.
 routine probe() -> S64
-    var w0 = C::rf_current_thread_id()
+    var w0 = C::ig_current_thread_id()
     var moved = 0
     var j = 0
     until j >= 64
         waitfor(1ms)  # park under the pool; some worker picks us back up
         yield_now()  # requeue: another worker may steal us while the birth one is busy
-        if C::rf_current_thread_id() != w0
+        if C::ig_current_thread_id() != w0
             moved = 1
         j = j + 1
     return moved
 
 routine start()
-    var workers = C::rf_sched_worker_count()
+    var workers = C::ig_sched_worker_count()
 
     var probes = List[Work[S64]]()
     var i = 0

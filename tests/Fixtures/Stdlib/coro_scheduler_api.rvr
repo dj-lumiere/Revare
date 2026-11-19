@@ -1,6 +1,6 @@
 module Tests/Stdlib/CoroSchedulerApi
 
-# v0.2.0 cooperative scheduler: two coroutines park on timers (rf_sched_park_timer) and the run
+# v0.2.0 cooperative scheduler: two coroutines park on timers (ig_sched_park_timer) and the run
 # loop resumes each when its timer fires — so they progress CONCURRENTLY on one thread. `slow` is
 # spawned first but `fast` (shorter delay) wakes and prints first: the loop schedules by wake time,
 # not spawn order, and neither blocks the thread while parked. (Low-level danger driving below the
@@ -19,14 +19,14 @@ routine slow_worker(ud: Addr)
 
 routine start()
     danger
-        var s = C::rf_sched_create()
-        var cs = C::rf_coro_create(entry: slow_worker, userdata: Addr.hollow(), stack_size: 0)
-        var cf = C::rf_coro_create(entry: fast_worker, userdata: Addr.hollow(), stack_size: 0)
-        C::rf_sched_spawn(sched: s, coro: cs)
-        C::rf_sched_spawn(sched: s, coro: cf)
-        C::rf_sched_run(sched: s)
-        C::rf_coro_delete(coro: cs)
-        C::rf_coro_delete(coro: cf)
-        C::rf_sched_destroy(sched: s)
+        var s = C::ig_sched_create()
+        var cs = C::ig_coro_create(entry: slow_worker, userdata: Addr.hollow(), stack_size: 0)
+        var cf = C::ig_coro_create(entry: fast_worker, userdata: Addr.hollow(), stack_size: 0)
+        C::ig_sched_spawn(sched: s, coro: cs)
+        C::ig_sched_spawn(sched: s, coro: cf)
+        C::ig_sched_run(sched: s)
+        C::ig_coro_delete(coro: cs)
+        C::ig_coro_delete(coro: cf)
+        C::ig_sched_destroy(sched: s)
     show(value: "done")
     return

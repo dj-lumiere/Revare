@@ -34,7 +34,7 @@ preset RECIP_SEED_BENCH: Array[U16, 256] = [
 
 # ============================================================================
 # A/B microbenchmark: the 2-by-1 word-division PRIMITIVE that M-G replaced.
-#   HW  = C::rf_udivrem_128_64 (hardware x86 `divq`, the deleted shim; restored TEMPORARILY)
+#   HW  = C::ig_udivrem_128_64 (hardware x86 `divq`, the deleted shim; restored TEMPORARILY)
 #   M-G = reciprocal_word + div2by1 (multiply-only), copied verbatim below as b_recip/b_div2by1.
 # Two regimes, identical operand streams, calibration (PRNG+sink, no divide) subtracted:
 #   * fixed-d   : one normalized divisor reused N times  -> models the Knuth inner loop (reciprocal amortized)
@@ -161,7 +161,7 @@ routine hw_fixed(n: S64, d: U64, seed0: U64) -> S64
             st = db.st
             var scratch: U64 = 0
             danger
-                var q = C::rf_udivrem_128_64(
+                var q = C::ig_udivrem_128_64(
                     hi: da.v & 9223372036854775807,
                     lo: db.v,
                     d: d,
@@ -248,7 +248,7 @@ routine hw_var(n: S64, seed0: U64) -> S64
             st = db.st
             var scratch: U64 = 0
             danger
-                var q = C::rf_udivrem_128_64(
+                var q = C::ig_udivrem_128_64(
                     hi: da.v & 9223372036854775807,
                     lo: db.v,
                     d: dd.v | 9223372036854775808,

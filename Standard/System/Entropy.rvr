@@ -10,7 +10,7 @@ record Entropy
 ### 64 random bits from the operating system's random source: `Entropy.next[U64]()`.
 ### :returns: The random bits.
 common routine Entropy.next[U64]() -> U64
-    return C::rf_random_u64()
+    return C::ig_random_u64()
 
 ### A random `S64` over its full range from the operating system's random source.
 ### :returns: The random value.

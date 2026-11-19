@@ -55,11 +55,11 @@ routine breach()
 ### or may not get its call in. A crash still exits with its own status (82), whatever was set.
 ### :param code: The exit status.
 routine set_exit_code(code: S32)
-    C::rf_set_exit_code(code)
+    C::ig_set_exit_code(code)
     return
 
 ### Möller-Granlund reciprocal of a normalized `d`, delegated to the arch-gated C primitive
-### `rf_reciprocal_word` (returns 0 on x86-64/MSVC where the divide is hardware; the real M-G
+### `ig_reciprocal_word` (returns 0 on x86-64/MSVC where the divide is hardware; the real M-G
 ### reciprocal on arm64/wasm). Hoist it: compute once per divisor, reuse across every `div2by1`
 ### by that `d` — that reuse is what makes M-G win on arm64 (see div_ab_bench).
 ### :param d: The normalized divisor, with its top bit set.
@@ -67,10 +67,10 @@ routine set_exit_code(code: S32)
 @inline
 routine reciprocal_word(d: U64) -> U64
     danger
-        return C::rf_reciprocal_word(d: d)
+        return C::ig_reciprocal_word(d: d)
 
 ### Möller-Granlund 2-by-1 division `(u1:u0) / d` (NORMALIZED `d`, `u1 < d`) with the precomputed
-### reciprocal `v = reciprocal_word(d)`. Delegates to the arch-gated C `rf_udivrem_128_64_pre`:
+### reciprocal `v = reciprocal_word(d)`. Delegates to the arch-gated C `ig_udivrem_128_64_pre`:
 ### hardware `divq` / `_udiv128` on x86-64/MSVC (ignoring `v`), multiply-only M-G on arm64/wasm.
 ### :param u1: The high word of the dividend. It must be below `d`.
 ### :param u0: The low word of the dividend.
@@ -81,7 +81,7 @@ routine reciprocal_word(d: U64) -> U64
 routine div2by1(u1: U64, u0: U64, d: U64, v: U64) -> WordQuoRem
     var scratch: U64 = 0
     danger
-        var q = C::rf_udivrem_128_64_pre(hi: u1, lo: u0, d: d, v: v, rem: scratch.hijack())
+        var q = C::ig_udivrem_128_64_pre(hi: u1, lo: u0, d: d, v: v, rem: scratch.hijack())
         return WordQuoRem(q: q, r: scratch)
 
 ### Divides one multi-limb number by another with Knuth algorithm D.

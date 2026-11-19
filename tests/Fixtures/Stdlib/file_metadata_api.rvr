@@ -8,7 +8,7 @@ import IO/File
 # making, writing, reading, metadata, listing, renaming, moving, copying, and the failures a missing or existing
 # file gives.
 routine start()
-    var root = Environment.temp_directory().go_to(name: "rf_fixture_file_metadata_api")
+    var root = Environment.temp_directory().go_to(name: "ig_fixture_file_metadata_api")
     if FileManager.exists(at: root)
         FileManager.delete_all(at: root)
     drop FileManager.make_directory(at: root, parents: true)

@@ -63,9 +63,9 @@ routine term_signal_value(raw: S32) -> S32
 ### :param code: The child's exit code, as returned by the native run.
 ### :returns: The assembled `ProcessResult`.
 routine proc_result_of(code: S64) -> ProcessResult
-    var output = Bytes(ptr: C::rf_proc_output(), count: C::rf_proc_output_len())
-    var errors = Bytes(ptr: C::rf_proc_errors(), count: C::rf_proc_errors_len())
-    var signal = try term_signal_value(raw: C::rf_proc_term_signal())
+    var output = Bytes(ptr: C::ig_proc_output(), count: C::ig_proc_output_len())
+    var errors = Bytes(ptr: C::ig_proc_errors(), count: C::ig_proc_errors_len())
+    var signal = try term_signal_value(raw: C::ig_proc_term_signal())
     return ProcessResult(exit_code: code, signal: signal, output_bytes: output, errors_bytes: errors)
 
 ### Runs `command` through the platform shell (`/bin/sh -c` on POSIX, `cmd /c` on Windows), capturing
@@ -77,7 +77,7 @@ routine proc_result_of(code: S64) -> ProcessResult
 ### :returns: A `ProcessResult` with exit code, optional signal, and captured streams.
 routine run_process(command: Text) -> ProcessResult
     var cstr = command.to[CStr]()
-    return proc_result_of(code: C::rf_proc_run(command: cstr, command_len: cstr.count().to[S32]()))
+    return proc_result_of(code: C::ig_proc_run(command: cstr, command_len: cstr.count().to[S32]()))
 
 ### Starts `file` with `args`, in the directory `directory` (empty: this program's working directory), with `env`
 ### merged into this program's environment, and waits for it.
@@ -93,23 +93,23 @@ secret routine run_built(
     env: Dict[Text, Text],
 ) -> ProcessResult
     var fcstr = file.to[CStr]()
-    var builder = C::rf_proc_begin(file: fcstr, file_len: fcstr.count().to[S32]())
+    var builder = C::ig_proc_begin(file: fcstr, file_len: fcstr.count().to[S32]())
     for i in 0 til args.count()
         var acstr = args[i].to[CStr]()
-        C::rf_proc_add_arg(builder: builder, arg: acstr, arg_len: acstr.count().to[S32]())
+        C::ig_proc_add_arg(builder: builder, arg: acstr, arg_len: acstr.count().to[S32]())
     var ccstr = directory.to[CStr]()
-    C::rf_proc_set_cwd(builder: builder, cwd: ccstr, cwd_len: ccstr.count().to[S32]())
+    C::ig_proc_set_cwd(builder: builder, cwd: ccstr, cwd_len: ccstr.count().to[S32]())
     for entry in env
         var kcstr = entry.item0.to[CStr]()
         var vcstr = entry.item1.to[CStr]()
-        C::rf_proc_add_env(
+        C::ig_proc_add_env(
             builder: builder,
             key: kcstr,
             key_len: kcstr.count().to[S32](),
             val: vcstr,
             val_len: vcstr.count().to[S32](),
         )
-    return proc_result_of(code: C::rf_proc_run_built(builder: builder))
+    return proc_result_of(code: C::ig_proc_run_built(builder: builder))
 
 ### Runs `file` directly with an explicit argument vector — NO shell, so there is no quoting or
 ### injection hazard (the safe form for untrusted arguments). It runs in `working_directory`: the way to give a

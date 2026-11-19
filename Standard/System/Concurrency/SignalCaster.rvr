@@ -23,25 +23,25 @@ import BuilderQuery
 
 ### A condition-variable monitor: a lock plus a wait set. See the module notes for the pattern.
 entity SignalCaster
-    ### The shared native monitor handle (rf_signal*).
+    ### The shared native monitor handle (ig_signal*).
     secret sig: Addr
 
 ### Creates a new monitor.
 ### :returns: A fresh `SignalCaster`.
 routine SignalCaster() -> SignalCaster
     danger
-        return SignalCaster(sig: C::rf_signal_create())
+        return SignalCaster(sig: C::ig_signal_create())
 
 ### Acquires the monitor lock guarding your shared condition. Pair every `lock` with an `unlock`.
 routine SignalCaster.lock()
     danger
-        C::rf_signal_lock(sig: me.sig)
+        C::ig_signal_lock(sig: me.sig)
     return
 
 ### Releases the monitor lock.
 routine SignalCaster.unlock()
     danger
-        C::rf_signal_unlock(sig: me.sig)
+        C::ig_signal_unlock(sig: me.sig)
     return
 
 ### Waits for a cast. MUST be called holding the lock: it releases the lock while suspended and
@@ -49,7 +49,7 @@ routine SignalCaster.unlock()
 ### Always re-check your condition in a loop, since wakes can be spurious.
 routine SignalCaster.wait()
     danger
-        C::rf_signal_wait(sig: me.sig)
+        C::ig_signal_wait(sig: me.sig)
     return
 
 ### Like `wait`, but gives up after `deadline`. MUST hold the lock. Returns `true` if a cast (or a
@@ -60,7 +60,7 @@ routine SignalCaster.wait()
 ### :returns: `true` if woken in time, `false` on timeout.
 routine SignalCaster.wait_within(deadline: Duration) -> Bool
     danger
-        return C::rf_signal_wait_deadline(
+        return C::ig_signal_wait_deadline(
             sig: me.sig,
             timeout_ns: deadline.total_nanoseconds().to[U64](),
         ) != 0
@@ -68,24 +68,24 @@ routine SignalCaster.wait_within(deadline: Duration) -> Bool
 ### Wakes one waiting job. Call after making the condition true and releasing the lock.
 routine SignalCaster.cast_one()
     danger
-        C::rf_signal_cast_one(sig: me.sig)
+        C::ig_signal_cast_one(sig: me.sig)
     return
 
 ### Wakes every waiting job. Call after making the condition true and releasing the lock.
 routine SignalCaster.cast_all()
     danger
-        C::rf_signal_cast_all(sig: me.sig)
+        C::ig_signal_cast_all(sig: me.sig)
     return
 
 ### Produces another handle on the same monitor, so another job can synchronize through it.
 ### :returns: A new `SignalCaster` sharing this monitor.
 routine SignalCaster.duplicate() -> SignalCaster
     danger
-        C::rf_signal_add_ref(sig: me.sig)
+        C::ig_signal_add_ref(sig: me.sig)
         return SignalCaster(sig: me.sig)
 
 ### Drops this handle; the monitor frees once the last handle goes.
 @override
 dangerous routine SignalCaster.destruct()
-    C::rf_signal_drop(sig: me.sig)
+    C::ig_signal_drop(sig: me.sig)
     return

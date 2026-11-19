@@ -54,7 +54,7 @@ secret routine replace_handler(which: S32, handler: Callable[(), None]?) -> Call
         is None => nothing
         else as h => cell = handler_cell(handler: h)
     danger
-        var before = C::rf_cpu_event_replace(which, cell)
+        var before = C::ig_cpu_event_replace(which, cell)
         if before.is_hollow()
             return none
         return Hijacked[HandlerCell](before).peek().handler
@@ -71,6 +71,6 @@ secret record HandlerCell
 ### :returns: The cell's address.
 secret routine handler_cell(handler: Callable[(), None]) -> Addr
     danger
-        var cell = Hijacked[HandlerCell](rf_allocate_dynamic(size: HandlerCell.data_size()))
+        var cell = Hijacked[HandlerCell](ig_allocate_dynamic(size: HandlerCell.data_size()))
         cell.poke(HandlerCell(handler))
         return cell.address()

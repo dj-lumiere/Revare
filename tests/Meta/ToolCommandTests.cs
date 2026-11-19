@@ -217,7 +217,7 @@ public sealed class ToolCommandTests : IDisposable
                 show(f"labs {C::labs(n: -42)}")
                 var t0: U64 = 0
                 danger
-                    t0 = C::rf_monotonic_now_ns()
+                    t0 = C::ig_monotonic_now_ns()
                 var agents = List[Work[S64]]()
                 var i = 0
                 until i >= 4
@@ -226,7 +226,7 @@ public sealed class ToolCommandTests : IDisposable
                 show(f"results {agents.gather()}")
                 var t1: U64 = 0
                 danger
-                    t1 = C::rf_monotonic_now_ns()
+                    t1 = C::ig_monotonic_now_ns()
                 show(f"together {(t1 - t0) // 1000000 < 900}")
                 return
             """);

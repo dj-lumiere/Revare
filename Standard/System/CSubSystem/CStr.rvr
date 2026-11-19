@@ -17,9 +17,9 @@ record CStr
 routine Bytes.to[CStr]() -> CStr
     var len = me.count
     danger
-        var buffer = Hijacked[Byte](rf_allocate_dynamic(size: Byte.data_size() * (len + 1)))
+        var buffer = Hijacked[Byte](ig_allocate_dynamic(size: Byte.data_size() * (len + 1)))
         if len > 0
-            rf_copy_bytes_at(dest: buffer.address(), src: me.data.address(), size: Byte.data_size() * len)
+            ig_copy_bytes_at(dest: buffer.address(), src: me.data.address(), size: Byte.data_size() * len)
         buffer.stride(count: len.to[S64]()).poke(value: BYTE_NULL)
         return CStr(bytes: bytes_over(data: buffer, count: len + 1))
 

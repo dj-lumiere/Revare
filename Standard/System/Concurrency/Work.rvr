@@ -52,7 +52,7 @@ entity Work[T]
 ### with `add_holder`, and the work ends when the last holder disposes of it.
 record WorkState[T]
     ### The state cell: slot 0 the place (0 WAITING, 1 NOW, 2 HERE, 3 APART, 4 DONE), slot 1 the fiber
-    ### (rf_coro*) for NOW and HERE, slot 2 the task control block that holds the produced value, slot 3 nonzero
+    ### (ig_coro*) for NOW and HERE, slot 2 the task control block that holds the produced value, slot 3 nonzero
     ### when cancellation was requested before a verb started the work, slot 4 how many Work handles hold it, slot 5
     ### nonzero while the work is started but held back, waiting to be let go with the rest of its list.
     secret cell: Addr
@@ -72,7 +72,7 @@ routine recipe_slot_size() -> ByteSize
 ### :param slots: The number of slots.
 ### :returns: the recipe's address.
 dangerous routine recipe_new(slots: U64) -> Addr
-    return rf_allocate_dynamic(size: recipe_slot_size() * slots)
+    return ig_allocate_dynamic(size: recipe_slot_size() * slots)
 
 ### Moves `value` into its own heap cell and stores the cell in recipe slot `slot` (like
 ### `List.add_last` storing an element). Builder plumbing for `to[Work]` conversions.
@@ -80,7 +80,7 @@ dangerous routine recipe_new(slots: U64) -> Addr
 ### :param slot: The slot to store into.
 ### :param value: The argument to store.
 dangerous routine recipe_put[T](recipe: Addr, slot: U64, value: T)
-    var cell = Hijacked[T](rf_allocate_dynamic(size: T.data_size()))
+    var cell = Hijacked[T](ig_allocate_dynamic(size: T.data_size()))
     cell.poke(value)
     Hijacked[Addr](recipe).poke_at_offset(at: recipe_slot_size() * slot, value: cell.address())
     return
@@ -93,7 +93,7 @@ dangerous routine recipe_put[T](recipe: Addr, slot: U64, value: T)
 dangerous routine recipe_take[T](recipe: Addr, slot: U64) -> T
     var cell = Hijacked[Addr](recipe).peek_at_offset(offset: recipe_slot_size() * slot)
     var value = Hijacked[T](cell).peek()
-    C::rf_invalidate(ptr: cell)
+    C::ig_invalidate(ptr: cell)
     return value
 
 ### Runs `entry(recipe)` for a call of a foreign routine marked `@blocking`: inside a coroutine on one of the
@@ -102,12 +102,12 @@ dangerous routine recipe_take[T](recipe: Addr, slot: U64) -> T
 ### :param entry: The routine that runs the recipe.
 ### :param recipe: The recipe that holds the arguments.
 dangerous routine blocking_call(entry: Addr, recipe: Addr)
-    C::rf_blocking_call(entry: entry, arg: recipe)
+    C::ig_blocking_call(entry: entry, arg: recipe)
     return
 
 ### The task block of a recipe (slot 0).
 ### :param recipe: The recipe to read.
-### :returns: the rf_task* as an Addr.
+### :returns: the ig_task* as an Addr.
 dangerous routine recipe_task(recipe: Addr) -> Addr
     return Hijacked[Addr](recipe).peek()
 
@@ -125,7 +125,7 @@ dangerous routine work_recipe[T](entry: Addr, recipe: Addr) -> Work[T]
 ### :param recipe: The recipe that holds the arguments.
 ### :returns: the work.
 dangerous routine work_state[T](entry: Addr, recipe: Addr) -> WorkState[T]
-    var cell = rf_allocate_dynamic(size: recipe_slot_size() * 6)
+    var cell = ig_allocate_dynamic(size: recipe_slot_size() * 6)
     var words = Hijacked[U64](cell)
     words.poke_at_offset(at: recipe_slot_size() * 0, value: 0)
     words.poke_at_offset(at: recipe_slot_size() * 1, value: 0)
@@ -144,12 +144,12 @@ dangerous routine work_state[T](entry: Addr, recipe: Addr) -> WorkState[T]
 ### :param outcome: What the work came to. It moves into the task box.
 dangerous routine work_finish[T](recipe: Addr, outcome: Hijacked[Check[T]])
     var task = recipe_task(recipe: recipe)
-    C::rf_invalidate(ptr: recipe)
+    C::ig_invalidate(ptr: recipe)
     var size = Check[T].data_size()
-    var cell = rf_allocate_dynamic(size: size)
-    rf_copy_bytes_at(dest: cell, src: outcome.address(), size: size)
+    var cell = ig_allocate_dynamic(size: size)
+    ig_copy_bytes_at(dest: cell, src: outcome.address(), size: size)
     Hijacked[U64](outcome.address()).poke(value: 0)
-    C::rf_task_complete_value(task: task, result: cell)
+    C::ig_task_complete_value(task: task, result: cell)
     return
 
 ### Reads word `slot` of the shared cell. A slot that holds a handle holds its address as a number.
@@ -195,7 +195,7 @@ dangerous routine WorkState[T].set_place(place: WorkPlace)
     me.set_cell_word(slot: 0, value: code)
     return
 
-### The fiber handle (rf_coro*) for NOW and HERE, none before a verb starts the work.
+### The fiber handle (ig_coro*) for NOW and HERE, none before a verb starts the work.
 ### :returns: the fiber.
 routine WorkState[T].coro() -> Addr
     danger
@@ -222,30 +222,30 @@ dangerous routine WorkState[T].start_at(place: WorkPlace, held: Bool) -> Bool
     if held
         me.set_cell_word(slot: 5, value: 1)
     if place == WorkPlace.APART
-        me.set_cell_word(slot: 2, value: C::rf_task_create(kind: 1).to[U64]())
+        me.set_cell_word(slot: 2, value: C::ig_task_create(kind: 1).to[U64]())
         if not held
             Hijacked[Addr](me.recipe).poke(value: me.task())
         me.set_place(place: WorkPlace.APART)
         if me.cell_word(slot: 3) != 0
-            C::rf_task_request_cancel(task: me.task())
-        return C::rf_task_spawn_threaded(task: me.task(), entry: me.entry, userdata: me.recipe) != 0
+            C::ig_task_request_cancel(task: me.task())
+        return C::ig_task_spawn_threaded(task: me.task(), entry: me.entry, userdata: me.recipe) != 0
     var here = Addr.hollow()
     if place == WorkPlace.HERE
-        here = C::rf_sched_here()
+        here = C::ig_sched_here()
         if here.is_hollow()
             return false
-    me.set_cell_word(slot: 2, value: C::rf_task_create(kind: 0).to[U64]())
+    me.set_cell_word(slot: 2, value: C::ig_task_create(kind: 0).to[U64]())
     if not held
         Hijacked[Addr](me.recipe).poke(value: me.task())
-    var coro = C::rf_coro_create(entry: me.entry, userdata: me.recipe, stack_size: 0)
+    var coro = C::ig_coro_create(entry: me.entry, userdata: me.recipe, stack_size: 0)
     me.set_cell_word(slot: 1, value: coro.to[U64]())
     me.set_place(place: place)
     if me.cell_word(slot: 3) != 0
-        C::rf_coro_request_cancel(coro: coro)
+        C::ig_coro_request_cancel(coro: coro)
     if place == WorkPlace.HERE
-        C::rf_sched_spawn(sched: here, coro: me.coro())
+        C::ig_sched_spawn(sched: here, coro: me.coro())
     else
-        C::rf_sched_spawn_default(coro: me.coro())
+        C::ig_sched_spawn_default(coro: me.coro())
     return true
 
 ### Starts the work if no verb started it yet, the way `retrieve` starts it: with `start_now()`. Builder and
@@ -285,14 +285,14 @@ dangerous routine work_discarded(recipe: Addr) -> Bool
 ### Frees a recipe whose arguments were taken out. Builder plumbing for the routine that runs a recipe.
 ### :param recipe: The recipe to free.
 dangerous routine recipe_free(recipe: Addr)
-    C::rf_invalidate(ptr: recipe)
+    C::ig_invalidate(ptr: recipe)
     return
 
 ### Lets go of a Work no verb started: runs the recipe's routine once with the discard mark, which frees the arguments
 ### and the recipe without running the work.
 dangerous routine WorkState[T].discard_recipe()
     LLVM::atomic_store[U64](ptr: Hijacked[U64](me.recipe), value: 1)
-    C::rf_blocking_call(entry: me.entry, arg: me.recipe)
+    C::ig_blocking_call(entry: me.entry, arg: me.recipe)
     return
 
 ### Waits, at the start of the routine that runs a Work, until the verb that started it lets it go: a list's
@@ -302,10 +302,10 @@ dangerous routine WorkState[T].discard_recipe()
 ### :param recipe: The recipe whose release word is watched.
 dangerous routine work_wait_released(recipe: Addr)
     until LLVM::atomic_load[U64](ptr: Hijacked[U64](recipe)) != 0
-        if C::rf_in_coroutine() != 0
-            C::rf_coro_yield()
+        if C::ig_in_coroutine() != 0
+            C::ig_coro_yield()
         else
-            C::rf_waitfor_duration(secs: 0, ns: 1000)
+            C::ig_waitfor_duration(secs: 0, ns: 1000)
     return
 
 ### Starts a verb's own place, or crashes with what went wrong: the Work was started already, or `start_here()`
@@ -359,13 +359,13 @@ routine WorkState[T].is_coro() -> Bool
     return me.place() != WorkPlace.APART
 
 ### The raw fiber handle (valid for NOW and HERE). Internal plumbing for `race!`.
-### :returns: the rf_coro* as an Addr.
+### :returns: the ig_coro* as an Addr.
 routine WorkState[T].coro_handle() -> Addr
     return me.coro()
 
 ### The raw task/result control block (fibers and threads both box their produced value here). Internal `race!`
 ### plumbing; also where the winner's value is read from.
-### :returns: the rf_task* as an Addr.
+### :returns: the ig_task* as an Addr.
 routine WorkState[T].task_handle() -> Addr
     return me.task()
 
@@ -384,10 +384,10 @@ routine WorkState[T].is_done() -> Bool
         if me.coro().is_hollow()
             return true
         danger
-            var status = C::rf_coro_status_get(coro: me.coro())
+            var status = C::ig_coro_status_get(coro: me.coro())
             return status == 3 or status == 4
     danger
-        return C::rf_task_status_get(task: me.task()) == 4
+        return C::ig_task_status_get(task: me.task()) == 4
 
 ### Whether the work was started and has not yet finished. Racy snapshot (see `is_done`).
 ### :returns: `true` if still in flight.
@@ -407,9 +407,9 @@ dangerous routine WorkState[T].request_cancel()
         return
     if me.place() != WorkPlace.APART
         if not me.coro().is_hollow()
-            C::rf_coro_request_cancel(coro: me.coro())
+            C::ig_coro_request_cancel(coro: me.coro())
         return
-    C::rf_task_request_cancel(task: me.task())
+    C::ig_task_request_cancel(task: me.task())
     return
 
 ### Waits for cancelled work to stop and frees what ran it, dropping what it came to. Work nothing started is
@@ -425,16 +425,16 @@ dangerous routine WorkState[T].wind_down(reports_failure: Bool)
         me.set_place(place: WorkPlace.DONE)
         return
     if me.place() != WorkPlace.APART
-        C::rf_sched_run_until_default(coro: me.coro())
+        C::ig_sched_run_until_default(coro: me.coro())
         # A fiber that stopped at a wait came to nothing: reaping abandons it.
         if me.stopped()
             me.reap()
             return
-    elseif C::rf_in_coroutine() != 0
-        until C::rf_task_await_coro(task: me.task()) != 0
-            C::rf_sched_park_external()
+    elseif C::ig_in_coroutine() != 0
+        until C::ig_task_await_coro(task: me.task()) != 0
+            C::ig_sched_park_external()
     else
-        drop C::rf_task_wait(task: me.task())
+        drop C::ig_task_wait(task: me.task())
     # The outcome is dropped: its scope's teardown frees it. A failure of a Work nobody retrieved or cancelled is
     # not lost: the bare call to the failable `crash_unretrieved` crashes with it.
     var outcome = me.take_outcome()
@@ -460,9 +460,9 @@ routine WorkState[T].crash_unretrieved(outcome: Check[T])
 ### Moves the finished work's outcome out of its task block and frees the block.
 ### :returns: what the work came to.
 dangerous routine WorkState[T].take_outcome() -> Check[T]
-    var payload = C::rf_task_result_payload(task: me.task())
+    var payload = C::ig_task_result_payload(task: me.task())
     var outcome = Hijacked[Check[T]](from: payload).peek()
-    C::rf_invalidate(ptr: payload)
+    C::ig_invalidate(ptr: payload)
     return outcome
 
 ### Takes the outcome of finished work and frees what ran it, then gives its value: its error is rethrown here,
@@ -491,7 +491,7 @@ routine WorkState[T].settle() -> T
 dangerous routine WorkState[T].stopped() -> Bool
     if me.place() == WorkPlace.APART or me.coro().is_hollow()
         return false
-    return C::rf_coro_status_get(coro: me.coro()) == 4  # RV_CORO_CANCELLED
+    return C::ig_coro_status_get(coro: me.coro()) == 4  # RV_CORO_CANCELLED
 
 ### Whether `cancel` was called on this Work.
 ### :returns: `true` once cancellation was requested.
@@ -548,19 +548,19 @@ routine WorkState[T].retrieve(deadline: Duration, has_deadline: Bool) -> T
             throw TaskSpawnError()
     if me.place() != WorkPlace.APART
         danger
-            C::rf_sched_run_until_default(coro: me.coro())
+            C::ig_sched_run_until_default(coro: me.coro())
             # The outcome is taken, then the fiber and its result block are reaped: this is the single consumer.
             return me.settle()
 
     danger
         if has_deadline
             var total = deadline.total_nanoseconds()
-            if C::rf_in_coroutine() != 0
+            if C::ig_in_coroutine() != 0
                 # Inside a scheduler-driven coroutine: race the worker against the deadline WITHOUT
                 # blocking. Park on a deadline timer that is also externally wakeable; siblings run.
                 # 0 => the deadline elapsed first (timeout); 1 => completed. Do NOT free here — destroy
                 # joins the still-running worker before freeing (the timeout does not stop it).
-                var outcome = C::rf_task_await_coro_deadline(task: me.task(), timeout_ns: total.to[U64]())
+                var outcome = C::ig_task_await_coro_deadline(task: me.task(), timeout_ns: total.to[U64]())
                 if outcome == 0
                     # Deadline won; give up. Reap hands the free to the still-running worker, which frees its own
                     # block as its final act (non-blocking; destroy is a no-op).
@@ -569,21 +569,21 @@ routine WorkState[T].retrieve(deadline: Duration, has_deadline: Bool) -> T
             else
                 var secs = total // 1000000000
                 var nanos = (total - secs * 1000000000).to[U32]()
-                var kind = C::rf_task_wait_within(task: me.task(), secs: secs, ns: nanos)
+                var kind = C::ig_task_wait_within(task: me.task(), secs: secs, ns: nanos)
                 if kind != 1
                     # Deadline won on a plain thread; give up. Reap lets the still-running worker free its own
                     # block on exit (non-blocking; destroy is a no-op).
                     me.reap()
                     throw TaskTimeoutError()
         else
-            if C::rf_in_coroutine() != 0
+            if C::ig_in_coroutine() != 0
                 # Inside a scheduler-driven coroutine: park instead of blocking. Register as the task's
                 # awaiter and yield; the worker wakes us (cross-thread) on completion. The loop re-checks
                 # under the lock so no wake is lost, and tolerates spurious wakes.
-                until C::rf_task_await_coro(task: me.task()) != 0
-                    C::rf_sched_park_external()
+                until C::ig_task_await_coro(task: me.task()) != 0
+                    C::ig_sched_park_external()
             else
-                drop C::rf_task_wait(task: me.task())
+                drop C::ig_task_wait(task: me.task())
 
         # The outcome is taken, then reaped: this is the single consumer, so the worker is freed exactly once.
         return me.settle()
@@ -593,7 +593,7 @@ routine WorkState[T].retrieve(deadline: Duration, has_deadline: Bool) -> T
 ### `destruct` reaps only a Work no verb consumed (through `wind_down`), so nothing is freed twice. For a
 ### coroutine: a completed one
 ### is disposed + deleted, an in-flight one is disposed + abandoned (its cancellation shadow stack runs),
-### and its result block is freed. For a thread: `rf_task_release` hands the free to the worker↔consumer
+### and its result block is freed. For a thread: `ig_task_release` hands the free to the worker↔consumer
 ### rendezvous — a still-running worker (a deadline give-up, or a race loser) frees its own block as its
 ### final act, so reaping is NON-BLOCKING (no join).
 dangerous routine WorkState[T].reap()
@@ -601,8 +601,8 @@ dangerous routine WorkState[T].reap()
         return
     if me.place() != WorkPlace.APART
         if not me.coro().is_hollow()
-            var status = C::rf_coro_status_get(coro: me.coro())
-            # Dispose race-free against the work-stealing workers. `rf_sched_dispose_default` detaches the
+            var status = C::ig_coro_status_get(coro: me.coro())
+            # Dispose race-free against the work-stealing workers. `ig_sched_dispose_default` detaches the
             # coroutine from the pool and, under the scheduler lock, decides whether WE may free it now (returns
             # 1) or the free was DEFERRED (returns 0) because a worker still holds it (RUNNING, or mid-pop between
             # the deque pop and the RUNNING store). Freeing a coroutine a worker is one step from resuming is the
@@ -610,18 +610,18 @@ dangerous routine WorkState[T].reap()
             # worker free it from its completion path instead. A plain `unschedule + free` cannot see the mid-pop
             # window and races that resume.
             if status == 3  # RV_CORO_COMPLETED
-                if C::rf_sched_dispose_default(coro: me.coro()) == 1
-                    C::rf_coro_delete(coro: me.coro())
+                if C::ig_sched_dispose_default(coro: me.coro()) == 1
+                    C::ig_coro_delete(coro: me.coro())
             else
                 # Not driven to completion (a race loser). If disposal succeeds now (parked / idle / removed) run
                 # its cancellation shadow stack + free (abandon); if deferred (still RUNNING) the coroutine runs to
                 # completion and the worker frees it — its own scope teardown replaces the abandon walk.
-                if C::rf_sched_dispose_default(coro: me.coro()) == 1
-                    C::rf_coro_abandon(coro: me.coro())
+                if C::ig_sched_dispose_default(coro: me.coro()) == 1
+                    C::ig_coro_abandon(coro: me.coro())
                     # The routine that runs the recipe frees it as it finishes, which an abandoned fiber never
                     # does.
-                    C::rf_invalidate(ptr: me.recipe)
-            C::rf_task_destroy(task: me.task())
+                    C::ig_invalidate(ptr: me.recipe)
+            C::ig_task_destroy(task: me.task())
         # The fiber and task are freed: the cell forgets them, so a query on this Work after it was consumed
         # (`is_done()` / `is_running()`) reports "done" instead of reading freed memory.
         me.set_cell_word(slot: 1, value: 0)
@@ -632,7 +632,7 @@ dangerous routine WorkState[T].reap()
     # Threaded: hand the free to the worker↔consumer rendezvous. A completed worker's block is freed here
     # or at the worker's exit (whichever is last); a still-running worker (deadline give-up / race loser)
     # frees its own block on exit — no join.
-    C::rf_task_release(task: me.task())
+    C::ig_task_release(task: me.task())
     me.set_cell_word(slot: 2, value: 0)
     me.set_cell_word(slot: 0, value: 4)
     return
@@ -657,7 +657,7 @@ dangerous routine WorkState[T].dispose()
         var reports_failure = not me.cancelled()
         me.request_cancel()
         me.wind_down(reports_failure: reports_failure)
-    C::rf_invalidate(ptr: me.cell)
+    C::ig_invalidate(ptr: me.cell)
     return
 
 ### Starts the work now on the runtime's pool of threads, where it may run beside its siblings on any thread.
@@ -841,19 +841,19 @@ routine List[Work[T]].race() -> T
         # Start the whole set together so it runs CONCURRENTLY, then race.
         if not me.launch_together()
             throw TaskSpawnError()
-        var race = C::rf_race_begin()
+        var race = C::ig_race_begin()
         var i: U64 = 0
         until i >= n
             if me[i].state.is_coro()
-                C::rf_race_add_coro(race: race, coro: me[i].state.coro_handle())
+                C::ig_race_add_coro(race: race, coro: me[i].state.coro_handle())
             else
-                C::rf_race_add_task(race: race, task: me[i].state.task_handle())
+                C::ig_race_add_task(race: race, task: me[i].state.task_handle())
             i = i + 1
 
         # Drive until the first competitor completes; `winner` indexes the List in add order. Fibers and threads
         # box their produced value into a task block referenced by the Work, so extraction is uniform.
-        var winner = C::rf_race_wait(race: race)
-        C::rf_race_end(race: race)
+        var winner = C::ig_race_wait(race: race)
+        C::ig_race_end(race: race)
         var w = winner.to[U64]()
         # race! is the sole consumer of this set: the losers are never retrieved. Reap every loser exactly once
         # here (a still-running loser's worker frees its own block on exit, non-blocking), then settle the
@@ -920,16 +920,16 @@ routine List[Work[T]].next_finished() -> Work[T]
                 "for. Put the Works in the list first.")
         if not me.launch_together()
             throw TaskSpawnError()
-        var race = C::rf_race_begin()
+        var race = C::ig_race_begin()
         var i: U64 = 0
         until i >= n
             if me[i].state.is_coro()
-                C::rf_race_add_coro(race: race, coro: me[i].state.coro_handle())
+                C::ig_race_add_coro(race: race, coro: me[i].state.coro_handle())
             else
-                C::rf_race_add_task(race: race, task: me[i].state.task_handle())
+                C::ig_race_add_task(race: race, task: me[i].state.task_handle())
             i = i + 1
-        var winner = C::rf_race_wait(race: race)
-        C::rf_race_end(race: race)
+        var winner = C::ig_race_wait(race: race)
+        C::ig_race_end(race: race)
         return me.remove_at(index: winner.to[U64]())
 
 ### Drives the jobs concurrently and waits for all of them, returning each one's result or failure in INPUT
@@ -969,16 +969,16 @@ routine waitfor(duration: Duration)
     # at that wait for good: its Work abandons it, tearing down what it built. A thread can't be stopped from
     # outside, so each of its waits returns early.
     danger
-        if C::rf_coro_cancel_at_wait() != 0
+        if C::ig_coro_cancel_at_wait() != 0
             return
         var total = duration.total_nanoseconds()
-        if C::rf_in_coroutine() != 0
-            C::rf_sched_park_timer(delay_ns: total.to[U64]())
-            drop C::rf_coro_cancel_at_wait()
+        if C::ig_in_coroutine() != 0
+            C::ig_sched_park_timer(delay_ns: total.to[U64]())
+            drop C::ig_coro_cancel_at_wait()
         else
             var secs = total // 1000000000
             var nanos = (total - secs * 1000000000).to[U32]()
-            C::rf_waitfor_duration(secs: secs, ns: nanos)
+            C::ig_waitfor_duration(secs: secs, ns: nanos)
     return
 
 ### Cooperatively hands the current turn back to the scheduler, then immediately re-queues this
@@ -990,8 +990,8 @@ routine waitfor(duration: Duration)
 ### is a no-op.
 routine yield_now()
     danger
-        if C::rf_in_coroutine() != 0
-            C::rf_coro_yield()
+        if C::ig_in_coroutine() != 0
+            C::ig_coro_yield()
     return
 
 ### Whether cooperative cancellation has been requested for the currently-running job, a fiber or a thread
@@ -1001,4 +1001,4 @@ routine yield_now()
 ### false.
 ### :returns: true if cancellation was requested for this job.
 routine cancellation_requested() -> Bool
-    return C::rf_cancel_requested() != 0
+    return C::ig_cancel_requested() != 0

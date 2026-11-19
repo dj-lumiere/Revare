@@ -237,7 +237,7 @@ secret dangerous routine limb_view_free(view: IntegerLimbView)
 secret dangerous routine limb_buffer(n: U64) -> Hijacked[U64]
     if n == 0
         return Hijacked[U64].hollow()
-    return Hijacked[U64](from: C::rf_allocate_dynamic_uninit(size: 8 *% n))
+    return Hijacked[U64](from: C::ig_allocate_dynamic_uninit(size: 8 *% n))
 
 # Frees a buffer from `limb_buffer`.
 ### Frees a limb buffer. A hollow buffer is left alone.
@@ -715,7 +715,7 @@ secret routine integer_text(v: Int, radix: U64) -> Text
         var cap = C::ingrid_integer_text_capacity(a_len: view.len, radix: radix)
         var room = view.len
         loop
-            var out = Hijacked[Char](from: C::rf_allocate_dynamic_uninit(size: 4 *% cap))
+            var out = Hijacked[Char](from: C::ig_allocate_dynamic_uninit(size: 4 *% cap))
             var scratch = limb_buffer(n: room)
             var w = C::ingrid_integer_to_text(
                 a_neg: sign_word(neg: view.neg),
@@ -877,7 +877,7 @@ routine U256.to[Int]() -> Int
 secret routine integer_parse(text: Text, radix: S32) -> (Int, Bool)
     danger
         var count = text.count()
-        var chars = Hijacked[Char](from: C::rf_allocate_dynamic_uninit(size: 4 *% count +% 4))
+        var chars = Hijacked[Char](from: C::ig_allocate_dynamic_uninit(size: 4 *% count +% 4))
         var i: U64 = 0
         until i >= count
             chars.stride(count: i.to[S64]()).poke(value: text[i])

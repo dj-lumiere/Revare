@@ -31,10 +31,10 @@ needs EntityType T
     var bits = Addr.hollow()
     danger
         # The entity goes into a cell as a container element does, and its address is read back out of it.
-        var cell = Hijacked[T](from: rf_allocate_dynamic(size: Addr.data_size()))
+        var cell = Hijacked[T](from: ig_allocate_dynamic(size: Addr.data_size()))
         cell.poke(value)
         bits = Hijacked[Addr](from: cell.get_address()).peek()
-        C::rf_invalidate(ptr: cell.get_address())
+        C::ig_invalidate(ptr: cell.get_address())
     return Dispatched[P](type_hash: type_hash, address: bits)
 
 ### Keeps a copy of a record, or a holder of a Mielia entity's handle, as the value of a protocol place, in memory of
@@ -48,7 +48,7 @@ needs RecordType T
     danger
         # The caller keeps its own value (a record handed over is lent, and a fresh one ends after the call): `poke`
         # stores a copy of its own, as a container's element is.
-        var cell = Hijacked[T](from: rf_allocate_dynamic(size: T.data_size()))
+        var cell = Hijacked[T](from: ig_allocate_dynamic(size: T.data_size()))
         cell.poke(value)
         return Dispatched[P](type_hash: type_hash, address: cell.get_address())
 
@@ -96,7 +96,7 @@ secret routine Dispatched[P].holds_nothing() -> Bool
 secret routine dispatched_copy_record[T](at: Addr) -> Addr
 needs RecordType T
     danger
-        var cell = Hijacked[T](from: rf_allocate_dynamic(size: T.data_size()))
+        var cell = Hijacked[T](from: ig_allocate_dynamic(size: T.data_size()))
         # `poke` stores a copy of its own.
         cell.poke(Hijacked[T](from: at).peek())
         return cell.get_address()
@@ -129,5 +129,5 @@ secret routine dispatched_end_record[T](at: Addr)
 needs RecordType T
     danger
         Hijacked[T](from: at).peek().destruct()
-        C::rf_invalidate(ptr: at)
+        C::ig_invalidate(ptr: at)
     return

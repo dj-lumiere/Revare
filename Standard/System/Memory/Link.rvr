@@ -65,7 +65,7 @@ needs EntityType E
 infallible routine T.note_entity_end()
 needs EntityType T
     danger
-        C::rf_slot_end(box: me.get_address())
+        C::ig_slot_end(box: me.get_address())
     return
 
 ### Raised when a reference the builder could not prove alive (one taken from a link, handed on from one, or given by a
@@ -151,7 +151,7 @@ needs EntityType T
 infallible routine T.give_back_entity_box()
 needs EntityType T
     danger
-        C::rf_slot_give_back(box: me.get_address())
+        C::ig_slot_give_back(box: me.get_address())
     return
 
 # ============================================================================

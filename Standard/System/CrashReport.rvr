@@ -23,8 +23,8 @@ record TraceFrame
 ### :param column: The source column.
 @untraced
 routine crash_report(type_name: Text, message: Text, file: Text, line: S32, column: S32)
-    C::rf_flush_output()
-    var colored = C::rf_stderr_is_terminal()
+    C::ig_flush_output()
+    var colored = C::ig_stderr_is_terminal()
     if colored
         crash_write(text: "\u00001B[91m")
     crash_write(text: type_name)
@@ -43,7 +43,7 @@ routine crash_report(type_name: Text, message: Text, file: Text, line: S32, colu
     crash_write_trace()
     if colored
         crash_write(text: "\u00001B[0m")
-    C::rf_crash_exit()
+    C::ig_crash_exit()
     return
 
 ### Ends the program with the report of a caught error thrown again (a `throw e` of a `Crashables`, or a
@@ -60,8 +60,8 @@ routine crash_report(type_name: Text, message: Text, file: Text, line: S32, colu
 ### :param column: That source column.
 @untraced
 routine crash_report_rethrown(type_name: Text, message: Text, error: Crashables, file: Text, line: S32, column: S32)
-    C::rf_flush_output()
-    var colored = C::rf_stderr_is_terminal()
+    C::ig_flush_output()
+    var colored = C::ig_stderr_is_terminal()
     if colored
         crash_write(text: "\u00001B[91m")
     crash_write(text: type_name)
@@ -85,7 +85,7 @@ routine crash_report_rethrown(type_name: Text, message: Text, error: Crashables,
         crash_write(text: "\n")
     if colored
         crash_write(text: "\u00001B[0m")
-    C::rf_crash_exit()
+    C::ig_crash_exit()
     return
 
 ### Writes where the program called into the standard library a rethrow is written in: the position of the most
@@ -322,7 +322,7 @@ routine crash_write_code_point(code: U32)
         )
         count = 4
     danger
-        C::rf_console_error(ptr: bytes.hijack().recast_as[Byte](), len: count)
+        C::ig_console_error(ptr: bytes.hijack().recast_as[Byte](), len: count)
     return
 
 ### One UTF-8 byte: the lead bits, then the code point's bits from `shift` up (six of them, or all that
@@ -364,7 +364,7 @@ routine crash_write_number(value: S32)
             .hijack()
             .recast_as[Byte]()
             .stride(count: LLVM::reinterpret_bits[U64, S64](position))
-        C::rf_console_error(ptr: first, len: 10 -% position)
+        C::ig_console_error(ptr: first, len: 10 -% position)
     return
 
 ### Writes a NUL-terminated C string (a trace frame's routine name or file) to the error stream.
@@ -378,5 +378,5 @@ routine crash_write_c_text(text: Addr)
             first.stride(count: LLVM::reinterpret_bits[U64, S64](length)).peek(),
         ) == 0
             length = length +% 1
-        C::rf_console_error(ptr: first, len: length)
+        C::ig_console_error(ptr: first, len: length)
     return

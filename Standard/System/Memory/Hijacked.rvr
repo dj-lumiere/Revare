@@ -50,7 +50,7 @@ infallible routine T.get_address() -> Addr
 
 ### Reads a raw address as a `Hijacked[T]`, a pointer to the `T` there.
 ### `Addr` and `Hijacked[T]` are both `@llvm("ptr")`, so this is the same pointer with a pointee type, no int
-### round-trip. Used at the runtime-allocator boundary, where `C::rf_allocate_dynamic*` return `Addr`
+### round-trip. Used at the runtime-allocator boundary, where `C::ig_allocate_dynamic*` return `Addr`
 ### (see NativeDeclarations.rvr).
 ### :param from: The address to wrap.
 ### :returns: A `Hijacked[T]` pointer over the same address.
@@ -207,7 +207,7 @@ dangerous routine Hijacked[T].cyclic_trace_sparse_buffer(live: Hijacked[U8], use
 
 ### Deallocates the memory at this pointer's address.
 dangerous routine Hijacked[T].invalidate()
-    C::rf_invalidate(ptr: me.address())
+    C::ig_invalidate(ptr: me.address())
     return
 
 ### Cycle-collector TRACE hook for a raw pointer: a NO-OP. A `Hijacked` buffer cannot self-describe its
@@ -227,7 +227,7 @@ infallible dangerous routine Hijacked[T].roam_free()
 
 ### Zeroes out the pointed-to memory without deallocating it.
 dangerous routine Hijacked[T].detonate()
-    rf_set_bytes_at(dest: me.address(), value: 0, size: T.data_size())
+    ig_set_bytes_at(dest: me.address(), value: 0, size: T.data_size())
     return
 
 ### Constructs a {Hijacked[T]} from a raw address. Use this instead of

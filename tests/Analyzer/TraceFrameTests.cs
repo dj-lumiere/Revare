@@ -37,20 +37,20 @@ public class TraceFrameTests
     [Fact]
     public void RoutineThatCannotCrash_HasNoTraceFrame()
     {
-        Assert.DoesNotContain(expectedSubstring: "@_rf_trace_push", actualString: Body(name: "pure_mix("));
+        Assert.DoesNotContain(expectedSubstring: "@_ig_trace_push", actualString: Body(name: "pure_mix("));
     }
 
     [Fact]
     public void RoutineThatCanCrash_KeepsItsTraceFrame()
     {
-        Assert.Contains(expectedSubstring: "@_rf_trace_push", actualString: Body(name: "checked_sum("));
+        Assert.Contains(expectedSubstring: "@_ig_trace_push", actualString: Body(name: "checked_sum("));
     }
 
     /// <summary>A routine that only calls something that can crash is on the crash path, so it keeps its frame.</summary>
     [Fact]
     public void RoutineThatCallsACrashingRoutine_KeepsItsTraceFrame()
     {
-        Assert.Contains(expectedSubstring: "@_rf_trace_push", actualString: Body(name: "calls_checked("));
+        Assert.Contains(expectedSubstring: "@_ig_trace_push", actualString: Body(name: "calls_checked("));
     }
 
     private static string Body(string name)

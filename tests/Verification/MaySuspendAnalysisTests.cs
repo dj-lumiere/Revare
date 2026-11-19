@@ -180,7 +180,7 @@ public class MaySuspendAnalysisTests
                 routine: Routine(name: SuspendPrimitives.Yield)));
         Assert.False(
             condition: SuspendPrimitives.IsSuspendPrimitive(
-                routine: Routine(name: "rf_coro_resume")));
+                routine: Routine(name: "ig_coro_resume")));
         Assert.False(
             condition: SuspendPrimitives.IsSuspendPrimitive(
                 routine: Routine(name: "some_user_routine")));

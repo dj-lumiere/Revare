@@ -136,7 +136,7 @@ needs TPolicy in [Exclusive, MultiRead]
 @untraced
 routine access_open_enlisted()
     danger
-        C::rf_access_open_enlisted()
+        C::ig_access_open_enlisted()
     return
 
 # ============================================================================

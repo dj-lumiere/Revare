@@ -37,7 +37,7 @@ routine CStrView(from_ptr: Addr) -> CStrView
 ### Returns the length of this C string in bytes, excluding the trailing null.
 ### :returns: The byte count, not including the null terminator.
 routine CStrView.count() -> U64
-    return C::rf_cstr_count(me)
+    return C::ig_cstr_count(me)
 
 ### Returns `true` when this wrapper does not reference any C string.
 ### :returns: The resulting `Bool` value.
@@ -65,14 +65,14 @@ dangerous routine CStrView.getitem(index: U64) -> Byte
 ### :returns: The resulting `Bool` value.
 @readonly
 routine CStrView.eq(you: CStrView) -> Bool
-    return C::rf_cstr_compare(a: me, b: you) == 0
+    return C::ig_cstr_compare(a: me, b: you) == 0
 
 ### Compares this value with the other value.
 ### :param you: The other value to compare against.
 ### :returns: The resulting `ComparisonSign` value.
 @readonly
 routine CStrView.compare(you: CStrView) -> ComparisonSign
-    var cmp = C::rf_cstr_compare(a: me, b: you)
+    var cmp = C::ig_cstr_compare(a: me, b: you)
     if cmp < 0
         return ME_SMALL
     if cmp > 0

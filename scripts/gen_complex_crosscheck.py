@@ -293,7 +293,7 @@ def rf_list(name, ty, values):
     return f"    var {name}: List[{ty}] = [{', '.join(lit(v) for v in values)}]"
 
 
-def rf_part(P, expr):
+def ig_part(P, expr):
     return f"{P}.from_bits(bits: {expr})"
 
 
@@ -384,9 +384,9 @@ def dump_routine(T, P, U, op, call, kind, cases, two):
         lines.append(rf_list("wr", U, [c[1][0] for c in cases]))
         lines.append(rf_list("wi", U, [c[1][1] for c in cases]))
     lines += ["    var i: U64 = 0", "    until i >= zr.count()",
-              f"        var z = {T}(real: {rf_part(P, 'zr[i]')}, imag: {rf_part(P, 'zi[i]')})"]
+              f"        var z = {T}(real: {ig_part(P, 'zr[i]')}, imag: {ig_part(P, 'zi[i]')})"]
     if two:
-        lines.append(f"        var w = {T}(real: {rf_part(P, 'wr[i]')}, imag: {rf_part(P, 'wi[i]')})")
+        lines.append(f"        var w = {T}(real: {ig_part(P, 'wr[i]')}, imag: {ig_part(P, 'wi[i]')})")
     lines += [f"        var r = {call}", f'        show(f"{T} {op} {{i}} {result_text(kind, T)}")', "        i += 1",
               "    return", ""]
     return lines
@@ -410,14 +410,14 @@ def dump_program(all_cases):
                 rf_list("zi", U, [c[0][1] for c in pw]),
                 f"    var ns: List[S64] = [{', '.join(str(c[1]) for c in pw)}]",
                 "    var i: U64 = 0", "    until i >= zr.count()",
-                f"        var z = {T}(real: {rf_part(P, 'zr[i]')}, imag: {rf_part(P, 'zi[i]')})",
+                f"        var z = {T}(real: {ig_part(P, 'zr[i]')}, imag: {ig_part(P, 'zi[i]')})",
                 "        var r = z.pow(exp: ns[i])",
                 f'        show(f"{T} powi {{i}} {result_text("c", T)}")', "        i += 1", "    return", ""]
         names.append(f"dump_{T.lower()}_powi")
         fp = cases["from_polar"]
         out += [f"routine dump_{T.lower()}_from_polar()", rf_list("rs", U, [c[0] for c in fp]),
                 rf_list("ts", U, [c[1] for c in fp]), "    var i: U64 = 0", "    until i >= rs.count()",
-                f"        var r = {T}.from_polar(r: {rf_part(P, 'rs[i]')}, theta: {rf_part(P, 'ts[i]')})",
+                f"        var r = {T}.from_polar(r: {ig_part(P, 'rs[i]')}, theta: {ig_part(P, 'ts[i]')})",
                 f'        show(f"{T} from_polar {{i}} {result_text("c", T)}")', "        i += 1", "    return", ""]
         names.append(f"dump_{T.lower()}_from_polar")
         out += [f"routine dump_{T.lower()}_parse()",
@@ -434,7 +434,7 @@ def dump_program(all_cases):
         cs = all_cases["narrow"][(Ta, Tb)]
         out += [f"routine dump_{Ta.lower()}_to_{Tb.lower()}()", rf_list("zr", Ua, [c[0] for c in cs]),
                 rf_list("zi", Ua, [c[1] for c in cs]), "    var i: U64 = 0", "    until i >= zr.count()",
-                f"        var z = {Ta}(real: {rf_part(Pa, 'zr[i]')}, imag: {rf_part(Pa, 'zi[i]')})",
+                f"        var z = {Ta}(real: {ig_part(Pa, 'zr[i]')}, imag: {ig_part(Pa, 'zi[i]')})",
                 f"        var r = z.to[{Tb}]()",
                 f'        show(f"{Ta} to {Tb} {{i}} {result_text("c", Tb)}")', "        i += 1", "    return", ""]
         names.append(f"dump_{Ta.lower()}_to_{Tb.lower()}")

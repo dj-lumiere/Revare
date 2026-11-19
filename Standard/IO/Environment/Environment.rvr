@@ -42,7 +42,7 @@ secret routine block_bytes(block: Hijacked[Byte]) -> Bytes
     var count = block_word(block: block, index: 1)
     danger
         var bytes = Bytes(ptr: block.stride(count: 48), count: count)
-        C::rf_invalidate(ptr: block.address())
+        C::ig_invalidate(ptr: block.address())
         return bytes
 
 ### Gives the runtime's block back.
@@ -50,7 +50,7 @@ secret routine block_bytes(block: Hijacked[Byte]) -> Bytes
 secret routine block_free(block: Hijacked[Byte])
     if not block.is_hollow()
         danger
-            C::rf_invalidate(ptr: block.address())
+            C::ig_invalidate(ptr: block.address())
     return
 
 ### The runtime block's bytes as text. The block is given back.
@@ -71,8 +71,8 @@ secret routine environment_text_lossy(block: Hijacked[Byte]) -> Text
 ### :throws: {MalformedUtf8Error} when an argument is not UTF-8.
 common routine Environment.arguments() -> List[Text]
     var result = List[Text]()
-    for i in 0 til C::rf_env_argument_count()
-        result.add_last(value: environment_text(block: C::rf_env_argument(index: i)))
+    for i in 0 til C::ig_env_argument_count()
+        result.add_last(value: environment_text(block: C::ig_env_argument(index: i)))
     return result
 
 ### The arguments the program was started with, its own name left out, with U+FFFD in place of each malformed UTF-8
@@ -80,8 +80,8 @@ common routine Environment.arguments() -> List[Text]
 ### :returns: The arguments, in order.
 common routine Environment.arguments_lossy() -> List[Text]
     var result = List[Text]()
-    for i in 0 til C::rf_env_argument_count()
-        result.add_last(value: environment_text_lossy(block: C::rf_env_argument(index: i)))
+    for i in 0 til C::ig_env_argument_count()
+        result.add_last(value: environment_text_lossy(block: C::ig_env_argument(index: i)))
     return result
 
 ### The value of the environment variable `name`, asked of the operating system now (on Windows the name's case
@@ -91,7 +91,7 @@ common routine Environment.arguments_lossy() -> List[Text]
 ### :throws: {MalformedUtf8Error} when the value is not UTF-8.
 common routine Environment.variable(name: Text) -> Text?
     var cstr = name.to[CStr]()
-    var block = C::rf_env_variable(name: cstr, len: cstr.count().to[S32]())
+    var block = C::ig_env_variable(name: cstr, len: cstr.count().to[S32]())
     if block_failed(block: block)
         block_free(block: block)
         return none
@@ -102,7 +102,7 @@ common routine Environment.variable(name: Text) -> Text?
 ### :returns: Its value, or `none` when it isn't set.
 common routine Environment.variable_lossy(name: Text) -> Text?
     var cstr = name.to[CStr]()
-    var block = C::rf_env_variable(name: cstr, len: cstr.count().to[S32]())
+    var block = C::ig_env_variable(name: cstr, len: cstr.count().to[S32]())
     if block_failed(block: block)
         block_free(block: block)
         return none
@@ -114,7 +114,7 @@ common routine Environment.variable_lossy(name: Text) -> Text?
 ### :returns: The text.
 ### :throws: {MalformedUtf8Error} when a name or value is not UTF-8 and `lossy` is false.
 secret routine environment_snapshot(lossy: Bool) -> Text
-    var block = C::rf_env_snapshot()
+    var block = C::ig_env_snapshot()
     if lossy
         return environment_text_lossy(block: block)
     return environment_text(block: block)
@@ -157,7 +157,7 @@ common routine Environment.variables_lossy() -> Dict[Text, Text]
 ### :returns: The resulting `Directory`.
 ### :throws: {IOError} when the working directory cannot be read.
 common routine Environment.working_directory() -> Directory
-    var block = C::rf_fs_current_dir()
+    var block = C::ig_fs_current_dir()
     if block_failed(block: block)
         block_free(block: block)
         throw IOError(description: "Cannot read the working directory")
@@ -167,7 +167,7 @@ common routine Environment.working_directory() -> Directory
 ### :returns: The resulting `Directory`.
 ### :throws: {NotFoundError} when the home directory cannot be told.
 common routine Environment.home_directory() -> Directory
-    var block = C::rf_fs_home_dir()
+    var block = C::ig_fs_home_dir()
     if block_failed(block: block)
         block_free(block: block)
         throw NotFoundError(description: "Cannot tell the home directory")
@@ -176,4 +176,4 @@ common routine Environment.home_directory() -> Directory
 ### The platform's temporary directory. Honors the usual environment variables, never fails.
 ### :returns: The resulting `Directory`.
 common routine Environment.temp_directory() -> Directory
-    return Directory(at: environment_text(block: C::rf_fs_temp_dir()))
+    return Directory(at: environment_text(block: C::ig_fs_temp_dir()))

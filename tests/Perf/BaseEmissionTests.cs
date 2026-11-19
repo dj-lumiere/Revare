@@ -185,7 +185,7 @@ public sealed class BaseEmissionTests
             }).Generate();
 
         HashSet<string> defs = DefinedSymbols(ll: oneIr);
-        // RV-mangled defines are quoted (`@"[member] …"`); bare-name defines (_rf_trace_push, …) are the
+        // RV-mangled defines are quoted (`@"[member] …"`); bare-name defines (_ig_trace_push, …) are the
         // shared-runtime shadow-stack HELPERS the emitter inlines into every module regardless of the body
         // set. Those are the GLOBALS-analogue-of-C4 concern (define once in the main module, extern in the
         // per-routine on-demand modules) — handled at the ORC wiring step, NOT part of the one-routine body set.

@@ -325,8 +325,8 @@ secret routine BTreeDictNode[TKey, TValue].entries_add_at(i: U64, k: TKey, v: TV
             var kdst_addr = kbase.stride(count: (i +% 1).to[S64]()).get_address()
             var vsrc_addr = vbase.stride(count: i.to[S64]()).get_address()
             var vdst_addr = vbase.stride(count: (i +% 1).to[S64]()).get_address()
-            rf_copy_bytes_at(dest: kdst_addr, src: ksrc_addr, size: k_elem_size * shift_count)
-            rf_copy_bytes_at(dest: vdst_addr, src: vsrc_addr, size: v_elem_size * shift_count)
+            ig_copy_bytes_at(dest: kdst_addr, src: ksrc_addr, size: k_elem_size * shift_count)
+            ig_copy_bytes_at(dest: vdst_addr, src: vsrc_addr, size: v_elem_size * shift_count)
         kbase.stride(count: i.to[S64]()).poke(value: k)
         vbase.stride(count: i.to[S64]()).poke(value: v)
     me.key_count = me.key_count +% 1
@@ -343,7 +343,7 @@ secret routine BTreeDictNode[TKey, TValue].children_add_at(i: U64, value: Hijack
             var shift_count = me.child_count -% i
             var src_addr = base.stride(count: i.to[S64]()).get_address()
             var dst_addr = base.stride(count: (i +% 1).to[S64]()).get_address()
-            rf_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
+            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
         base.stride(count: i.to[S64]()).poke(value: value)
     me.child_count = me.child_count +% 1
     return
@@ -362,8 +362,8 @@ secret routine BTreeDictNode[TKey, TValue].entries_remove_at(i: U64)
             var kdst_addr = kbase.stride(count: i.to[S64]()).get_address()
             var vsrc_addr = vbase.stride(count: (i +% 1).to[S64]()).get_address()
             var vdst_addr = vbase.stride(count: i.to[S64]()).get_address()
-            rf_copy_bytes_at(dest: kdst_addr, src: ksrc_addr, size: k_elem_size * shift_count)
-            rf_copy_bytes_at(dest: vdst_addr, src: vsrc_addr, size: v_elem_size * shift_count)
+            ig_copy_bytes_at(dest: kdst_addr, src: ksrc_addr, size: k_elem_size * shift_count)
+            ig_copy_bytes_at(dest: vdst_addr, src: vsrc_addr, size: v_elem_size * shift_count)
     me.key_count = me.key_count -% 1
     return
 
@@ -377,7 +377,7 @@ secret routine BTreeDictNode[TKey, TValue].children_remove_at(i: U64)
             var shift_count = me.child_count -% i -% 1
             var src_addr = base.stride(count: (i +% 1).to[S64]()).get_address()
             var dst_addr = base.stride(count: i.to[S64]()).get_address()
-            rf_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
+            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * shift_count)
     me.child_count = me.child_count -% 1
     return
 
@@ -432,8 +432,8 @@ secret routine BTreeDictNode[TKey, TValue].entries_add_range_from(
                 .values_base()
                 .stride(count: me.key_count.to[S64]())
                 .get_address()
-            rf_copy_bytes_at(dest: kdst_addr, src: ksrc_addr, size: k_elem_size * count)
-            rf_copy_bytes_at(dest: vdst_addr, src: vsrc_addr, size: v_elem_size * count)
+            ig_copy_bytes_at(dest: kdst_addr, src: ksrc_addr, size: k_elem_size * count)
+            ig_copy_bytes_at(dest: vdst_addr, src: vsrc_addr, size: v_elem_size * count)
     me.key_count = me.key_count +% count
     return
 
@@ -457,7 +457,7 @@ secret routine BTreeDictNode[TKey, TValue].children_add_range_from(
                 .children_base()
                 .stride(count: me.child_count.to[S64]())
                 .get_address()
-            rf_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * count)
+            ig_copy_bytes_at(dest: dst_addr, src: src_addr, size: elem_size * count)
     me.child_count = me.child_count +% count
     return
 

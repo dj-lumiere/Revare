@@ -9,19 +9,19 @@ module System/Memory
 ### Allocates `size` zeroed bytes from the heap, or gives a hollow address when the heap has no room for them.
 ### :param size: The byte count to allocate.
 ### :returns: The memory, or a hollow address.
-dangerous routine C::rf_allocate_dynamic_or_hollow(size: U64) -> Addr
+dangerous routine C::ig_allocate_dynamic_or_hollow(size: U64) -> Addr
 
 ### Allocates `size` bytes from the heap, not zeroed, or gives a hollow address when the heap has no room for them.
 ### :param size: The byte count to allocate.
 ### :returns: The memory, or a hollow address.
-dangerous routine C::rf_allocate_dynamic_uninit_or_hollow(size: U64) -> Addr
+dangerous routine C::ig_allocate_dynamic_uninit_or_hollow(size: U64) -> Addr
 
 ### Resizes the block at `ptr` to `size` bytes, keeping its contents up to the smaller size, or gives a hollow address
 ### when the heap has no room for them. The block at `ptr` then stays as it was.
 ### :param ptr: The block, or a hollow address to allocate a new one.
 ### :param size: The new size in bytes. Resizing to 0 bytes may give a hollow address: that frees the block.
 ### :returns: The block, maybe moved, or a hollow address.
-dangerous routine C::rf_reallocate_dynamic_or_hollow(ptr: Addr, size: U64) -> Addr
+dangerous routine C::ig_reallocate_dynamic_or_hollow(ptr: Addr, size: U64) -> Addr
 
 ### Returns the byte size of `count` elements of `element_size` bytes each.
 ### :param element_size: The size of one element.
@@ -42,7 +42,7 @@ routine storage_byte_size(element_size: ByteSize, count: U64) -> ByteSize
 ### :throws: {OutOfMemoryError} The size is more than a `U64` counts, or the heap has no room for it.
 dangerous routine allocate_storage_uninit(element_size: ByteSize, count: U64) -> Addr
     var bytes = storage_byte_size(element_size: element_size, count: count).byte_size()
-    var ptr = C::rf_allocate_dynamic_uninit_or_hollow(size: bytes)
+    var ptr = C::ig_allocate_dynamic_uninit_or_hollow(size: bytes)
     if ptr.is_hollow() and bytes != 0
         throw OutOfMemoryError(requested_bytes: bytes)
     return ptr
@@ -54,7 +54,7 @@ dangerous routine allocate_storage_uninit(element_size: ByteSize, count: U64) ->
 ### :throws: {OutOfMemoryError} The size is more than a `U64` counts, or the heap has no room for it.
 dangerous routine allocate_storage(element_size: ByteSize, count: U64) -> Addr
     var bytes = storage_byte_size(element_size: element_size, count: count).byte_size()
-    var ptr = C::rf_allocate_dynamic_or_hollow(size: bytes)
+    var ptr = C::ig_allocate_dynamic_or_hollow(size: bytes)
     if ptr.is_hollow() and bytes != 0
         throw OutOfMemoryError(requested_bytes: bytes)
     return ptr
@@ -68,7 +68,7 @@ dangerous routine allocate_storage(element_size: ByteSize, count: U64) -> Addr
 ### :throws: {OutOfMemoryError} The size is more than a `U64` counts, or the heap has no room for it.
 dangerous routine reallocate_storage(ptr: Addr, element_size: ByteSize, count: U64) -> Addr
     var bytes = storage_byte_size(element_size: element_size, count: count).byte_size()
-    var moved = C::rf_reallocate_dynamic_or_hollow(ptr: ptr, size: bytes)
+    var moved = C::ig_reallocate_dynamic_or_hollow(ptr: ptr, size: bytes)
     if moved.is_hollow() and bytes != 0
         throw OutOfMemoryError(requested_bytes: bytes)
     return moved

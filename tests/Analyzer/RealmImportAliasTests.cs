@@ -15,10 +15,10 @@ public class RealmImportAliasTests
     public void ImportAlias_C_AllowsBareCall()
     {
         AssertAnalyzes(source: """
-                               import System.C::rf_runtime_init
+                               import System.C::ig_runtime_init
 
                                routine start()
-                                   rf_runtime_init()
+                                   ig_runtime_init()
                                    return
                                """);
     }
@@ -29,7 +29,7 @@ public class RealmImportAliasTests
     {
         AssertHasError(source: """
                                routine start()
-                                   rf_runtime_init()
+                                   ig_runtime_init()
                                    return
                                """,
             expectedErrorSubstring: "lives in the C realm");
@@ -56,7 +56,7 @@ public class RealmImportAliasTests
     public void ImportAlias_DoesNotLeakToOtherRoutine()
     {
         AssertHasError(source: """
-                               import System.C::rf_runtime_init
+                               import System.C::ig_runtime_init
 
                                routine start()
                                    var z = add[S32](a: 1, b: 2)

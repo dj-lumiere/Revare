@@ -6,7 +6,7 @@ import BuilderQuery
 ### The transmitting end of a channel. Clone it for multiple producers; the last one dropping (or an
 ### explicit `close`) closes the channel.
 entity Transmitter[T]
-    ### The shared native channel handle (rf_channel*).
+    ### The shared native channel handle (ig_channel*).
     secret chan: Addr
 
 # ---- Receiving ends -----------------------------------------------------------------------------
@@ -17,7 +17,7 @@ entity Transmitter[T]
 entity Receiver[T]
 relates ChannelDrain[T] as Emitter
 obeys Emittable[T]
-    ### The shared native channel handle (rf_channel*).
+    ### The shared native channel handle (ig_channel*).
     secret chan: Addr
 
 ### A multi-consumer receiving handle. Clone one per consumer for a worker pool; any free worker
@@ -25,7 +25,7 @@ obeys Emittable[T]
 entity SharedReceiver[T]
 relates ChannelDrain[T] as Emitter
 obeys Emittable[T]
-    ### The shared native channel handle (rf_channel*).
+    ### The shared native channel handle (ig_channel*).
     secret chan: Addr
 
 # ---- The drain emitter -------------------------------------------------------------------------
@@ -35,7 +35,7 @@ obeys Emittable[T]
 ### while the buffer is empty, and throws `AbsentValueError` once the channel is closed and drained — ending the loop.
 entity ChannelDrain[T]
 obeys Emitter[T]
-    ### The shared native channel handle (rf_channel*), non-owning (this emitter holds no reference).
+    ### The shared native channel handle (ig_channel*), non-owning (this emitter holds no reference).
     secret chan: Addr
 
 # Channels — `Receiver[T]` (single consumer) / `SharedReceiver[T]` (multi consumer) message passing.
@@ -61,7 +61,7 @@ dangerous routine open_channel(capacity: U64) -> Addr
     # A rendezvous channel still keeps one slot. Each slot holds one address.
     var slots = if capacity == 0 then 1 else capacity
     var bytes = storage_byte_size(element_size: Addr.data_size(), count: slots).byte_size()
-    var chan = C::rf_channel_create(capacity: capacity)
+    var chan = C::ig_channel_create(capacity: capacity)
     if chan.is_hollow()
         throw OutOfMemoryError(requested_bytes: bytes)
     return chan
@@ -94,9 +94,9 @@ routine make_shared_channel[T](capacity: U64) -> (Transmitter[T], SharedReceiver
 ### :param item: The value to transmit (ownership transfers in).
 routine Transmitter[T].transmit(item: T)
     danger
-        var box = hijacked_from[T](rf_allocate_dynamic_uninit(T.data_size()))
+        var box = hijacked_from[T](ig_allocate_dynamic_uninit(T.data_size()))
         box.poke(value: item)
-        var ok = C::rf_channel_feed(chan: me.chan, payload: box.address())
+        var ok = C::ig_channel_feed(chan: me.chan, payload: box.address())
         if ok == 0
             # Undelivered: reclaim the item, then the box, before reporting the closed channel.
             var orphan = box.peek()
@@ -112,9 +112,9 @@ routine Transmitter[T].transmit(item: T)
 ### :throws: {ChannelClosedError} if the channel is already closed or has no consumers left.
 routine Transmitter[T].transmit_if_room(item: T) -> Bool
     danger
-        var box = hijacked_from[T](rf_allocate_dynamic_uninit(T.data_size()))
+        var box = hijacked_from[T](ig_allocate_dynamic_uninit(T.data_size()))
         box.poke(value: item)
-        var outcome = C::rf_channel_offer(chan: me.chan, payload: box.address())
+        var outcome = C::ig_channel_offer(chan: me.chan, payload: box.address())
         if outcome == 1
             return true
         # Undelivered: reclaim the item, then the box.
@@ -128,14 +128,14 @@ routine Transmitter[T].transmit_if_room(item: T) -> Bool
 ### :returns: A new `Transmitter[T]` on the same channel.
 routine Transmitter[T].duplicate() -> Transmitter[T]
     danger
-        C::rf_channel_add_feeder(chan: me.chan)
+        C::ig_channel_add_feeder(chan: me.chan)
         return Transmitter[T](chan: me.chan)
 
 ### Closes the channel early (dropping the last Transmitter also closes it). Receivers drain the buffer
 ### then finish. Not dangerous — closing is the normal end-of-stream signal; double-close is a no-op.
 routine Transmitter[T].close()
     danger
-        C::rf_channel_close(chan: me.chan)
+        C::ig_channel_close(chan: me.chan)
     return
 
 ### Whether the channel has been closed (a subsequent `transmit` would throw). Racy: another job could
@@ -143,23 +143,23 @@ routine Transmitter[T].close()
 ### :returns: `true` if the channel is closed.
 routine Transmitter[T].is_closed() -> Bool
     danger
-        return C::rf_channel_is_closed(chan: me.chan) != 0
+        return C::ig_channel_is_closed(chan: me.chan) != 0
 
 ### Drops this producer reference; the last one closes the channel.
 @override
 dangerous routine Transmitter[T].destruct()
-    C::rf_channel_drop_feeder(chan: me.chan)
+    C::ig_channel_drop_feeder(chan: me.chan)
     return
 
 ### Destroys every item still buffered in a closed channel.
 ### :param chan: The channel.
 secret routine destroy_buffered[T](chan: Addr)
     danger
-        var box = hijacked_from[T](C::rf_channel_next(chan: chan))
+        var box = hijacked_from[T](C::ig_channel_next(chan: chan))
         until box.is_hollow()
             var leftover = box.peek()
             box.invalidate()
-            box = hijacked_from[T](C::rf_channel_next(chan: chan))
+            box = hijacked_from[T](C::ig_channel_next(chan: chan))
     return
 
 ### Returns an emitter that draws items from the channel (receive == iterate).
@@ -174,25 +174,25 @@ routine Receiver[T].emitter() -> ChannelDrain[T]
 ### :returns: The current buffered item count.
 routine Receiver[T].count() -> U64
     danger
-        return C::rf_channel_count(chan: me.chan)
+        return C::ig_channel_count(chan: me.chan)
 
 ### Whether the buffer is currently empty. Racy snapshot (see `count`).
 ### :returns: `true` if no items are buffered.
 routine Receiver[T].is_empty() -> Bool
     danger
-        return C::rf_channel_count(chan: me.chan) == 0
+        return C::ig_channel_count(chan: me.chan) == 0
 
 ### Whether the channel has been closed (it may still hold buffered items to drain).
 ### :returns: `true` if closed.
 routine Receiver[T].is_closed() -> Bool
     danger
-        return C::rf_channel_is_closed(chan: me.chan) != 0
+        return C::ig_channel_is_closed(chan: me.chan) != 0
 
 ### The buffered capacity this channel was created with (0 = rendezvous).
 ### :returns: The buffer capacity.
 routine Receiver[T].capacity() -> U64
     danger
-        return C::rf_channel_capacity(chan: me.chan)
+        return C::ig_channel_capacity(chan: me.chan)
 
 ### Closes the channel from the receiving side, for a consumer that wants no more items. What is still buffered is
 ### destroyed without being received, a later `transmit` throws {ChannelClosedError}, and a transmitter waiting for room wakes
@@ -200,21 +200,21 @@ routine Receiver[T].capacity() -> U64
 ### pipeline. Closing twice does nothing.
 routine Receiver[T].close()
     danger
-        C::rf_channel_close(chan: me.chan)
+        C::ig_channel_close(chan: me.chan)
     destroy_buffered[T](chan: me.chan)
     return
 
 ### Drops this consumer reference; the channel frees once no producers and no consumers remain.
 @override
 dangerous routine Receiver[T].destruct()
-    C::rf_channel_drop_consumer(chan: me.chan)
+    C::ig_channel_drop_consumer(chan: me.chan)
     return
 
 ### Produces another consumer handle on the same channel (one more line worker).
 ### :returns: A new `SharedReceiver[T]` on the same channel.
 routine SharedReceiver[T].duplicate() -> SharedReceiver[T]
     danger
-        C::rf_channel_add_consumer(chan: me.chan)
+        C::ig_channel_add_consumer(chan: me.chan)
         return SharedReceiver[T](chan: me.chan)
 
 ### Returns an emitter that draws items from the channel (receive == iterate).
@@ -228,25 +228,25 @@ routine SharedReceiver[T].emitter() -> ChannelDrain[T]
 ### :returns: The current buffered item count.
 routine SharedReceiver[T].count() -> U64
     danger
-        return C::rf_channel_count(chan: me.chan)
+        return C::ig_channel_count(chan: me.chan)
 
 ### Whether the buffer is currently empty (racy snapshot).
 ### :returns: `true` if no items are buffered.
 routine SharedReceiver[T].is_empty() -> Bool
     danger
-        return C::rf_channel_count(chan: me.chan) == 0
+        return C::ig_channel_count(chan: me.chan) == 0
 
 ### Whether the channel has been closed (may still hold buffered items).
 ### :returns: `true` if closed.
 routine SharedReceiver[T].is_closed() -> Bool
     danger
-        return C::rf_channel_is_closed(chan: me.chan) != 0
+        return C::ig_channel_is_closed(chan: me.chan) != 0
 
 ### The buffered capacity this channel was created with (0 = rendezvous).
 ### :returns: The capacity.
 routine SharedReceiver[T].capacity() -> U64
     danger
-        return C::rf_channel_capacity(chan: me.chan)
+        return C::ig_channel_capacity(chan: me.chan)
 
 ### Closes the channel from the receiving side, for a consumer that wants no more items. What is still buffered is
 ### destroyed without being received, a later `transmit` throws {ChannelClosedError}, and a transmitter waiting for room wakes
@@ -254,14 +254,14 @@ routine SharedReceiver[T].capacity() -> U64
 ### pipeline. Closing twice does nothing.
 routine SharedReceiver[T].close()
     danger
-        C::rf_channel_close(chan: me.chan)
+        C::ig_channel_close(chan: me.chan)
     destroy_buffered[T](chan: me.chan)
     return
 
 ### Drops this consumer reference; the channel frees once no producers and no consumers remain.
 @override
 dangerous routine SharedReceiver[T].destruct()
-    C::rf_channel_drop_consumer(chan: me.chan)
+    C::ig_channel_drop_consumer(chan: me.chan)
     return
 
 ### Receives the next item, or throws `AbsentValueError` when the channel is closed and the buffer is empty.
@@ -270,7 +270,7 @@ dangerous routine SharedReceiver[T].destruct()
 @writable
 routine ChannelDrain[T].emit() -> T
     danger
-        var box = hijacked_from[T](C::rf_channel_next(chan: me.chan))
+        var box = hijacked_from[T](C::ig_channel_next(chan: me.chan))
         if box.is_hollow()
             throw AbsentValueError()
         var value = box.peek()

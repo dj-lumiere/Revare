@@ -488,13 +488,13 @@ needs T obeys Equatable
     var theirs = you.get_address()
     if mine === theirs
         return true
-    if C::rf_eq_enter(a: mine, b: theirs)
+    if C::ig_eq_enter(a: mine, b: theirs)
         return true
     expand m in allmemvarof(T)
         if me.$nameof(m) != you.$nameof(m)
-            C::rf_eq_leave()
+            C::ig_eq_leave()
             return false
-    C::rf_eq_leave()
+    C::ig_eq_leave()
     return true
 
 ### Entity keyed `hash(k0, k1)`: the member variables' hashes folded as for a record. A member variable leading back
@@ -506,13 +506,13 @@ needs T obeys Equatable
 routine T.hash(k0: U64, k1: U64) -> U64
 needs EntityType T
 needs T obeys Hashable
-    if C::rf_hash_enter(target: me.get_address())
+    if C::ig_hash_enter(target: me.get_address())
         var inside_tag: U64 = 0x696E73696465
         return inside_tag.hash(k0: k0, k1: k1)
     var acc: U64 = 0
     expand m in allmemvarof(T)
         acc = acc.bitxor(you: me.$nameof(m).hash(k0: k0, k1: k1))
-    C::rf_hash_leave()
+    C::ig_hash_leave()
     return acc
 
 ### Choice `eq`/`compare`: a choice holds EXACTLY ONE case, so equality and ordering are just a compare of
@@ -858,13 +858,13 @@ needs EntityType T
         if me.get_address().is_hollow()
             return
         # The entity's slot is marked ended first, so every reference and link to it reads as ended.
-        C::rf_slot_end(box: me.get_address())
+        C::ig_slot_end(box: me.get_address())
         var chain = me.lift_own_child()
         expand m in allmemvarof(T)
             me.$nameof(m).destruct()
         # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
         # entity type.
-        C::rf_slot_give_back(box: me.get_address())
+        C::ig_slot_give_back(box: me.get_address())
         until chain.is_hollow()
             var after = LLVM::reinterpret_bits[Addr, T](chain).lift_own_child()
             LLVM::reinterpret_bits[Addr, T](chain).destruct()
@@ -928,8 +928,8 @@ infallible dangerous routine T.roam_free()
 needs EntityType T
     expand m in allmemvarof(T)
         me.$nameof(m).roam_free()
-    C::rf_slot_end(box: me.get_address())
-    C::rf_slot_give_back(box: me.get_address())
+    C::ig_slot_end(box: me.get_address())
+    C::ig_slot_give_back(box: me.get_address())
     return
 
 ### Record `roam_free()`: a record that holds an entity handle (directly or in a member record) frees what it owns
