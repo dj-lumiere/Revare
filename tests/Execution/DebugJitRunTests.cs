@@ -108,10 +108,12 @@ public sealed partial class DebugJitRunTests
             AssertRan(run: first);
             Run second = project.BuildAndRun();
             AssertRan(run: second);
-            Assert.Contains(expectedSubstring: "(daemon IR, base/delta)", actualString: first.Stderr);
-            Assert.DoesNotContain(expectedSubstring: "resident-JIT base seed", actualString: first.Stderr);
-            Assert.Contains(expectedSubstring: "(daemon IR, base/delta)", actualString: second.Stderr);
-            Assert.DoesNotContain(expectedSubstring: "no daemon running", actualString: second.Stderr);
+            Assert.True(condition: first.Stderr.Contains(value: "(daemon IR, base/delta)"),
+                userMessage: $"the first run did not go through the daemon\n{first.Stderr}");
+            Assert.False(condition: first.Stderr.Contains(value: "resident-JIT base seed"), userMessage: first.Stderr);
+            Assert.True(condition: second.Stderr.Contains(value: "(daemon IR, base/delta)"),
+                userMessage: $"the second run did not go through the daemon\n{second.Stderr}");
+            Assert.False(condition: second.Stderr.Contains(value: "no daemon running"), userMessage: second.Stderr);
         }
         finally
         {
