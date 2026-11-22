@@ -1,0 +1,3 @@
+to[Addr] fits exactly when addresses are 64 bits: true
+to_wrap[Addr] keeps the low bits: true
+a small number converts both ways: true

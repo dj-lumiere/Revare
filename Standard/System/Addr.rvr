@@ -1,5 +1,7 @@
 module System
 
+import BuilderQuery
+
 ### An address with no pointee type, mapped to LLVM `ptr` (C's `void*`): what an allocator hands out, a handle the
 ### runtime gives back, a callback's state. It says where, not what. Memory is read and written through a typed
 ### `Hijacked[T](from: a)`.
@@ -16,11 +18,21 @@ obeys ConstCompatible, Copyable, WrappingOffsetAddable, WrappingOffsetSubtractab
 ### :returns: The address 0.
 common routine Addr.hollow() -> Addr
     var zero: U64 = 0
-    return zero.to[Addr]()
+    return zero.to_wrap[Addr]()
 
 ### The address a `U64` names: `0x1000.to[Addr]()`.
 ### :returns: The address.
+### :throws: Throws {IntegerOverflowError} when the number is past the last address, on a target whose addresses are 32
+### bits. `to_wrap[Addr]()` keeps the low bits instead.
 routine U64.to[Addr]() -> Addr
+    if Addr.data_size().byte_size() < 8 and me > 4294967295
+        throw IntegerOverflowError()
+    return LLVM::reinterpret_bits[U64, Addr](value: me)
+
+### The address the low bits of a `U64` name, as many bits as an address has. It never fails: on a target whose
+### addresses are 32 bits a number past the last address wraps around.
+### :returns: The address.
+routine U64.to_wrap[Addr]() -> Addr
     return LLVM::reinterpret_bits[U64, Addr](value: me)
 
 ### Reads this address as a `U64`: `a.to[U64]()`. The distance between two addresses is `b -% a`, a `ByteSize`.

@@ -1052,7 +1052,8 @@ consume(r: steal b)   # handed to what keeps it now; using b afterwards = build 
   alignment, `a.align_up(by: size)` and the others take a `ByteSize` known only at run time. An alignment that isn't a
   power of two throws `NumericDomainError`, and `align_up` past the end of the address space `IntegerOverflowError`.
   Plain `+` / `-` on an `Addr` are errors that point to `+%` / `-%`, and it has no
-  ordering. `x.to[Addr]()` / `a.to[U64]()` convert, `Hijacked[T](from: a)` reads it as a `T`. `Address` and
+  ordering. `x.to[Addr]()` / `a.to[U64]()` convert (`to[Addr]` throws `IntegerOverflowError` for a number past the
+  last address, `x.to_wrap[Addr]()` keeps the low bits instead), `Hijacked[T](from: a)` reads it as a `T`. `Address` and
   `CPtr` are both `Addr` now (`migrate --step addr` renames them, rewrites `==` / `!=` between known addresses to
   `===` / `!==`, rewrites `a.offset(bytes: 8)` on a known address to `a +% 8b`, and lists what it cannot type).
 - **`T.hollow()`** — every type has it (builder-made): the value with every bit zero (`0`, `false`, a choice's first
@@ -1627,8 +1628,8 @@ out builds for this machine. What wasm32 does not have:
 - No C libraries (`c_libraries`, `@link`), no processes, no `CpuEventManager` events, no file mapping
   (`FileStorage`), no working directory (`working_directory()` fails with `NotFoundError`). Files are reached only
   below the directories the runtime opened, and the environment holds only what the runtime passes.
-- Addresses are 32 bits: `word_size()` is `4B`, C `long` and `unsigned long` are 32 bits, and `U64.to[Addr]()` keeps the
-  low 32 bits of a number past the last address.
+- Addresses are 32 bits: `word_size()` is `4B`, C `long` and `unsigned long` are 32 bits, and `U64.to[Addr]()` throws
+  `IntegerOverflowError` for a number past the last address (`to_wrap[Addr]()` keeps the low 32 bits).
 
 **Moving 0.4 code:** `revare migrate <folder>` first renames every `.rf` file to `.rvr` (`--step extensions` does
 only that: it also rewrites `RF::` to `RV::`, `@rf(` to `@rv(`, `RF-S###` codes in comments, and in `config.toml`

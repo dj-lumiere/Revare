@@ -1,0 +1,21 @@
+module Tests/Stdlib/AddrWidthApi
+
+import BuilderQuery
+import IO/Console
+
+# A number past the last address: `to[Addr]()` throws for it on a target whose addresses are 32 bits, and
+# `to_wrap[Addr]()` keeps as many low bits as an address has. Both print the same lines on every target.
+
+routine start()
+    var wide = Addr.data_size().byte_size() == 8
+    var big: U64 = 0x1_0000_1000
+    var checked = try big.to[Addr]()
+    show(f"to[Addr] fits exactly when addresses are 64 bits: {checked.is_present() == wide}")
+    var wrapped = big.to_wrap[Addr]().to[U64]()
+    var expected: U64 = 0x1000
+    if wide
+        expected = big
+    show(f"to_wrap[Addr] keeps the low bits: {wrapped == expected}")
+    var small: U64 = 0x2000
+    show(f"a small number converts both ways: {small.to[Addr]() === small.to_wrap[Addr]()}")
+    return
