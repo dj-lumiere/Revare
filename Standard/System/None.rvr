@@ -1,8 +1,7 @@
 module System
 
-### The zero-sized void / unit type. `None` signals "there is no meaningful value here" while staying
-### type-safe. It is BOTH a value type (the void return / empty payload) AND the canonical variant
-### empty branch — one name for "nothing".
+### The type with exactly one value, `none`. A routine with nothing to return returns `None`, and it is the branch
+### of `T?` that holds nothing, matched with `is None`.
 @llvm("void")
 record None
 obeys Copyable
