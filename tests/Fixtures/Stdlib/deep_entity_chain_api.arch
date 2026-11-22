@@ -1,2 +1,2 @@
-# The Lapila backend ends a long chain of entities with a nested call per entity yet, past the runtime's call depth.
+# The Lapila backend ends a chain of a million entities with a nested call per entity, past the WASI runtime's call depth.
 not wasm32
