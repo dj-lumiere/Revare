@@ -1,7 +1,7 @@
-@target(os: "linux", "macos")
+@target(os: "linux", "macos", "wasip1")
 module System/CSubSystem
 
-### C `wchar_t` on Unix (Linux, macOS): 32-bit. The Windows width (16-bit) lives in the
+### C `wchar_t` on Unix (Linux, macOS) and on wasm32 (WebAssembly under WASI): 32-bit. The Windows width (16-bit) lives in the
 ### `#@target(os: "windows")` sibling; conditional compilation loads exactly one.
 @llvm("i32")
 record CWChar

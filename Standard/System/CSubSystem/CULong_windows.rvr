@@ -1,8 +1,9 @@
-@target(os: "windows")
+@target(os: "windows", "wasip1")
 module System/CSubSystem
 
-### C `unsigned long` under the LLP64 data model (Windows): 32-bit unsigned. The Unix (LP64, 64-bit)
-### width lives in the `#@target(os: "linux", "macos")` sibling; conditional compilation loads exactly one.
+### C `unsigned long` under the LLP64 data model (Windows) and on wasm32 (WebAssembly under WASI): 32-bit unsigned.
+### The Unix (LP64, 64-bit) width lives in the `#@target(os: "linux", "macos")` sibling; conditional compilation
+### loads exactly one.
 @llvm("i32")
 record CULong
     nothing

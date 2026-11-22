@@ -2,7 +2,7 @@
 module System/CSubSystem
 
 ### C `wchar_t` on Windows: 16-bit. The Unix width (32-bit) lives in the
-### `#@target(os: "linux", "macos")` sibling; conditional compilation loads exactly one.
+### `#@target(os: "linux", "macos", "wasip1")` sibling; conditional compilation loads exactly one.
 @llvm("i16")
 record CWChar
     nothing

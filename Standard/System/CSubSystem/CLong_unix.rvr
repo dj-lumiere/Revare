@@ -2,7 +2,7 @@
 module System/CSubSystem
 
 ### C `long` under the LP64 data model (Linux, macOS): 64-bit signed. The Windows (LLP64, 32-bit)
-### width lives in the `#@target(os: "windows")` sibling; conditional compilation loads exactly one.
+### width lives in the `#@target(os: "windows", "wasip1")` sibling; conditional compilation loads exactly one.
 @llvm("i64")
 record CLong
     nothing
