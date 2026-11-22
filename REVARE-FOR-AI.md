@@ -1615,6 +1615,21 @@ rest (`use-daemon`, `revare-version`, `dump-ir`).
 With no entry file argument, the CLI walks up from the cwd to find
 `config.toml` — `cd` into a project and `revare run` works.
 
+**WebAssembly.** `triple = "wasm32-wasip1-none"` under `[target]` builds a `.wasm` program for WASI. The builder
+translates it through the Lapila backend, which the triple selects (`backend` stays out: another backend next to it is
+a build error), and links it with wasm-ld (LLVM 22 with lld). `revare run` runs it in the WASI runtime that
+`runner = "..."` under `[target]` names (a name on PATH, or a path from the `config.toml` folder), else in `wasmtime`
+from PATH, with the working directory opened as `.` and the system's temporary directory as `/tmp`. Leaving `triple`
+out builds for this machine. What wasm32 does not have:
+- **Work.** A program that starts a Work (`f.to[Work](...)`, and with it channels and threads) is build error RV-S900,
+  which shows the call path from `start` to the place the Work starts: a Work runs on a stack of its own or on
+  another thread, and WASI has one thread and no stack switching.
+- No C libraries (`c_libraries`, `@link`), no processes, no `CpuEventManager` events, no file mapping
+  (`FileStorage`), no working directory (`working_directory()` fails with `NotFoundError`). Files are reached only
+  below the directories the runtime opened, and the environment holds only what the runtime passes.
+- Addresses are 32 bits: `word_size()` is `4B`, C `long` and `unsigned long` are 32 bits, and `U64.to[Addr]()` keeps the
+  low 32 bits of a number past the last address.
+
 **Moving 0.4 code:** `revare migrate <folder>` first renames every `.rf` file to `.rvr` (`--step extensions` does
 only that: it also rewrites `RF::` to `RV::`, `@rf(` to `@rv(`, `RF-S###` codes in comments, and in `config.toml`
 `razorforge-version` and an `executable` naming a `.rf` file; a `.rf` file given to the builder is a build error
