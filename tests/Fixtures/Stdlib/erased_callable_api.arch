@@ -1,0 +1,2 @@
+# The Lapila backend doesn't give a routine value of another signature back from an ErasedCallable yet.
+not wasm32

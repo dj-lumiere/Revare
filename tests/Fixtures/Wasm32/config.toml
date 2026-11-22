@@ -1,0 +1,10 @@
+# The target the Wasm32 tests build the fixtures for (Meta/Wasm32FixtureTests.cs): WebAssembly under WASI, which the
+# builder reaches through the Lapila backend. The programs run in the WASI runtime `runner` names, or in wasmtime from
+# PATH when it is left out.
+
+[package]
+name = "wasm32-fixtures"
+
+[target]
+mode = "debug"
+triple = "wasm32-wasip1-none"

@@ -1,0 +1,2 @@
+# Its buffer sizes are worked out for 8-byte addresses.
+not wasm32

@@ -1,0 +1,2 @@
+# Turns a number past the last 32-bit address into an address, which a 64-bit target checks.
+not wasm32

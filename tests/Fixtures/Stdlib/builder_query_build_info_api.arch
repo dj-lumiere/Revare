@@ -1,0 +1,2 @@
+# Prints the operating system and the word size of the machine it was built for.
+not wasm32

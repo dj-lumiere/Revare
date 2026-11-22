@@ -1,0 +1,2 @@
+# The Lapila backend ends a long chain of entities with a nested call per entity yet, past the runtime's call depth.
+not wasm32

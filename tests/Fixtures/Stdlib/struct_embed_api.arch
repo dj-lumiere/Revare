@@ -1,0 +1,2 @@
+# Hands the runtime a record holding a routine value, which the Lapila backend lays out with a third field yet.
+not wasm32

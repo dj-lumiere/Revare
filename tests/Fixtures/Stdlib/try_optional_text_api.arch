@@ -1,0 +1,2 @@
+# Reads PATH, and the WASI runtime hands the program no environment variables.
+not wasm32

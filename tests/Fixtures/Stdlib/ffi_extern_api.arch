@@ -1,0 +1,2 @@
+# Calls the C library (wcslen), which WASI doesn't have.
+not wasm32

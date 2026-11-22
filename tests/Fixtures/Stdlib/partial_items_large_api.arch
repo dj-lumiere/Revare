@@ -1,0 +1,2 @@
+# Its Lapila module is too large for clang at -O0: the build needs more than 20 GB of memory.
+not wasm32

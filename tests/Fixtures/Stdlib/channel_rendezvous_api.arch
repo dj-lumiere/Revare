@@ -1,0 +1,2 @@
+# Starts a Work, and wasm32-wasip1-none runs none: a build error there.
+not wasm32
