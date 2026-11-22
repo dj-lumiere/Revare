@@ -1,2 +1,3 @@
-# Hands the runtime a record holding a routine value, which the Lapila backend lays out with a third field yet.
+# Hands the runtime a routine value to call as a C callback, and the call trips over the function type that WebAssembly
+# checks at every indirect call.
 not wasm32
