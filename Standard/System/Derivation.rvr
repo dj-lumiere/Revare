@@ -883,21 +883,29 @@ needs EntityType T
     last_place.poke(value: me.get_address())
     return child
 
-### Ends one entity whose own-type members are all empty: its slot is marked ended, so every reference and link to it
-### reads as ended, then its members end and its slot goes back to the type's store.
-infallible dangerous routine T.end_without_own_children()
+### Puts an entity at the end of this entity's line of last own-type members: it goes into the first of them, down
+### that line, that holds nothing.
+### :param node: The address of the entity put there.
+infallible dangerous routine T.hang_on_last_line(node: Addr)
 needs EntityType T
-    C::ig_slot_end(box: me.get_address())
-    expand m in allmemvarof(T)
-        me.$nameof(m).destruct()
-    # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
-    # entity type.
-    C::ig_slot_give_back(box: me.get_address())
+    var at = me.get_address()
+    var placed = false
+    until placed
+        var last = at
+        expand m in selfmemvarof(T)
+            last = at +% ByteSize(bytes: placeof(m))
+        var place = Hijacked[Addr](from: last)
+        if place.peek().is_hollow()
+            place.poke(value: node)
+            placed = true
+        else
+            at = place.peek()
     return
 
 ### The auto-derived entity `destruct()`. The entities of its own type it holds (a list node's `next`, a tree node's
 ### children) end in a loop, with no nested call per entity, so a chain of a million nodes or a tree of any shape needs no
-### deeper stack than one. An entity holding one or none of them ends, and the one it held is next. An entity holding two
+### deeper stack than one. The entity's own-type children are taken out first, the others hung on the first one's line
+### of last members. Then an entity holding one or none of them ends, and the one it held is next. An entity holding two
 ### or more is first put under its first one (`rotate_under_first_child`), which is next.
 @override
 infallible dangerous routine T.destruct()
@@ -906,13 +914,25 @@ needs EntityType T
         # A hollow entity (all zero, the member variable of a hollow value) has nothing to tear down.
         if me.get_address().is_hollow()
             return
-        var current = me.get_address()
+        # The entity's slot is marked ended first, so every reference and link to it reads as ended.
+        C::ig_slot_end(box: me.get_address())
+        var current = me.lift_own_child()
+        var other = me.lift_own_child()
+        until other.is_hollow()
+            LLVM::reinterpret_bits[Addr, T](current).hang_on_last_line(node: other)
+            other = me.lift_own_child()
+        expand m in allmemvarof(T)
+            me.$nameof(m).destruct()
+        # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
+        # entity type.
+        C::ig_slot_give_back(box: me.get_address())
+        # Each entity ended here holds none of its own type any more, so its `destruct` goes no deeper.
         until current.is_hollow()
             if LLVM::reinterpret_bits[Addr, T](current).holds_two_own_children()
                 current = LLVM::reinterpret_bits[Addr, T](current).rotate_under_first_child()
             else
                 var after = LLVM::reinterpret_bits[Addr, T](current).lift_own_child()
-                LLVM::reinterpret_bits[Addr, T](current).end_without_own_children()
+                LLVM::reinterpret_bits[Addr, T](current).destruct()
                 current = after
     return
 
