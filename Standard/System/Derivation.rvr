@@ -887,13 +887,12 @@ needs EntityType T
 ### reads as ended, then its members end and its slot goes back to the type's store.
 infallible dangerous routine T.end_without_own_children()
 needs EntityType T
-    danger
-        C::ig_slot_end(box: me.get_address())
-        expand m in allmemvarof(T)
-            me.$nameof(m).destruct()
-        # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
-        # entity type.
-        C::ig_slot_give_back(box: me.get_address())
+    C::ig_slot_end(box: me.get_address())
+    expand m in allmemvarof(T)
+        me.$nameof(m).destruct()
+    # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
+    # entity type.
+    C::ig_slot_give_back(box: me.get_address())
     return
 
 ### The auto-derived entity `destruct()`. The entities of its own type it holds (a list node's `next`, a tree node's

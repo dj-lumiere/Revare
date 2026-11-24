@@ -1,0 +1,35 @@
+module Tests/Stdlib/GenericLambdaCaptureApi
+
+import IO/Console
+
+# A lambda written in a generic routine captures values of the routine's type parameter: each instance of the routine
+# makes its own closure, and a routine value local to a generic routine ends there.
+
+routine adder[T](base: T) -> Callable[(T,), T]
+needs T obeys Addable
+    return x given base => base + x
+
+routine joiner[T](first: T, second: T) -> Callable[(), T]
+needs T obeys Addable
+    return () given (first, second) => first + second
+
+routine twice[T](value: T) -> T
+needs T obeys Addable
+    var double: Callable[(T,), T] = (x) => x + x
+    return double(value)
+
+routine start()
+    var add_two = adder(base: 2)
+    show(add_two(5))
+    var greet = adder(base: "Hi, ")
+    show(greet("Lumi"))
+    var join = joiner(first: "left ", second: "right")
+    show(join())
+    show(twice(value: 21))
+    show(twice(value: "ab"))
+    var total: U64 = 0
+    for i in 0 til 1000
+        var round = adder(base: f"round {i}: ")
+        total += round("hi").count()
+    show(total)
+    return
