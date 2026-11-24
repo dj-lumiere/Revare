@@ -2,9 +2,10 @@ module Tests/Stdlib/DeepEntityChainApi
 
 import IO/Console
 
-# A chain of a million entities ends without a nested call per node: the first own-type child of an entity is taken out and
-# ended after the entity, in a loop. A tree ends the same way along its first children and by nested calls along the others.
-# Every node holds a Mark whose own destruct counts, so the totals show each node ended exactly once.
+# A chain of a million entities ends without a nested call per node, and so does a tree of any shape: the entities of its
+# own type an entity holds end in a loop. A comb (every node holds a leaf and the rest of the comb) is a tree a million
+# nodes deep along its second children. Every node holds a Mark whose own destruct counts, so the totals show each node
+# ended exactly once.
 
 global ENDED: S64 = 0
 
@@ -41,6 +42,18 @@ routine build_tree(low: S64, high: S64) -> Cell
         cell.right = build_tree(low: middle + 1, high: high)
     return cell
 
+routine build_comb(length: S64) -> Cell
+    var comb = Cell(mark: Mark(id: 0), left: none, right: none)
+    for i in 1 til length
+        var leaf = Cell(mark: Mark(id: -i), left: none, right: none)
+        var tooth = Cell(mark: Mark(id: i), left: steal leaf, right: steal comb)
+        comb = steal tooth
+    return comb
+
+routine comb_of(length: S64) -> S64
+    var head = build_comb(length: length)
+    return head.mark.id
+
 routine chain_of(length: S64) -> S64
     var head = build_chain(length: length)
     return head.mark.id
@@ -56,6 +69,9 @@ routine start()
     ENDED = 0
     show(f"tree root: {tree_of(size: 65535)}")
     show(f"tree ended: {ENDED}")
+    ENDED = 0
+    show(f"comb head: {comb_of(length: 500000)}")
+    show(f"comb ended: {ENDED}")
     ENDED = 0
     show(f"short chain head: {chain_of(length: 3)}")
     show(f"short chain ended: {ENDED}")

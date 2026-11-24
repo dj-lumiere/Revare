@@ -2,5 +2,7 @@ chain head: 999999
 chain ended: 1000000
 tree root: 32768
 tree ended: 65535
+comb head: 499999
+comb ended: 999999
 short chain head: 2
 short chain ended: 3

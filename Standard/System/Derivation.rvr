@@ -846,10 +846,60 @@ needs EntityType T
             place.poke(value: Addr.hollow())
     return lifted
 
-### The auto-derived entity `destruct()`. The first own-type child of each entity (a list node's `next`) is taken out before the
-### entity ends and is ended after it, in a loop, so a chain of a million nodes needs no deeper stack than one. The other
-### own-type children of a node (a tree node's second child) end with the node's members, one nested call each, so a tree is as
-### deep as its second and later children go.
+### Whether two or more members of the entity's own type hold an entity (both children of a tree node).
+### :returns: True when two or more of them hold one.
+infallible dangerous routine T.holds_two_own_children() -> Bool
+needs EntityType T
+    var seen_one = false
+    var two = false
+    expand m in selfmemvarof(T)
+        var place = Hijacked[Addr](from: me.get_address() +% ByteSize(bytes: placeof(m)))
+        if place.peek().is_not_hollow()
+            if seen_one
+                two = true
+            seen_one = true
+    return two
+
+### Puts the entity under its first own-type child, for an entity holding two or more: the child's last own-type member
+### moves into the entity's emptied member, and the entity goes into the child's last own-type member. Nothing ends here.
+### Each such move takes one entity off the child's line of last members for good, so a whole tree needs at most one
+### move per entity.
+### :returns: The address of the child, which now holds the entity.
+infallible dangerous routine T.rotate_under_first_child() -> Addr
+needs EntityType T
+    var child = Addr.hollow()
+    var emptied = Addr.hollow()
+    expand m in selfmemvarof(T)
+        var at = me.get_address() +% ByteSize(bytes: placeof(m))
+        var held = Hijacked[Addr](from: at).peek()
+        if child.is_hollow() and held.is_not_hollow()
+            child = held
+            emptied = at
+    var last = child
+    expand m in selfmemvarof(T)
+        last = child +% ByteSize(bytes: placeof(m))
+    var last_place = Hijacked[Addr](from: last)
+    Hijacked[Addr](from: emptied).poke(value: last_place.peek())
+    last_place.poke(value: me.get_address())
+    return child
+
+### Ends one entity whose own-type members are all empty: its slot is marked ended, so every reference and link to it
+### reads as ended, then its members end and its slot goes back to the type's store.
+infallible dangerous routine T.end_without_own_children()
+needs EntityType T
+    danger
+        C::ig_slot_end(box: me.get_address())
+        expand m in allmemvarof(T)
+            me.$nameof(m).destruct()
+        # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
+        # entity type.
+        C::ig_slot_give_back(box: me.get_address())
+    return
+
+### The auto-derived entity `destruct()`. The entities of its own type it holds (a list node's `next`, a tree node's
+### children) end in a loop, with no nested call per entity, so a chain of a million nodes or a tree of any shape needs no
+### deeper stack than one. An entity holding one or none of them ends, and the one it held is next. An entity holding two
+### or more is first put under its first one (`rotate_under_first_child`), which is next.
 @override
 infallible dangerous routine T.destruct()
 needs EntityType T
@@ -857,18 +907,14 @@ needs EntityType T
         # A hollow entity (all zero, the member variable of a hollow value) has nothing to tear down.
         if me.get_address().is_hollow()
             return
-        # The entity's slot is marked ended first, so every reference and link to it reads as ended.
-        C::ig_slot_end(box: me.get_address())
-        var chain = me.lift_own_child()
-        expand m in allmemvarof(T)
-            me.$nameof(m).destruct()
-        # The slot goes back to the type's store through its address: a Hijacked[T] here would be built for every
-        # entity type.
-        C::ig_slot_give_back(box: me.get_address())
-        until chain.is_hollow()
-            var after = LLVM::reinterpret_bits[Addr, T](chain).lift_own_child()
-            LLVM::reinterpret_bits[Addr, T](chain).destruct()
-            chain = after
+        var current = me.get_address()
+        until current.is_hollow()
+            if LLVM::reinterpret_bits[Addr, T](current).holds_two_own_children()
+                current = LLVM::reinterpret_bits[Addr, T](current).rotate_under_first_child()
+            else
+                var after = LLVM::reinterpret_bits[Addr, T](current).lift_own_child()
+                LLVM::reinterpret_bits[Addr, T](current).end_without_own_children()
+                current = after
     return
 
 ### Variant `destruct()`: TAG-dispatch — tear down ONLY the live arm's payload (a variant is a union,
