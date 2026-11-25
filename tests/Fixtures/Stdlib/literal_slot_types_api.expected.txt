@@ -1,0 +1,5 @@
+255 max
+7 65535
+maybe 1 -1
+named 3 -1
+kept 2 true

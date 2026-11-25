@@ -1,0 +1,23 @@
+module Tests/Stdlib/LiteralSlotTypesApi
+
+import IO/Console
+
+# A creator of a generic type takes its type arguments from the type it goes to, and a value in an optional
+# collection literal is held as an optional.
+record Cell[T]
+needs RecordType T
+    value: T
+    tag: Text
+
+routine start()
+    var one: Cell[U8] = Cell(value: 255, tag: "max")
+    show(f"{one.value} {one.tag}")
+    var cells: List[Cell[U16]] = [Cell(value: 7, tag: "a"), Cell(value: 65535, tag: "b")]
+    show(f"{cells[0].value} {cells[1].value}")
+    var maybe: List[S64?] = [1, none]
+    show(f"maybe {maybe[0] ?? -1} {maybe[1] ?? -1}")
+    var named: Dict[Text, S64?] = {"a": 3, "b": none}
+    show(f"named {named["a"] ?? -1} {named["b"] ?? -1}")
+    var kept: Set[S64?] = {4, none}
+    show(f"kept {kept.count()} {kept.has(4)}")
+    return
