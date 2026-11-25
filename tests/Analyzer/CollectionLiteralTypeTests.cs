@@ -32,7 +32,7 @@ public class CollectionLiteralTypeTests
                                    """);
     }
 
-    private static void AssertError(string body, SemanticDiagnosticCode code)
+    private static void AssertHasError(string body, SemanticDiagnosticCode code)
     {
         AnalysisResult result = Analyze(body: body);
         // Every error is the one asked for (a set of unhashable records misses both `==` and the hash), so the literal
@@ -43,29 +43,29 @@ public class CollectionLiteralTypeTests
 
     [Fact]
     public void Analyze_ListFirstElementOfOtherType_Reports() =>
-        AssertError(body: "    var xs: List[Text] = [1]\n    show(xs.count())",
+        AssertHasError(body: "    var xs: List[Text] = [1]\n    show(xs.count())",
             code: SemanticDiagnosticCode.ListElementTypeMismatch);
 
     [Fact]
     public void Analyze_SetElementOfOtherType_Reports() =>
-        AssertError(body: "    var xs: Set[Text] = {\"a\", 2}\n    show(xs.count())",
+        AssertHasError(body: "    var xs: Set[Text] = {\"a\", 2}\n    show(xs.count())",
             code: SemanticDiagnosticCode.SetElementTypeMismatch);
 
     [Fact]
     public void Analyze_DictKeyOfOtherType_Reports() =>
-        AssertError(body: "    var d: Dict[Text, S64] = {1: 2}\n    show(d.count())",
+        AssertHasError(body: "    var d: Dict[Text, S64] = {1: 2}\n    show(d.count())",
             code: SemanticDiagnosticCode.DictKeyTypeMismatch);
 
     [Fact]
     public void Analyze_DictValueOfOtherType_Reports() =>
-        AssertError(body: "    var d: Dict[Text, Text] = {\"a\": 2}\n    show(d.count())",
+        AssertHasError(body: "    var d: Dict[Text, Text] = {\"a\": 2}\n    show(d.count())",
             code: SemanticDiagnosticCode.DictValueTypeMismatch);
 
     /// <summary>A set the literal builds for itself needs elements that hash, as a written <c>Set[Loose]</c>
     /// does.</summary>
     [Fact]
     public void Analyze_SetOfUnhashableRecords_Reports() =>
-        AssertError(body: "    var a = Loose(f: () => 1)\n    var s = {a}\n    show(s.count())",
+        AssertHasError(body: "    var a = Loose(f: () => 1)\n    var s = {a}\n    show(s.count())",
             code: SemanticDiagnosticCode.ProtocolConstraintViolation);
 
     [Fact]
