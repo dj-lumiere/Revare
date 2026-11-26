@@ -1,0 +1,92 @@
+module Tests/Stdlib/ForIndexWalkApi
+
+import IO/Console
+
+# A `for` over a `List` (an `IndexEmittable` value) reads the count once and takes the token at each position: a
+# change through the loop variable changes the element in its place, a read-only walk hands out read tokens, and
+# `continue`, `break`, nested loops, member paths, temporaries and `steal` walk as before.
+
+record Pt
+    x: S64
+    tag: Text
+
+entity Box
+    n: S64
+
+entity Bag
+    items: List[Pt]
+
+routine total(xs: %List[S64]) -> S64
+    var t: S64 = 0
+    for x in xs
+        t += x
+    return t
+
+routine bump(xs: @List[Pt])
+    for p in xs
+        p.x += 100
+    return
+
+routine sum_all[T](xs: %List[T]) -> S64
+needs T obeys Integral
+    var t: S64 = 0
+    for x in xs
+        t += 1
+    return t
+
+routine make() -> List[S64]
+    return [7, 8, 9]
+
+@readonly
+routine Bag.tags() -> Text
+    var all = ""
+    for p in me.items
+        all = f"{all}{p.tag}"
+    return all
+
+routine start()
+    var ps = [Pt(x: 1, tag: "a"), Pt(x: 2, tag: "b"), Pt(x: 3, tag: "c")]
+    for p in ps
+        p.x *= 10
+    for p in ps
+        if p.x == 20
+            continue
+        show(f"{p.x} {p.tag}")
+    bump(ps)
+    for p in ps
+        if p.x > 125
+            break
+        show(p.x)
+    var nums: List[S64] = [1, 2, 3, 4]
+    show(total(nums))
+    show(sum_all(nums))
+    for v in make()
+        show(v)
+    var empty: List[S64] = []
+    for v in empty
+        show(v)
+    var boxes: List[Box] = []
+    boxes.add_last(steal Box(n: 5))
+    boxes.add_last(steal Box(n: 6))
+    for b in boxes
+        b.n += 1
+    for b in boxes
+        show(b.n)
+    var pairs: List[(S64, Text)] = [(1, "one"), (2, "two")]
+    for (k, name) in pairs
+        show(f"{k}={name}")
+    var bag = Bag(items: [Pt(x: 0, tag: "q"), Pt(x: 0, tag: "r")])
+    for p in bag.items
+        p.x = 5
+    for p in bag.items
+        show(p.x)
+    show(bag.tags())
+    var grid: List[List[S64]] = [[1, 2], [3]]
+    for row in grid
+        for c in row
+            show(c)
+    for _ in nums
+        show("tick")
+    for x in steal nums
+        show(x)
+    return

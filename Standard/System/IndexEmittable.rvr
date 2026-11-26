@@ -1,0 +1,20 @@
+module System
+
+### Represents an emittable value whose walk hands out its elements by position: a `for` loop over it reads the count
+### once, then takes the token at each position from 0 up, without the emitter's step. The walk and the positions
+### must give the same elements in the same order, and the value keeps its shape while it is walked (RV-S625).
+### :typeparam T: The element type the tokens point at.
+protocol IndexEmittable[T]
+obeys Emittable[T], Sized
+    ### Returns a read token on the element at `index`.
+    ### :param index: The zero-based position.
+    ### :returns: A read token on the element.
+    ### :throws: {IndexOutOfBoundsError} if `index >= count()`.
+    @readonly
+    routine Me.view_at(index: U64) -> %T
+
+    ### Returns a write token on the element at `index`.
+    ### :param index: The zero-based position.
+    ### :returns: A write token on the element.
+    ### :throws: {IndexOutOfBoundsError} if `index >= count()`.
+    routine Me.modify_at(index: U64) -> @T

@@ -41,7 +41,7 @@ secret preset SORT_MIN_RUN: U64 = 32
 ### :see: {SortedList[T]} for a list that maintains ascending order automatically.
 entity List[T]
 relates ListEmitter[T] as Emitter
-obeys Emittable[T], ModifyingIndexable[T], Sized, Container, Equatable,
+obeys Emittable[T], IndexEmittable[T], ModifyingIndexable[T], Sized, Container, Equatable,
     Copyable when T obeys Copyable, ListLiteral[T]
     ### Stores the backing buffer.
     secret data: Hijacked[T]
@@ -547,7 +547,8 @@ needs AnyType T
     if me.index >= me.count
         throw AbsentValueError()
     danger
-        var slot = me.data.offset(T.data_size() * me.index)
+        # The index is below the count the list had, and the list's buffer holds that many: the product fits a U64.
+        var slot = me.data.offset(ByteSize(bytes: T.data_size().byte_size() *% me.index))
         me.index = me.index + 1
         return Modifying[T](slot)
 
@@ -560,7 +561,7 @@ needs EntityType T
     if me.index >= me.count
         throw AbsentValueError()
     danger
-        var address = me.data.offset(T.data_size() * me.index).peek_as[Hijacked[T]]()
+        var address = me.data.offset(ByteSize(bytes: T.data_size().byte_size() *% me.index)).peek_as[Hijacked[T]]()
         me.index = me.index + 1
         return Modifying[T](address)
 
@@ -597,7 +598,7 @@ routine ListTakingEmitter[T].emit() -> T
     var slot = me.index
     me.index = me.index + 1
     danger
-        return me.data.offset(T.data_size() * slot).peek()
+        return me.data.offset(ByteSize(bytes: T.data_size().byte_size() *% slot)).peek()
 
 ### Ends the elements not handed over yet, then frees the buffer.
 @override

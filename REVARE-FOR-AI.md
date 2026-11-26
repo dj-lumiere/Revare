@@ -1375,6 +1375,11 @@ that differ from other languages:
   conformance) that holds one more reference to the entity, so it is no reference: it can be returned, kept in an
   entity's member variable, or used after `r` is given another entity. `for x in r` walks the same way. An emitter
   made from a read reference to the entity (`var v: %List[S64] = r`, `v.emitter()`) points at it like one made from a local container.
+- **Walks by position (`IndexEmittable[T]`).** A `for` over a name (or member variables of one) whose type obeys
+  `IndexEmittable[T]` (`List` does) reads `count()` once and takes `modify_at(i)` at each position from 0, or `view_at(i)`
+  when the walk starts read-only: the same tokens the emitter hands out, in the same order, without the emitter's step.
+  A type of yours can obey it when its `view_at` / `modify_at` walk gives what its emitter gives.
+  Every loop rule stays (RV-S625, the loop variable is RV-S251 to assign).
 - `for x in xs` over a list of values gives `x: @S64`, a reference on the element. A reference reads as the value
   wherever a value is wanted: an index (`seen[x]`), arithmetic, a comparison, a declared-type variable
   (`var z: S64 = x` copies it). `var y = x` keeps the reference, and assigning a value to `y` is RV-S252.
