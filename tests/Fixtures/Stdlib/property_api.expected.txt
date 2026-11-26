@@ -1,0 +1,16 @@
+3 true 0 false bat kip
+7
+3 true
+0 false
+12 true
+5 true
+8 true
+1 false
+foe 9
+18
+-1
+6
+bat a true
+bat b false
+false
+true

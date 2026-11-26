@@ -834,7 +834,7 @@ dangerous routine raw_poke(p: Addr)     # callable only inside danger blocks
   `t.to[Celsius]()`. `foo!(...)`, `x.foo!(...)` and `T![..](...)` are RV-G211; `foo(args)!` is a parse
   error too. A constructor is declared `routine T(...)` (`routine T.create(...)` is an ordinary member routine
   named `create`). Only a wall is marked: `infallible routine T.close()`.
-- **Annotations are a fixed set.** `@readonly`, `@writable`, `@reshaping`, `@discardable`, `@positional`,
+- **Annotations are a fixed set.** `@readonly`, `@writable`, `@reshaping`, `@property`, `@discardable`, `@positional`,
   `@hands_over` (an emitter's `emit`), `@infix`, `@inline`, `@noinline`, `@no_optimize`, `@crash_only`, `@untraced`, `@blocking`, `@layout(...)`, `@link(...)`,
   `@target(...)`, `@test`/`@case`/`@skip`/`@time_limit` (routine tests, below) and the
   library's own (`@llvm`, `@llvm_ir`, `@rv`, `@innate`, `@generated`, `@override`, `@overridable`,
@@ -842,6 +842,14 @@ dangerous routine raw_poke(p: Addr)     # callable only inside danger blocks
   out of its callers (LLVM `noinline`, its own body still optimized), `@no_optimize` also turns its optimization off
   (`noinline optnone`), and `@inline` with `@noinline` on one routine is RV-G227. There is no
   `@deprecated`, no `@initonly` and no `@bench` yet.
+- **`@property`** on a member routine makes it read like a member variable, without parentheses: `r.area`
+  (`@property routine Rect.area() -> S64`). It takes nothing but `me` and gives a result (else RV-S717), changes
+  nothing in `me` (it is checked as `@readonly`, RV-S718), its type has no member variable of the same name (RV-S719),
+  `r.area()` is RV-S720 and `r.area = 5` is RV-S721. A routine without `@property` is always called with parentheses.
+  A protocol may require one (`@property routine Me.size() -> S64`): a `@property` routine fills it, or a member
+  variable of the same name and type on a type that says `obeys` (the builder writes the reading routine). A plain
+  routine filling a property requirement, or a property filling a plain one, is RV-S722. Reads work through a type
+  parameter, a stored value of the protocol, a token and `try` on an optional receiver (`try den.spare.hp`).
 - **Routine tests.** `revare test` builds a file once per `@test` routine, with a `start()` that calls it in
   place of the program's own: once per `@case(input: (a, b), output: r)` (arguments in parameter order, the result
   compared with `==`), or once with no arguments when there is no case. `@skip("reason")` reports it skipped,
@@ -1665,6 +1673,8 @@ warning. A diagnostic in a Mielia file spells the same number with `ME-`
 | RV-S807      | a written `destruct` without `dangerous` | `dangerous routine T.destruct()` |
 | RV-G230      | `failable` written on a routine       | remove it (`migrate --step failable`): every routine passes failures on |
 | RV-S712      | `@throws` leaves out a crashable the routine throws | add it to the list, or recover it inside |
+| RV-S720      | a `@property` called with parentheses | read it without them: `r.area`                    |
+| RV-S722      | a protocol's `@property` filled by a plain routine (or the other way) | mark it `@property`, or fill it with a member variable |
 | RV-S010      | literal out of range for target type  | use the right constant (`U8_MAX`)                  |
 | RV-S558      | `{}` (empty set) where a dict is expected | write `{:}`                                    |
 | RV-G010      | a number names its type (`5_u8`)      | `var x: U8 = 5`, or let the place it goes type it  |

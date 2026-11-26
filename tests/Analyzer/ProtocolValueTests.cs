@@ -184,6 +184,26 @@ public class ProtocolValueTests
         Assert.Single(collection: result.Errors);
     }
 
+    /// <summary>A stored value that keeps an entity has one original: handing a list element to a parameter that
+    /// keeps what it is given (`e: Enemy`) needs it taken out first, as an entity element does.</summary>
+    [Fact]
+    public void Analyze_StoredEntityElementToKeepingParameter_IsRejected()
+    {
+        AnalysisResult result = AssertHasErrorSa(source: Prelude + """
+                                                                   routine finish(e: Enemy)
+                                                                       return
+
+                                                                   routine start()
+                                                                       var enemies: List[Enemy] = []
+                                                                       enemies.add_last(value: Slime(life: 4))
+                                                                       finish(e: enemies[0])
+                                                                       return
+                                                                   """,
+            expectedErrorSubstring: "'finish' keeps what its 'e' is given");
+        Assert.All(collection: result.Errors,
+            action: e => Assert.Equal(expected: SemanticDiagnosticCode.BareEntityAssignment, actual: e.Code));
+    }
+
     [Fact]
     public void Analyze_TypeParameterValueIntoStoredPlace_IsRejected()
     {

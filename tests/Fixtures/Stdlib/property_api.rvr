@@ -1,0 +1,102 @@
+module Tests/Stdlib/PropertyApi
+
+import IO/Console
+
+# A `@property` routine is read without parentheses, like a member variable: `bat.alive`. It takes nothing but `me`,
+# gives a result and changes nothing in `me`. A protocol may require one, and a member variable of the same name and
+# type fills the requirement. A read through a type parameter, a stored value of the protocol, a token or `try` on an
+# optional runs the routine. An entity type kept in a stored value of the protocol is walked in a list of its own
+# too.
+
+protocol Foe
+    @property
+    routine Me.hp() -> S64
+    @property
+    routine Me.alive() -> Bool
+
+record Slime obeys Foe
+    hp: S64
+
+@property
+routine Slime.alive() -> Bool
+    return me.hp > 0
+
+entity Bat obeys Foe
+    life: S64
+    name: Text
+
+@property
+routine Bat.hp() -> S64
+    return me.life * 2
+
+@property
+routine Bat.alive() -> Bool
+    return me.life > 0
+
+@property
+routine Bat.title() -> Text
+    return f"bat {me.name}"
+
+record Box[T] obeys Foe
+needs RecordType T
+    hp: S64
+    item: T
+
+@property
+routine Box[T].alive() -> Bool
+    return me.hp > 10
+
+entity Mole
+    depth: S64
+
+@property
+routine Mole.deep() -> Bool
+    return me.depth > 3
+
+entity Den
+    boss: Foe
+    spare: Foe?
+
+routine report[T](foe: T) -> Text
+needs T obeys Foe
+    return f"{foe.hp} {foe.alive}"
+
+routine show_foe(f: Foe)
+    show(f"foe {f.hp}")
+    return
+
+routine start()
+    var s = Slime(hp: 3)
+    var b = Bat(life: 0, name: "kip")
+    show(f"{s.hp} {s.alive} {b.hp} {b.alive} {b.title}")
+    show(b.title.count())
+    show(report(foe: s))
+    show(report(foe: Slime(hp: 0)))
+    show(report(foe: Box[Text](hp: 12, item: "x")))
+
+    var foes: List[Foe] = []
+    foes.add_last(value: Slime(hp: 5))
+    foes.add_last(value: Bat(life: 4, name: "z"))
+    foes.add_last(value: Box[S64](hp: 1, item: 7))
+    for f in foes
+        show(f"{f.hp} {f.alive}")
+    show_foe(f: Slime(hp: 9))
+
+    var den = Den(boss: Bat(life: 9, name: "q"), spare: none)
+    show(den.boss.hp)
+    show(try den.spare.hp ?? -1)
+    den.spare = Slime(hp: 6)
+    show(try den.spare.hp ?? -1)
+
+    var bats: List[Bat] = []
+    bats.add_last(value: Bat(life: 2, name: "a"))
+    bats.add_last(value: Bat(life: 0, name: "b"))
+    for x in bats
+        show(f"{x.title} {x.alive}")
+
+    var moles: List[Mole] = []
+    moles.add_last(value: Mole(depth: 2))
+    moles.add_last(value: Mole(depth: 5))
+    for m in moles
+        show(m.deep)
+    return
