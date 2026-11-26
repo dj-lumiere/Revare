@@ -123,6 +123,55 @@ public sealed class ProgramCliTests : IDisposable
         Assert.Equal(expected: 1, actual: code);
     }
 
+    /// <summary>
+    /// A routine that may wait for a Work keeps a cancellation frame for each value it tears down, so a coroutine
+    /// abandoned while it waits ends them. The program's <c>start</c> runs on the main thread, never in a coroutine, so
+    /// it gets no frames (they would only look up the thread's coroutine and find none, in every round of its loops).
+    /// </summary>
+    [Fact]
+    public void LlvmEmitter_StartThatWaitsForAWork_HasNoCancellationFrames()
+    {
+        string rf = Path.Combine(path1: _dir, path2: "frames.rvr");
+        File.WriteAllText(path: rf,
+            contents:
+            "module Test/CancelFrames\n" +
+            "import IO/Console\n" +
+            "\n" +
+            "routine square(n: S64) -> S64\n" +
+            "    return n * n\n" +
+            "\n" +
+            "routine wait_and_show(n: S64)\n" +
+            "    var label = f\"square {n}\"\n" +
+            "    var job = square.to[Work](n: n)\n" +
+            "    job.start_now()\n" +
+            "    show(f\"{label}: {job.retrieve()}\")\n" +
+            "    return\n" +
+            "\n" +
+            "routine start()\n" +
+            "    var label = f\"start {3}\"\n" +
+            "    var job = square.to[Work](n: 3)\n" +
+            "    job.start_now()\n" +
+            "    show(f\"{label}: {job.retrieve()}\")\n" +
+            "    wait_and_show(n: 4)\n" +
+            "    return\n");
+        string outLl = Path.Combine(path1: _dir, path2: "frames.ll");
+        (int code, string output) = RunMain("codegen", rf, outLl);
+        Assert.True(condition: code == 0, userMessage: output);
+        string ir = File.ReadAllText(path: outLl);
+
+        string Body(string routine)
+        {
+            Match found = Regex.Match(input: ir,
+                pattern: $@"^define [^\n]*{Regex.Escape(str: routine)}\([^\n]*\{{\n(.*?)^\}}",
+                options: RegexOptions.Multiline | RegexOptions.Singleline);
+            Assert.True(condition: found.Success, userMessage: $"no definition of {routine}");
+            return found.Groups[groupnum: 1].Value;
+        }
+
+        Assert.DoesNotContain(expectedSubstring: "ig_coro_cf_push", actualString: Body(routine: "Test/CancelFrames.start"));
+        Assert.Contains(expectedSubstring: "ig_coro_cf_push", actualString: Body(routine: "Test/CancelFrames.wait_and_show"));
+    }
+
     [Fact]
     public void LlvmEmitter_ValidFile_WritesIrAndReturnsZero()
     {
